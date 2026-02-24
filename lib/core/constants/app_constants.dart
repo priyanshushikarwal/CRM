@@ -7,13 +7,16 @@ class AppConstants {
   // Supabase Configuration
   // TODO: Replace with your actual Supabase credentials
   static const String supabaseUrl = 'https://mclanssbjbmcelunhpip.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jbGFuc3NiamJtY2VsdW5ocGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MjAzMTEsImV4cCI6MjA4MTM5NjMxMX0.DeISAs5HhnOoSyZY0brJO9K17tx1QBY2SkRdhCKqsU4';
+  static const String supabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jbGFuc3NiamJtY2VsdW5ocGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MjAzMTEsImV4cCI6MjA4MTM5NjMxMX0.DeISAs5HhnOoSyZY0brJO9K17tx1QBY2SkRdhCKqsU4';
 
   // Table Names
   static const String applicationsTable = 'applications';
   static const String documentsTable = 'documents';
   static const String usersTable = 'users';
   static const String statusHistoryTable = 'status_history';
+  static const String inventoryTable = 'solar_inventory';
+  static const String inventoryAssignmentsTable = 'solar_inventory_assignments';
 
   // Storage Buckets
   static const String documentsBucket = 'documents';

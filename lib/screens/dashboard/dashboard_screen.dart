@@ -187,6 +187,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ],
                       _buildNavItem(
                         context,
+                        icon: Icons.inventory_2_rounded,
+                        label: 'Inventory',
+                        route: '/inventory',
+                        isActive: currentLocation == '/inventory',
+                        isCollapsed: isCollapsed,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildNavItem(
+                        context,
                         icon: Icons.bar_chart_rounded,
                         label: 'Reports',
                         route: '/reports',
@@ -412,10 +421,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     if (currentLocation.startsWith('/applications')) {
       title = 'Applications';
+    } else if (currentLocation == '/inventory') {
+      title = 'Solar Panel Inventory';
     } else if (currentLocation == '/reports') {
       title = 'Reports';
     } else if (currentLocation == '/settings') {
       title = 'Settings';
+    } else if (currentLocation == '/users') {
+      title = 'User Management';
+    } else if (currentLocation == '/pending-approvals') {
+      title = 'Pending Approvals';
     }
 
     return Container(

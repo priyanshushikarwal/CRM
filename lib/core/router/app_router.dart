@@ -9,6 +9,7 @@ import '../../screens/applications/application_details_screen.dart';
 import '../../screens/applications/add_application_screen.dart';
 import '../../screens/applications/pending_approvals_screen.dart';
 import '../../screens/users/user_management_screen.dart';
+import '../../screens/inventory/inventory_screen.dart';
 import '../../services/supabase_service.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -100,6 +101,13 @@ final appRouter = GoRouter(
           pageBuilder:
               (context, state) =>
                   const NoTransitionPage(child: PendingApprovalsScreen()),
+        ),
+        GoRoute(
+          path: '/inventory',
+          name: 'inventory',
+          pageBuilder:
+              (context, state) =>
+                  const NoTransitionPage(child: InventoryScreen()),
         ),
         GoRoute(
           path: '/reports',
