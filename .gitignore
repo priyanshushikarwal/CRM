@@ -31,7 +31,9 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
+# Ignore all build artifacts except web build (needed for Vercel)
 /build/
+!build/web/
 
 # Symbolication related
 app.*.symbols
