@@ -1,0 +1,1 @@
+ALTER TABLE solar_inventory ADD COLUMN is_dcr BOOLEAN NOT NULL DEFAULT true;

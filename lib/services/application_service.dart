@@ -10,9 +10,17 @@ class ApplicationService {
 
   // Fetch all applications
   static Future<List<ApplicationModel>> fetchAllApplications() async {
-    final response = await SupabaseService.from(
-      AppConstants.applicationsTable,
-    ).select().order('created_at', ascending: false);
+    final response = await SupabaseService.from(AppConstants.applicationsTable)
+        .select()
+        .order('created_at', ascending: false)
+        .timeout(
+          const Duration(seconds: 10),
+          onTimeout:
+              () =>
+                  throw Exception(
+                    'Connection timed out. Please restore your Supabase project at supabase.com/dashboard',
+                  ),
+        );
 
     return (response as List)
         .map((json) => ApplicationModel.fromJson(json as Map<String, dynamic>))
@@ -45,17 +53,22 @@ class ApplicationService {
             'mobile.ilike.%$searchQuery%,'
             'consumer_account_number.ilike.%$searchQuery%',
           )
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
     } else if (status != null) {
       response = await baseQuery
           .eq('current_status', status.name)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
     } else if (state != null) {
       response = await baseQuery
           .eq('state', state)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
     } else {
-      response = await baseQuery.order('created_at', ascending: false);
+      response = await baseQuery
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
     }
 
     return response

@@ -9,6 +9,7 @@ class SolarInventoryItem {
   final double capacityKw; // Capacity in kW (e.g., 1.0, 2.0, 3.0, 5.0)
   final int totalQuantity; // Total panels in stock
   final int usedQuantity; // Panels assigned to applications
+  final bool isDcr; // Domestic Content Requirement true/false
   final String? description; // Optional notes
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -20,6 +21,7 @@ class SolarInventoryItem {
     required this.capacityKw,
     required this.totalQuantity,
     this.usedQuantity = 0,
+    this.isDcr = true,
     this.description,
     required this.createdAt,
     required this.updatedAt,
@@ -39,6 +41,7 @@ class SolarInventoryItem {
       capacityKw: (json['capacity_kw'] as num).toDouble(),
       totalQuantity: json['total_quantity'] as int,
       usedQuantity: json['used_quantity'] as int? ?? 0,
+      isDcr: json['is_dcr'] as bool? ?? true,
       description: json['description'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -53,6 +56,7 @@ class SolarInventoryItem {
       'capacity_kw': capacityKw,
       'total_quantity': totalQuantity,
       'used_quantity': usedQuantity,
+      'is_dcr': isDcr,
       'description': description,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -66,6 +70,7 @@ class SolarInventoryItem {
     double? capacityKw,
     int? totalQuantity,
     int? usedQuantity,
+    bool? isDcr,
     String? description,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -77,6 +82,7 @@ class SolarInventoryItem {
       capacityKw: capacityKw ?? this.capacityKw,
       totalQuantity: totalQuantity ?? this.totalQuantity,
       usedQuantity: usedQuantity ?? this.usedQuantity,
+      isDcr: isDcr ?? this.isDcr,
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

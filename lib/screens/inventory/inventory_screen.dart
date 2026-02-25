@@ -104,25 +104,41 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 ),
               ),
               // Quick stats
-              _buildQuickStat(
-                'Total',
-                '${state.totalPanels}',
-                Icons.inventory_2_rounded,
-                AppTheme.primaryColor,
-              ),
-              const SizedBox(width: 12),
-              _buildQuickStat(
-                'Available',
-                '${state.availablePanels}',
-                Icons.check_circle_outline_rounded,
-                AppTheme.successColor,
-              ),
-              const SizedBox(width: 12),
-              _buildQuickStat(
-                'Used',
-                '${state.usedPanels}',
-                Icons.assignment_turned_in_rounded,
-                AppTheme.warningColor,
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _buildQuickStat(
+                    'Total',
+                    '${state.totalPanels}',
+                    Icons.inventory_2_rounded,
+                    AppTheme.primaryColor,
+                  ),
+                  _buildQuickStat(
+                    'Available',
+                    '${state.availablePanels}',
+                    Icons.check_circle_outline_rounded,
+                    AppTheme.successColor,
+                  ),
+                  _buildQuickStat(
+                    'Used',
+                    '${state.usedPanels}',
+                    Icons.assignment_turned_in_rounded,
+                    AppTheme.warningColor,
+                  ),
+                  _buildQuickStat(
+                    'DCR',
+                    '${state.totalDcrPanels}',
+                    Icons.solar_power_rounded,
+                    Colors.blue,
+                  ),
+                  _buildQuickStat(
+                    'Non-DCR',
+                    '${state.totalNonDcrPanels}',
+                    Icons.solar_power_outlined,
+                    Colors.purple,
+                  ),
+                ],
               ),
             ],
           ),
@@ -215,6 +231,16 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   Widget _buildInventoryList(InventoryState state) {
     final items = state.filteredItems;
 
+    // Group items by company Name
+    final Map<String, List<SolarInventoryItem>> groupedItems = {};
+    for (var item in items) {
+      if (!groupedItems.containsKey(item.companyName)) {
+        groupedItems[item.companyName] = [];
+      }
+      groupedItems[item.companyName]!.add(item);
+    }
+    final companies = groupedItems.keys.toList();
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final crossAxisCount =
@@ -230,22 +256,38 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
-            childAspectRatio: 1.4,
+            childAspectRatio: 0.9, // More vertical space for models list
           ),
-          itemCount: items.length,
+          itemCount: companies.length,
           itemBuilder: (context, index) {
-            return _buildInventoryCard(items[index]);
+            final companyName = companies[index];
+            return _buildCompanyCard(companyName, groupedItems[companyName]!);
           },
         );
       },
     );
   }
 
-  Widget _buildInventoryCard(SolarInventoryItem item) {
+  Widget _buildCompanyCard(String companyName, List<SolarInventoryItem> items) {
+    int totalPanels = 0;
+    int availablePanels = 0;
+    int usedPanels = 0;
+    int dcrTotal = 0;
+    int nonDcrTotal = 0;
+
+    for (var item in items) {
+      totalPanels += item.totalQuantity;
+      availablePanels += item.availableQuantity;
+      usedPanels += item.usedQuantity;
+      if (item.isDcr) {
+        dcrTotal += item.availableQuantity;
+      } else {
+        nonDcrTotal += item.availableQuantity;
+      }
+    }
+
     final availabilityPercent =
-        item.totalQuantity > 0
-            ? item.availableQuantity / item.totalQuantity
-            : 0.0;
+        totalPanels > 0 ? availablePanels / totalPanels : 0.0;
 
     Color statusColor;
     String statusLabel;
@@ -302,7 +344,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
-                    Icons.solar_power_rounded,
+                    Icons
+                        .business_rounded, // Changed to business icon for company
                     color: AppTheme.primaryColor,
                     size: 22,
                   ),
@@ -313,7 +356,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.companyName,
+                        companyName,
                         style: AppTextStyles.bodyMedium.copyWith(
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textPrimary,
@@ -321,13 +364,47 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        item.panelModel,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'DCR: $dcrTotal',
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 10,
+                                color: Colors.blue,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Non-DCR: $nonDcrTotal',
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 10,
+                                color: Colors.purple,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -353,128 +430,157 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               ],
             ),
           ),
-          // Card body
+          // Models List
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Capacity
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.bolt_rounded,
-                        size: 16,
-                        color: AppTheme.warningColor,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Capacity: ${item.capacityKw} kW',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Stock info
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStockInfo(
-                          'Total',
-                          '${item.totalQuantity}',
-                          Icons.inventory_2_outlined,
-                          AppTheme.primaryColor,
-                        ),
-                      ),
-                      Expanded(
-                        child: _buildStockInfo(
-                          'Available',
-                          '${item.availableQuantity}',
-                          Icons.check_circle_outline,
-                          AppTheme.successColor,
-                        ),
-                      ),
-                      Expanded(
-                        child: _buildStockInfo(
-                          'Used',
-                          '${item.usedQuantity}',
-                          Icons.assignment_turned_in_outlined,
-                          AppTheme.warningColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Progress bar
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value:
-                          item.totalQuantity > 0
-                              ? item.usedQuantity / item.totalQuantity
-                              : 0,
-                      backgroundColor: AppTheme.borderColor,
-                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-                      minHeight: 6,
-                    ),
-                  ),
-                ],
-              ),
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: items.length,
+              separatorBuilder: (context, index) => const Divider(height: 16),
+              itemBuilder: (context, index) {
+                return _buildModelListItem(items[index]);
+              },
             ),
           ),
-          // Action buttons
+          // Bottom Summary
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showAssignmentsDialog(item),
-                    icon: const Icon(Icons.list_alt_rounded, size: 16),
-                    label: const Text('Assignments'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      textStyle: AppTextStyles.caption.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  child: _buildStockInfo(
+                    'Total',
+                    '$totalPanels',
+                    Icons.inventory_2_outlined,
+                    AppTheme.primaryColor,
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => _showEditInventoryDialog(item),
-                  icon: const Icon(Icons.edit_rounded, size: 18),
-                  tooltip: 'Edit',
-                  color: AppTheme.primaryColor,
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                Expanded(
+                  child: _buildStockInfo(
+                    'Avail',
+                    '$availablePanels',
+                    Icons.check_circle_outline,
+                    AppTheme.successColor,
                   ),
                 ),
-                const SizedBox(width: 4),
-                IconButton(
-                  onPressed: () => _confirmDelete(item),
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  tooltip: 'Delete',
-                  color: AppTheme.errorColor,
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppTheme.errorColor.withOpacity(0.1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                Expanded(
+                  child: _buildStockInfo(
+                    'Used',
+                    '$usedPanels',
+                    Icons.assignment_turned_in_outlined,
+                    AppTheme.warningColor,
                   ),
                 ),
               ],
             ),
           ),
+          // Progress bar
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(16),
+              bottomRight: Radius.circular(16),
+            ),
+            child: LinearProgressIndicator(
+              value: totalPanels > 0 ? usedPanels / totalPanels : 0,
+              backgroundColor: AppTheme.borderColor,
+              valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+              minHeight: 6,
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildModelListItem(SolarInventoryItem item) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          item.panelModel,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              item.isDcr
+                                  ? Colors.blue.withOpacity(0.1)
+                                  : Colors.purple.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          item.isDcr ? 'DCR' : 'Non-DCR',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: item.isDcr ? Colors.blue : Colors.purple,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${item.capacityKw} kW • In stock: ${item.availableQuantity}/${item.totalQuantity}',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Actions
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  onPressed: () => _showAssignmentsDialog(item),
+                  icon: const Icon(Icons.list_alt_rounded, size: 18),
+                  tooltip: 'Assignments',
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  color: AppTheme.textSecondary,
+                ),
+                IconButton(
+                  onPressed: () => _showEditInventoryDialog(item),
+                  icon: const Icon(Icons.edit_rounded, size: 18),
+                  tooltip: 'Edit',
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  color: AppTheme.primaryColor,
+                ),
+                IconButton(
+                  onPressed: () => _confirmDelete(item),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  tooltip: 'Delete',
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  color: AppTheme.errorColor,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -574,14 +680,22 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       context: context,
       builder:
           (context) => _AddEditInventoryDialog(
-            onSave: (company, model, capacity, qty, desc) async {
+            onSaveMultiple: (
+              company,
+              capacity,
+              qty,
+              dcrModels,
+              nonDcrModels,
+              desc,
+            ) async {
               await ref
                   .read(inventoryProvider.notifier)
-                  .addItem(
+                  .addMultipleItems(
                     companyName: company,
-                    panelModel: model,
                     capacityKw: capacity,
                     quantity: qty,
+                    dcrModels: dcrModels,
+                    nonDcrModels: nonDcrModels,
                     description: desc,
                   );
             },
@@ -595,12 +709,13 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       builder:
           (context) => _AddEditInventoryDialog(
             existingItem: item,
-            onSave: (company, model, capacity, qty, desc) async {
+            onSaveSingle: (company, model, capacity, qty, isDcr, desc) async {
               final updated = item.copyWith(
                 companyName: company,
                 panelModel: model,
                 capacityKw: capacity,
                 totalQuantity: qty,
+                isDcr: isDcr,
                 description: desc,
               );
               await ref.read(inventoryProvider.notifier).updateItem(updated);
@@ -696,11 +811,25 @@ class _AddEditInventoryDialog extends StatefulWidget {
     String model,
     double capacity,
     int quantity,
+    bool isDcr,
     String? description,
-  )
-  onSave;
+  )?
+  onSaveSingle;
+  final Future<void> Function(
+    String company,
+    double capacity,
+    int quantity,
+    List<String> dcrModels,
+    List<String> nonDcrModels,
+    String? description,
+  )?
+  onSaveMultiple;
 
-  const _AddEditInventoryDialog({this.existingItem, required this.onSave});
+  const _AddEditInventoryDialog({
+    this.existingItem,
+    this.onSaveSingle,
+    this.onSaveMultiple,
+  });
 
   @override
   State<_AddEditInventoryDialog> createState() =>
@@ -710,10 +839,20 @@ class _AddEditInventoryDialog extends StatefulWidget {
 class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
   final _formKey = GlobalKey<FormState>();
   final _companyController = TextEditingController();
-  final _modelController = TextEditingController();
   final _capacityController = TextEditingController();
   final _quantityController = TextEditingController();
   final _descriptionController = TextEditingController();
+
+  // Single edit mode controllers
+  final _modelController = TextEditingController();
+  bool _isDcrEdit = true;
+
+  // Add multiple mode state
+  final _dcrInputController = TextEditingController();
+  final _nonDcrInputController = TextEditingController();
+  final List<String> _dcrModels = [];
+  final List<String> _nonDcrModels = [];
+
   bool _isLoading = false;
 
   // Preset company names for quick selection
@@ -731,21 +870,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
     'Other',
   ];
 
-  // Preset capacities
-  static const List<double> _commonCapacities = [
-    0.5,
-    1.0,
-    1.5,
-    2.0,
-    2.5,
-    3.0,
-    4.0,
-    5.0,
-    6.0,
-    7.5,
-    10.0,
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -755,6 +879,7 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
       _capacityController.text = widget.existingItem!.capacityKw.toString();
       _quantityController.text = widget.existingItem!.totalQuantity.toString();
       _descriptionController.text = widget.existingItem!.description ?? '';
+      _isDcrEdit = widget.existingItem!.isDcr;
     }
   }
 
@@ -765,6 +890,8 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
     _capacityController.dispose();
     _quantityController.dispose();
     _descriptionController.dispose();
+    _dcrInputController.dispose();
+    _nonDcrInputController.dispose();
     super.dispose();
   }
 
@@ -775,12 +902,12 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        width: 520,
+        width: 600,
+        height: 650,
         padding: const EdgeInsets.all(28),
         child: Form(
           key: _formKey,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Dialog header
@@ -812,7 +939,7 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                         Text(
                           isEdit
                               ? 'Update inventory details'
-                              : 'Add new panels to inventory',
+                              : 'Add multiple DCR and Non-DCR panels',
                           style: AppTextStyles.caption.copyWith(
                             color: AppTheme.textSecondary,
                           ),
@@ -827,85 +954,145 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               const Divider(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-              // Company name field with quick select chips
-              Text(
-                'Solar Panel Company *',
-                style: AppTextStyles.bodySmall.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _companyController,
-                decoration: _inputDecoration('e.g., Adani Solar, Waaree'),
-                validator:
-                    (v) =>
-                        v == null || v.isEmpty ? 'Company name required' : null,
-              ),
-              const SizedBox(height: 8),
-              // Quick select chips
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children:
-                    _commonCompanies.take(6).map((company) {
-                      return ActionChip(
-                        label: Text(
-                          company,
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppTheme.primaryColor,
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Company name field
+                      Text(
+                        'Solar Panel Company *',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _companyController,
+                        decoration: _inputDecoration(
+                          'e.g., Adani Solar, Waaree',
+                        ),
+                        validator:
+                            (v) =>
+                                v == null || v.isEmpty
+                                    ? 'Company name required'
+                                    : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children:
+                            _commonCompanies.take(6).map((company) {
+                              return ActionChip(
+                                label: Text(
+                                  company,
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  if (company != 'Other')
+                                    _companyController.text = company;
+                                },
+                                backgroundColor: AppTheme.primaryColor
+                                    .withOpacity(0.08),
+                                side: BorderSide(
+                                  color: AppTheme.primaryColor.withOpacity(0.3),
+                                ),
+                                padding: EdgeInsets.zero,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              );
+                            }).toList(),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Capacity and Quantity in a row
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Capacity (kW) *',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _capacityController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d*'),
+                                    ),
+                                  ],
+                                  decoration: _inputDecoration('e.g., 3.0'),
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty)
+                                      return 'Capacity required';
+                                    if (double.tryParse(v) == null ||
+                                        double.parse(v) <= 0)
+                                      return 'Invalid capacity';
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        onPressed: () {
-                          if (company != 'Other') {
-                            _companyController.text = company;
-                          }
-                        },
-                        backgroundColor: AppTheme.primaryColor.withOpacity(
-                          0.08,
-                        ),
-                        side: BorderSide(
-                          color: AppTheme.primaryColor.withOpacity(0.3),
-                        ),
-                        padding: EdgeInsets.zero,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      );
-                    }).toList(),
-              ),
-              const SizedBox(height: 16),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Quantity per Model *',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: _quantityController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: _inputDecoration('No. of panels'),
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty)
+                                      return 'Quantity required';
+                                    if (int.tryParse(v) == null ||
+                                        int.parse(v) < 0)
+                                      return 'Invalid quantity';
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
 
-              // Panel model
-              Text(
-                'Panel Model / Series *',
-                style: AppTextStyles.bodySmall.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _modelController,
-                decoration: _inputDecoration('e.g., ADANI-540M, Tata TP500'),
-                validator:
-                    (v) =>
-                        v == null || v.isEmpty ? 'Panel model required' : null,
-              ),
-              const SizedBox(height: 16),
-
-              // Capacity and Quantity in a row
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                      if (isEdit) ...[
+                        // Single model view for edit
                         Text(
-                          'Capacity (kW) *',
+                          'Panel Model / Series *',
                           style: AppTextStyles.bodySmall.copyWith(
                             fontWeight: FontWeight.w600,
                             color: AppTheme.textPrimary,
@@ -913,114 +1100,172 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                         ),
                         const SizedBox(height: 8),
                         TextFormField(
-                          controller: _capacityController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d*\.?\d*'),
+                          controller: _modelController,
+                          decoration: _inputDecoration('e.g., ADANI-540M'),
+                          validator:
+                              (v) =>
+                                  v == null || v.isEmpty
+                                      ? 'Model required'
+                                      : null,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: _isDcrEdit,
+                              onChanged:
+                                  (val) =>
+                                      setState(() => _isDcrEdit = val ?? true),
+                              activeColor: AppTheme.primaryColor,
+                            ),
+                            Text(
+                              'Is this a DCR Panel?',
+                              style: AppTextStyles.bodyMedium,
                             ),
                           ],
-                          decoration: _inputDecoration('e.g., 3.0'),
-                          validator: (v) {
-                            if (v == null || v.isEmpty) {
-                              return 'Capacity required';
-                            }
-                            final d = double.tryParse(v);
-                            if (d == null || d <= 0) {
-                              return 'Invalid capacity';
-                            }
-                            return null;
-                          },
                         ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4,
-                          children:
-                              _commonCapacities.take(5).map((c) {
-                                return ActionChip(
-                                  label: Text(
-                                    '${c}kW',
-                                    style: AppTextStyles.caption.copyWith(
-                                      color: AppTheme.warningColor,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    _capacityController.text = c.toString();
-                                  },
-                                  backgroundColor: AppTheme.warningColor
-                                      .withOpacity(0.08),
-                                  side: BorderSide(
-                                    color: AppTheme.warningColor.withOpacity(
-                                      0.3,
-                                    ),
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                );
-                              }).toList(),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                      ] else ...[
                         Text(
-                          'Total Quantity *',
+                          'DCR Panel Models (Type and press Enter)',
                           style: AppTextStyles.bodySmall.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+                            color: Colors.blue,
                           ),
                         ),
                         const SizedBox(height: 8),
                         TextFormField(
-                          controller: _quantityController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          decoration: _inputDecoration('No. of panels'),
-                          validator: (v) {
-                            if (v == null || v.isEmpty) {
-                              return 'Quantity required';
-                            }
-                            final i = int.tryParse(v);
-                            if (i == null || i <= 0) {
-                              return 'Invalid quantity';
-                            }
-                            return null;
-                          },
+                          controller: _dcrInputController,
+                          decoration: _inputDecoration(
+                            'e.g., Model A, Model B...',
+                          ).copyWith(
+                            suffixIcon: IconButton(
+                              icon: const Icon(
+                                Icons.add_circle,
+                                color: Colors.blue,
+                              ),
+                              onPressed:
+                                  () => _addModel(
+                                    _dcrInputController,
+                                    _dcrModels,
+                                  ),
+                            ),
+                          ),
+                          onFieldSubmitted:
+                              (_) => _addModel(_dcrInputController, _dcrModels),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                        if (_dcrModels.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children:
+                                _dcrModels
+                                    .map(
+                                      (m) => Chip(
+                                        label: Text(
+                                          m,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        deleteIconColor: Colors.red,
+                                        onDeleted:
+                                            () => setState(
+                                              () => _dcrModels.remove(m),
+                                            ),
+                                        backgroundColor: Colors.blue
+                                            .withOpacity(0.1),
+                                        side: BorderSide(
+                                          color: Colors.blue.withOpacity(0.3),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
 
-              // Description
-              Text(
-                'Notes / Description (Optional)',
-                style: AppTextStyles.bodySmall.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                        Text(
+                          'Non-DCR Panel Models (Type and press Enter)',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.purple,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _nonDcrInputController,
+                          decoration: _inputDecoration(
+                            'e.g., Model X, Model Y...',
+                          ).copyWith(
+                            suffixIcon: IconButton(
+                              icon: const Icon(
+                                Icons.add_circle,
+                                color: Colors.purple,
+                              ),
+                              onPressed:
+                                  () => _addModel(
+                                    _nonDcrInputController,
+                                    _nonDcrModels,
+                                  ),
+                            ),
+                          ),
+                          onFieldSubmitted:
+                              (_) => _addModel(
+                                _nonDcrInputController,
+                                _nonDcrModels,
+                              ),
+                        ),
+                        if (_nonDcrModels.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children:
+                                _nonDcrModels
+                                    .map(
+                                      (m) => Chip(
+                                        label: Text(
+                                          m,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        deleteIconColor: Colors.red,
+                                        onDeleted:
+                                            () => setState(
+                                              () => _nonDcrModels.remove(m),
+                                            ),
+                                        backgroundColor: Colors.purple
+                                            .withOpacity(0.1),
+                                        side: BorderSide(
+                                          color: Colors.purple.withOpacity(0.3),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                          ),
+                        ],
+                      ],
+
+                      const SizedBox(height: 16),
+                      // Description
+                      Text(
+                        'Notes / Description (Optional)',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _descriptionController,
+                        maxLines: 2,
+                        decoration: _inputDecoration(
+                          'e.g., Mono PERC technology...',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _descriptionController,
-                maxLines: 2,
-                decoration: _inputDecoration(
-                  'e.g., Mono PERC technology, Grade A panels...',
-                ),
-              ),
-              const SizedBox(height: 28),
 
               // Action buttons
               Row(
@@ -1063,6 +1308,14 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
     );
   }
 
+  void _addModel(TextEditingController controller, List<String> list) {
+    final text = controller.text.trim();
+    if (text.isNotEmpty && !list.contains(text)) {
+      setState(() => list.add(text));
+    }
+    controller.clear();
+  }
+
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
@@ -1079,10 +1332,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
       ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppTheme.errorColor),
-      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     );
   }
@@ -1090,18 +1339,47 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Custom validation for add mode
+    if (widget.existingItem == null &&
+        _dcrModels.isEmpty &&
+        _nonDcrModels.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least one DCR or Non-DCR model'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      await widget.onSave(
-        _companyController.text.trim(),
-        _modelController.text.trim(),
-        double.parse(_capacityController.text.trim()),
-        int.parse(_quantityController.text.trim()),
-        _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
-      );
+      final desc =
+          _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim();
+
+      if (widget.existingItem != null && widget.onSaveSingle != null) {
+        await widget.onSaveSingle!(
+          _companyController.text.trim(),
+          _modelController.text.trim(),
+          double.parse(_capacityController.text.trim()),
+          int.parse(_quantityController.text.trim()),
+          _isDcrEdit,
+          desc,
+        );
+      } else if (widget.onSaveMultiple != null) {
+        await widget.onSaveMultiple!(
+          _companyController.text.trim(),
+          double.parse(_capacityController.text.trim()),
+          int.parse(_quantityController.text.trim()),
+          _dcrModels,
+          _nonDcrModels,
+          desc,
+        );
+      }
+
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1109,7 +1387,7 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
             content: Text(
               widget.existingItem != null
                   ? 'Inventory updated successfully!'
-                  : 'Solar panel added to inventory!',
+                  : 'Inventory added successfully!',
             ),
             backgroundColor: AppTheme.successColor,
           ),

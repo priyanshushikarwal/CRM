@@ -12,13 +12,23 @@ import '../../screens/users/user_management_screen.dart';
 import '../../screens/inventory/inventory_screen.dart';
 import '../../services/supabase_service.dart';
 
+/// Tracks whether the user is logged in via the hardcoded demo bypass.
+/// This lets the router allow navigation even when Supabase is offline.
+class DemoSession {
+  DemoSession._();
+  static bool _active = false;
+  static bool get isActive => _active;
+  static void start() => _active = true;
+  static void end() => _active = false;
+}
+
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
   redirect: (context, state) {
-    final isLoggedIn = SupabaseService.isLoggedIn;
+    final isLoggedIn = SupabaseService.isLoggedIn || DemoSession.isActive;
     final isAuthRoute =
         state.matchedLocation == '/login' ||
         state.matchedLocation == '/register';

@@ -61,6 +61,7 @@ class InventoryService {
       capacityKw: capacityKw,
       totalQuantity: quantity,
       usedQuantity: 0,
+      isDcr: true, // Default to true if not specified
       description: description?.trim(),
       createdAt: now,
       updatedAt: now,
@@ -75,6 +76,27 @@ class InventoryService {
       return SolarInventoryItem.fromJson(response);
     } catch (e) {
       print('Error adding inventory item: $e');
+      rethrow;
+    }
+  }
+
+  // Add multiple inventory items
+  static Future<List<SolarInventoryItem>> addMultipleInventoryItems(
+    List<SolarInventoryItem> items,
+  ) async {
+    try {
+      final response =
+          await SupabaseService.from(
+            AppConstants.inventoryTable,
+          ).insert(items.map((e) => e.toJson()).toList()).select();
+
+      return (response as List)
+          .map(
+            (json) => SolarInventoryItem.fromJson(json as Map<String, dynamic>),
+          )
+          .toList();
+    } catch (e) {
+      print('Error adding multiple inventory items: $e');
       rethrow;
     }
   }

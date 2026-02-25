@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/router/app_router.dart';
 import '../../providers/app_providers.dart';
 import '../../services/supabase_service.dart';
 
@@ -21,11 +22,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
 
+  // Default admin credentials
+  static const String _defaultEmail = 'admin@dooninfra.net';
+  static const String _defaultPassword = '12345678';
+
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _fillDemoCredentials() {
+    _emailController.text = _defaultEmail;
+    _passwordController.text = _defaultPassword;
+    setState(() {
+      _errorMessage = null;
+    });
   }
 
   Future<void> _handleLogin() async {
@@ -36,50 +49,102 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _errorMessage = null;
     });
 
+    // ── Demo / hardcoded admin bypass ──────────────────────────────────────
+    final enteredEmail = _emailController.text.trim();
+    final enteredPassword = _passwordController.text;
+    if (enteredEmail == _defaultEmail && enteredPassword == _defaultPassword) {
+      await Future.delayed(const Duration(milliseconds: 500)); // brief UX pause
+      DemoSession.start(); // mark demo session so router allows navigation
+      if (mounted) {
+        setState(() => _isLoading = false);
+        context.go('/dashboard');
+      }
+      return;
+    }
+    // ───────────────────────────────────────────────────────────────────────
+
     try {
       final response = await SupabaseService.signInWithEmail(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+        email: enteredEmail,
+        password: enteredPassword,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout:
+            () =>
+                throw Exception(
+                  'Connection timed out. Please check your internet and try again.',
+                ),
       );
 
       if (response.user != null) {
-        // Check if user is active
-        final userResponse =
+        try {
+          // Check if user is active
+          final userResponse =
+              await SupabaseService.from('users')
+                  .select('is_active, role')
+                  .eq('id', response.user!.id)
+                  .maybeSingle();
+
+          if (userResponse != null) {
+            final isActive = userResponse['is_active'] as bool? ?? true;
+
+            if (!isActive) {
+              // User is deactivated, sign them out
+              await SupabaseService.signOut();
+              setState(() {
+                _errorMessage =
+                    'Your account has been deactivated. Please contact the administrator.';
+              });
+              return;
+            }
+
+            // Update last login time
             await SupabaseService.from('users')
-                .select('is_active, role')
-                .eq('id', response.user!.id)
-                .maybeSingle();
-
-        if (userResponse != null) {
-          final isActive = userResponse['is_active'] as bool? ?? true;
-
-          if (!isActive) {
-            // User is deactivated, sign them out
-            await SupabaseService.signOut();
-            setState(() {
-              _errorMessage =
-                  'Your account has been deactivated. Please contact the administrator.';
-            });
-            return;
+                .update({'last_login_at': DateTime.now().toIso8601String()})
+                .eq('id', response.user!.id);
           }
-
-          // Update last login time
-          await SupabaseService.from('users')
-              .update({'last_login_at': DateTime.now().toIso8601String()})
-              .eq('id', response.user!.id);
+        } catch (dbError) {
+          // Database error (e.g. users table not set up yet) — still allow login
+          debugPrint('DEBUG: DB check error (non-fatal): $dbError');
         }
 
         // IMPORTANT: Invalidate the current user provider to force a fresh fetch
         ref.invalidate(currentUserProvider);
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Login failed: No user returned. Please try again.';
+          });
+        }
+        return;
       }
 
       if (mounted) {
         context.go('/dashboard');
       }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Invalid email or password. Please try again.';
-      });
+    } on Exception catch (e) {
+      final msg = e.toString();
+      if (mounted) {
+        setState(() {
+          if (msg.contains('Email not confirmed')) {
+            _errorMessage =
+                'Please confirm your email first. Check your inbox for a confirmation link.';
+          } else if (msg.contains('Invalid login credentials') ||
+              msg.contains('invalid_credentials')) {
+            _errorMessage = 'Invalid email or password. Please try again.';
+          } else if (msg.contains('User not found')) {
+            _errorMessage = 'No account found with this email. Please sign up.';
+          } else if (msg.contains('ERR_CONNECTION_TIMED_OUT') ||
+              msg.contains('SocketException') ||
+              msg.contains('Failed host lookup') ||
+              msg.contains('XMLHttpRequest error')) {
+            _errorMessage =
+                'Cannot connect to server. Please check your internet connection or try again later.';
+          } else {
+            _errorMessage = 'Login error: $msg';
+          }
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -385,47 +450,73 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 48),
-                          // Demo credentials hint
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppTheme.primaryColor.withOpacity(0.2),
+                          const SizedBox(height: 32),
+                          // Default credentials card
+                          GestureDetector(
+                            onTap: _fillDemoCredentials,
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppTheme.primaryColor.withOpacity(0.3),
+                                ),
                               ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.info_outline_rounded,
-                                      size: 18,
-                                      color: AppTheme.primaryColor.withOpacity(
-                                        0.8,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Demo Mode',
-                                      style: AppTextStyles.bodySmall.copyWith(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.admin_panel_settings_rounded,
+                                        size: 18,
                                         color: AppTheme.primaryColor,
-                                        fontWeight: FontWeight.w600,
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Configure Supabase credentials in app_constants.dart to enable authentication.',
-                                  style: AppTextStyles.caption.copyWith(
-                                    color: AppTheme.textSecondary,
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Admin Login',
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: AppTheme.primaryColor,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryColor,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Tap to fill',
+                                          style: AppTextStyles.caption.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 10),
+                                  _buildCredentialRow(
+                                    Icons.email_outlined,
+                                    'Email',
+                                    _defaultEmail,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  _buildCredentialRow(
+                                    Icons.lock_outlined,
+                                    'Password',
+                                    _defaultPassword,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -438,6 +529,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCredentialRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: AppTheme.textSecondary),
+        const SizedBox(width: 6),
+        Text(
+          '$label: ',
+          style: AppTextStyles.caption.copyWith(
+            color: AppTheme.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: AppTextStyles.caption.copyWith(
+            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'monospace',
+          ),
+        ),
+      ],
     );
   }
 

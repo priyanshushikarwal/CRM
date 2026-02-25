@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../models/inventory_model.dart';
 import '../services/inventory_service.dart';
 
@@ -31,6 +32,12 @@ class InventoryState {
   int get usedPanels => items.fold(0, (sum, item) => sum + item.usedQuantity);
   int get availablePanels =>
       items.fold(0, (sum, item) => sum + item.availableQuantity);
+  int get totalDcrPanels => items
+      .where((i) => i.isDcr)
+      .fold(0, (sum, item) => sum + item.availableQuantity);
+  int get totalNonDcrPanels => items
+      .where((i) => !i.isDcr)
+      .fold(0, (sum, item) => sum + item.availableQuantity);
 
   InventoryState copyWith({
     List<SolarInventoryItem>? items,
@@ -72,18 +79,85 @@ class InventoryNotifier extends Notifier<InventoryState> {
     required String panelModel,
     required double capacityKw,
     required int quantity,
+    bool isDcr = true,
     String? description,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await InventoryService.addInventoryItem(
-        companyName: companyName,
-        panelModel: panelModel,
+      final now = DateTime.now();
+      final item = SolarInventoryItem(
+        id: const Uuid().v4(),
+        companyName: companyName.trim(),
+        panelModel: panelModel.trim(),
         capacityKw: capacityKw,
-        quantity: quantity,
-        description: description,
+        totalQuantity: quantity,
+        usedQuantity: 0,
+        isDcr: isDcr,
+        description: description?.trim(),
+        createdAt: now,
+        updatedAt: now,
       );
+      await InventoryService.addMultipleInventoryItems([item]);
       await loadInventory();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> addMultipleItems({
+    required String companyName,
+    required double capacityKw,
+    required int quantity,
+    required List<String> dcrModels,
+    required List<String> nonDcrModels,
+    String? description,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final now = DateTime.now();
+      final newItems = <SolarInventoryItem>[];
+
+      for (final model in dcrModels) {
+        newItems.add(
+          SolarInventoryItem(
+            id: const Uuid().v4(),
+            companyName: companyName.trim(),
+            panelModel: model.trim(),
+            capacityKw: capacityKw,
+            totalQuantity: quantity,
+            usedQuantity: 0,
+            isDcr: true,
+            description: description?.trim(),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
+
+      for (final model in nonDcrModels) {
+        newItems.add(
+          SolarInventoryItem(
+            id: const Uuid().v4(),
+            companyName: companyName.trim(),
+            panelModel: model.trim(),
+            capacityKw: capacityKw,
+            totalQuantity: quantity,
+            usedQuantity: 0,
+            isDcr: false,
+            description: description?.trim(),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      }
+
+      if (newItems.isNotEmpty) {
+        await InventoryService.addMultipleInventoryItems(newItems);
+        await loadInventory();
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;

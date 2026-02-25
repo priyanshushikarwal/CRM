@@ -59,9 +59,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
         context.go('/login');
       }
-    } catch (e) {
+    } on Exception catch (e) {
+      final msg = e.toString();
       setState(() {
-        _errorMessage = 'Registration failed. Please try again.';
+        if (msg.contains('already registered') ||
+            msg.contains('already been registered') ||
+            msg.contains('User already registered')) {
+          _errorMessage =
+              'This email is already registered. Please sign in instead.';
+        } else if (msg.contains('Password should be')) {
+          _errorMessage =
+              'Password is too weak. Please use a stronger password.';
+        } else if (msg.contains('Unable to validate email')) {
+          _errorMessage = 'Please enter a valid email address.';
+        } else {
+          _errorMessage = 'Registration error: $msg';
+        }
       });
     } finally {
       if (mounted) {

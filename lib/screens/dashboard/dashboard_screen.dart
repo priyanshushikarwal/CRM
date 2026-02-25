@@ -714,7 +714,65 @@ class DashboardOverviewContent extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           if (applicationsState.isLoading)
-            const Center(child: CircularProgressIndicator())
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(48),
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Loading from Supabase...'),
+                  ],
+                ),
+              ),
+            )
+          else if (applicationsState.error != null)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.cloud_off_rounded,
+                    size: 56,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '🔴 Supabase Server Offline',
+                    style: AppTextStyles.heading4.copyWith(
+                      color: Colors.red.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your Supabase project is paused or unreachable.\nGo to supabase.com/dashboard and click "Restore project".',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: Colors.red.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed:
+                        () =>
+                            ref
+                                .read(applicationsProvider.notifier)
+                                .loadApplications(),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            )
           else if (applicationsState.applications.isEmpty)
             Container(
               padding: const EdgeInsets.all(48),
