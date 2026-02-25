@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/constants/app_constants.dart';
 import '../../models/application_model.dart';
 import '../../models/document_model.dart';
 import '../../providers/app_providers.dart';
 import '../../services/application_service.dart';
+import '../inventory/inventory_screen.dart';
 
 class ApplicationDetailsScreen extends ConsumerStatefulWidget {
   final String applicationId;
@@ -427,6 +431,60 @@ class _ApplicationDetailsScreenState
                       ],
                     ),
                     const SizedBox(height: 20),
+                    // ── Solar Panel Inventory Picker ──
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.05),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(16),
+                                topRight: Radius.circular(16),
+                              ),
+                              border: Border(
+                                bottom: BorderSide(color: AppTheme.borderColor),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.inventory_2_rounded,
+                                  color: AppTheme.primaryColor,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Assigned Solar Panels',
+                                  style: AppTextStyles.heading4.copyWith(
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: SolarPanelPickerWidget(
+                              applicationId: app.id,
+                              applicationNumber: app.applicationNumber,
+                              consumerName: app.fullName,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                     _buildSectionCard('Loan Details', Icons.payments_rounded, [
                       _buildDetailRow(
                         'Current Status of Loan',
@@ -769,9 +827,7 @@ class _ApplicationDetailsScreenState
                   ],
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: Upload document
-                  },
+                  onPressed: () => _showUploadDocumentDialog(context, app),
                   icon: const Icon(Icons.upload_rounded, size: 18),
                   label: const Text('Upload'),
                 ),
@@ -824,6 +880,315 @@ class _ApplicationDetailsScreenState
           ),
         ],
       ),
+    );
+  }
+
+  // ───── Document Upload Dialog ─────
+  void _showUploadDocumentDialog(BuildContext context, ApplicationModel app) {
+    String selectedDocType = AppConstants.documentTypes.first;
+    PlatformFile? pickedFile;
+    bool isUploading = false;
+    String? errorMsg;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setDialogState) => Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Container(
+                    width: 480,
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Upload Document',
+                              style: AppTextStyles.heading3,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed:
+                                  isUploading ? null : () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '#${app.applicationNumber} • ${app.fullName}',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Document Type Dropdown
+                        DropdownButtonFormField<String>(
+                          value: selectedDocType,
+                          decoration: const InputDecoration(
+                            labelText: 'Document Type',
+                            prefixIcon: Icon(Icons.label_outline_rounded),
+                          ),
+                          items:
+                              AppConstants.documentTypes.map((type) {
+                                return DropdownMenuItem(
+                                  value: type,
+                                  child: Text(type),
+                                );
+                              }).toList(),
+                          onChanged:
+                              isUploading
+                                  ? null
+                                  : (val) => setDialogState(
+                                    () => selectedDocType = val!,
+                                  ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // File Picker
+                        GestureDetector(
+                          onTap:
+                              isUploading
+                                  ? null
+                                  : () async {
+                                    final result = await FilePicker.platform
+                                        .pickFiles(
+                                          type: FileType.custom,
+                                          allowedExtensions: [
+                                            'pdf',
+                                            'jpg',
+                                            'jpeg',
+                                            'png',
+                                            'doc',
+                                            'docx',
+                                          ],
+                                          withData: true, // Required for web
+                                        );
+                                    if (result != null &&
+                                        result.files.isNotEmpty) {
+                                      setDialogState(() {
+                                        pickedFile = result.files.first;
+                                        errorMsg = null;
+                                      });
+                                    }
+                                  },
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color:
+                                  pickedFile != null
+                                      ? AppTheme.successColor.withOpacity(0.05)
+                                      : AppTheme.backgroundColor,
+                              border: Border.all(
+                                color:
+                                    pickedFile != null
+                                        ? AppTheme.successColor.withOpacity(0.4)
+                                        : AppTheme.borderColor,
+                                style: BorderStyle.solid,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child:
+                                pickedFile == null
+                                    ? Column(
+                                      children: [
+                                        Icon(
+                                          Icons.cloud_upload_outlined,
+                                          size: 40,
+                                          color: AppTheme.primaryColor
+                                              .withOpacity(0.6),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Click to select file',
+                                          style: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                color: AppTheme.primaryColor,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'PDF, JPG, PNG, DOC supported',
+                                          style: AppTextStyles.bodySmall
+                                              .copyWith(
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                        ),
+                                      ],
+                                    )
+                                    : Row(
+                                      children: [
+                                        Icon(
+                                          pickedFile!.extension
+                                                      ?.toLowerCase() ==
+                                                  'pdf'
+                                              ? Icons.picture_as_pdf_rounded
+                                              : Icons.image_rounded,
+                                          color:
+                                              pickedFile!.extension
+                                                          ?.toLowerCase() ==
+                                                      'pdf'
+                                                  ? Colors.red
+                                                  : Colors.blue,
+                                          size: 32,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                pickedFile!.name,
+                                                style: AppTextStyles.bodyMedium
+                                                    .copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                '${(pickedFile!.size / 1024).toStringAsFixed(1)} KB',
+                                                style: AppTextStyles.bodySmall
+                                                    .copyWith(
+                                                      color:
+                                                          AppTheme
+                                                              .textSecondary,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.close_rounded,
+                                            size: 18,
+                                          ),
+                                          onPressed:
+                                              () => setDialogState(
+                                                () => pickedFile = null,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                          ),
+                        ),
+
+                        if (errorMsg != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            errorMsg!,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppTheme.errorColor,
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 24),
+
+                        // Upload button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed:
+                                (isUploading || pickedFile == null)
+                                    ? null
+                                    : () async {
+                                      if (pickedFile?.bytes == null) {
+                                        setDialogState(() {
+                                          errorMsg =
+                                              'File data not loaded. Please select again.';
+                                        });
+                                        return;
+                                      }
+
+                                      setDialogState(() {
+                                        isUploading = true;
+                                        errorMsg = null;
+                                      });
+
+                                      try {
+                                        final ext =
+                                            pickedFile!.extension
+                                                ?.toLowerCase() ??
+                                            'bin';
+                                        final mimeType =
+                                            ext == 'pdf'
+                                                ? 'application/pdf'
+                                                : (ext == 'png'
+                                                    ? 'image/png'
+                                                    : ext == 'jpg' ||
+                                                        ext == 'jpeg'
+                                                    ? 'image/jpeg'
+                                                    : 'application/octet-stream');
+
+                                        await DocumentService.uploadDocument(
+                                          applicationId: app.id,
+                                          documentType: selectedDocType,
+                                          fileBytes: pickedFile!.bytes!,
+                                          fileName: pickedFile!.name,
+                                          mimeType: mimeType,
+                                        );
+
+                                        // Refresh documents list
+                                        ref.invalidate(
+                                          documentsProvider(app.id),
+                                        );
+
+                                        if (ctx.mounted) Navigator.pop(ctx);
+
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                '${pickedFile!.name} uploaded successfully!',
+                                              ),
+                                              backgroundColor:
+                                                  AppTheme.successColor,
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        setDialogState(() {
+                                          isUploading = false;
+                                          errorMsg =
+                                              'Upload failed: ${e.toString()}';
+                                        });
+                                      }
+                                    },
+                            icon:
+                                isUploading
+                                    ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                    : const Icon(Icons.upload_rounded),
+                            label: Text(
+                              isUploading ? 'Uploading...' : 'Upload Document',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          ),
     );
   }
 
@@ -897,8 +1262,33 @@ class _ApplicationDetailsScreenState
                 SizedBox(
                   width: 80,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: View document
+                    onPressed: () async {
+                      final url = doc.fileUrl;
+                      if (url != null && url.isNotEmpty) {
+                        final uri = Uri.parse(url);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        } else {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Could not open document'),
+                              ),
+                            );
+                          }
+                        }
+                      } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Document URL not available'),
+                            ),
+                          );
+                        }
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.accentColor,

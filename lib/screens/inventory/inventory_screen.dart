@@ -243,26 +243,29 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount =
+        final cardWidth =
             constraints.maxWidth > 900
-                ? 3
+                ? (constraints.maxWidth - 48 - 32) / 3
                 : constraints.maxWidth > 600
-                ? 2
-                : 1;
+                ? (constraints.maxWidth - 48 - 16) / 2
+                : constraints.maxWidth - 48;
 
-        return GridView.builder(
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 0.9, // More vertical space for models list
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children:
+                companies.map((companyName) {
+                  return SizedBox(
+                    width: cardWidth,
+                    child: _buildCompanyCard(
+                      companyName,
+                      groupedItems[companyName]!,
+                    ),
+                  );
+                }).toList(),
           ),
-          itemCount: companies.length,
-          itemBuilder: (context, index) {
-            final companyName = companies[index];
-            return _buildCompanyCard(companyName, groupedItems[companyName]!);
-          },
         );
       },
     );
@@ -431,15 +434,15 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             ),
           ),
           // Models List
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: items.length,
-              separatorBuilder: (context, index) => const Divider(height: 16),
-              itemBuilder: (context, index) {
-                return _buildModelListItem(items[index]);
-              },
-            ),
+          ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: items.length,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            separatorBuilder: (context, index) => const Divider(height: 16),
+            itemBuilder: (context, index) {
+              return _buildModelListItem(items[index]);
+            },
           ),
           // Bottom Summary
           Padding(
@@ -1685,8 +1688,9 @@ class _SolarPanelPickerWidgetState
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Currently assigned panels for this application
+        // Already assigned panels
         appAssignmentsAsync.when(
           loading: () => const SizedBox.shrink(),
           error: (_, __) => const SizedBox.shrink(),
@@ -1694,9 +1698,10 @@ class _SolarPanelPickerWidgetState
             if (assignments.isEmpty) return const SizedBox.shrink();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Assigned Solar Panels',
+                  'Currently Assigned',
                   style: AppTextStyles.bodySmall.copyWith(
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimary,
@@ -1716,10 +1721,9 @@ class _SolarPanelPickerWidgetState
             );
           },
         ),
-
-        // Assign new panel section
+        // Assign new panel
         Text(
-          'Assign Solar Panel from Inventory',
+          'Assign Panel from Inventory',
           style: AppTextStyles.bodySmall.copyWith(
             fontWeight: FontWeight.w600,
             color: AppTheme.textPrimary,
@@ -1730,7 +1734,7 @@ class _SolarPanelPickerWidgetState
           loading: () => const LinearProgressIndicator(),
           error:
               (e, _) => Text(
-                'Error loading inventory: $e',
+                'Error loading inventory: ',
                 style: const TextStyle(color: AppTheme.errorColor),
               ),
           data: (items) {
@@ -1754,7 +1758,7 @@ class _SolarPanelPickerWidgetState
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'No panels available in inventory. Add panels from the Inventory section.',
+                        'No panels available. Add panels from the Inventory section.',
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppTheme.warningColor,
                         ),
@@ -1764,11 +1768,12 @@ class _SolarPanelPickerWidgetState
                 ),
               );
             }
-
             return Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<SolarInventoryItem>(
                   value: _selectedItem,
+                  isExpanded: true,
                   decoration: InputDecoration(
                     hintText: 'Select solar panel from inventory',
                     prefixIcon: const Icon(Icons.solar_power_rounded, size: 20),
@@ -1794,48 +1799,12 @@ class _SolarPanelPickerWidgetState
                   ),
                   items:
                       items.map((item) {
-                        return DropdownMenuItem(
+                        return DropdownMenuItem<SolarInventoryItem>(
                           value: item,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      '${item.companyName} - ${item.panelModel}',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${item.capacityKw}kW | Available: ${item.availableQuantity}',
-                                      style: AppTextStyles.caption.copyWith(
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.successColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  '${item.availableQuantity} left',
-                                  style: AppTextStyles.caption.copyWith(
-                                    color: AppTheme.successColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            '${item.companyName} - ${item.panelModel} (${item.capacityKw}kW) | ${item.availableQuantity} left',
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.bodySmall,
                           ),
                         );
                       }).toList(),
@@ -1846,7 +1815,6 @@ class _SolarPanelPickerWidgetState
                 ),
                 if (_selectedItem != null) ...[
                   const SizedBox(height: 12),
-                  // Show selected panel details
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -1867,6 +1835,7 @@ class _SolarPanelPickerWidgetState
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 _selectedItem!.displayName,
@@ -1876,7 +1845,7 @@ class _SolarPanelPickerWidgetState
                                 ),
                               ),
                               Text(
-                                'Available: ${_selectedItem!.availableQuantity} panels | Total Stock: ${_selectedItem!.totalQuantity}',
+                                'Available: ${_selectedItem!.availableQuantity} | Total: ${_selectedItem!.totalQuantity}',
                                 style: AppTextStyles.caption.copyWith(
                                   color: AppTheme.textSecondary,
                                 ),
@@ -1884,6 +1853,7 @@ class _SolarPanelPickerWidgetState
                             ],
                           ),
                         ),
+                        const SizedBox(width: 8),
                         ElevatedButton.icon(
                           onPressed: () => _showAssignDialog(context),
                           icon: const Icon(Icons.assignment_add, size: 16),
@@ -1892,9 +1862,6 @@ class _SolarPanelPickerWidgetState
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 8,
-                            ),
-                            textStyle: AppTextStyles.caption.copyWith(
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),

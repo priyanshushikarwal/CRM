@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/application_model.dart';
 import '../models/document_model.dart';
@@ -337,27 +338,32 @@ class DocumentService {
         .toList();
   }
 
-  // Upload document
+  // Upload document (web-compatible using bytes)
   static Future<DocumentModel> uploadDocument({
     required String applicationId,
     required String documentType,
-    required File file,
+    required Uint8List fileBytes,
+    required String fileName,
+    required String mimeType,
   }) async {
-    final fileName = file.path.split(Platform.pathSeparator).last;
     final fileExtension = fileName.split('.').last;
     final storagePath = '$applicationId/${_uuid.v4()}.$fileExtension';
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage using bytes (works on Web too)
     await SupabaseService.storage
         .from(AppConstants.documentsBucket)
-        .upload(storagePath, file);
+        .uploadBinary(
+          storagePath,
+          fileBytes,
+          fileOptions: FileOptions(contentType: mimeType, upsert: false),
+        );
 
     // Get public URL
     final fileUrl = SupabaseService.storage
         .from(AppConstants.documentsBucket)
         .getPublicUrl(storagePath);
 
-    // Create document record
+    // Create document record in DB
     final document = DocumentModel(
       id: _uuid.v4(),
       applicationId: applicationId,
@@ -365,7 +371,7 @@ class DocumentService {
       fileName: fileName,
       filePath: storagePath,
       fileUrl: fileUrl,
-      fileSize: await file.length(),
+      fileSize: fileBytes.length,
       uploadedOn: DateTime.now(),
       uploadedBy: SupabaseService.currentUser?.email,
     );

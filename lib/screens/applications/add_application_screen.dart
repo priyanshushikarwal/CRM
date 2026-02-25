@@ -9,6 +9,7 @@ import '../../core/constants/app_constants.dart';
 import '../../models/application_model.dart';
 import '../../services/application_service.dart';
 import '../../providers/app_providers.dart';
+import '../inventory/inventory_screen.dart';
 
 class AddApplicationScreen extends ConsumerStatefulWidget {
   final String? applicationId;
@@ -1006,6 +1007,101 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 24),
+          // ── Solar Panel from Inventory ──
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppTheme.primaryColor.withOpacity(0.25),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.solar_power_rounded,
+                        color: AppTheme.primaryColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Solar Panel from Inventory',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Select & assign a solar panel to this application',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (_isEditing && widget.applicationId != null)
+                  SolarPanelPickerWidget(
+                    applicationId: widget.applicationId!,
+                    applicationNumber:
+                        ref
+                            .read(selectedApplicationProvider)
+                            ?.applicationNumber ??
+                        '',
+                    consumerName:
+                        _fullNameController.text.isNotEmpty
+                            ? _fullNameController.text
+                            : 'Consumer',
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warningColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.warningColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          color: AppTheme.warningColor,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Solar panel assignment is available after saving the application. Save first, then edit to assign panels from inventory.',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppTheme.warningColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
