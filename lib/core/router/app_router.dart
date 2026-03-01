@@ -10,6 +10,7 @@ import '../../screens/applications/add_application_screen.dart';
 import '../../screens/applications/pending_approvals_screen.dart';
 import '../../screens/users/user_management_screen.dart';
 import '../../screens/inventory/inventory_screen.dart';
+import '../../screens/settings/settings_screen.dart';
 import '../../services/supabase_service.dart';
 
 /// Tracks whether the user is logged in via the hardcoded demo bypass.
@@ -136,14 +137,8 @@ final appRouter = GoRouter(
           path: '/settings',
           name: 'settings',
           pageBuilder:
-              (context, state) => NoTransitionPage(
-                child: Center(
-                  child: Text(
-                    'Settings Coming Soon',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
-              ),
+              (context, state) =>
+                  const NoTransitionPage(child: SettingsScreen()),
         ),
       ],
     ),

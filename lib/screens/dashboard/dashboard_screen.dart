@@ -18,7 +18,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isCollapsed = false;
-
   @override
   void initState() {
     super.initState();
@@ -257,6 +256,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
             ),
+          // Version label
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: isCollapsed ? 12 : 16,
+              vertical: 8,
+            ),
+            child: Text(
+              isCollapsed
+                  ? 'v${AppConstants.appVersion}'
+                  : 'Version ${AppConstants.appVersion}',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: isCollapsed ? TextAlign.center : TextAlign.left,
+            ),
+          ),
           // User section
           Consumer(
             builder: (context, ref, child) {
