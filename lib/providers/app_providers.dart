@@ -6,12 +6,10 @@ import '../services/application_service.dart';
 import '../services/supabase_service.dart';
 import '../core/constants/app_constants.dart';
 
-// Auth state provider
 final authStateProvider = StreamProvider<bool>((ref) {
   return SupabaseService.authStateChanges.map((state) => state.session != null);
 });
 
-// Current user provider
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
   final user = SupabaseService.currentUser;
   if (user == null) {
@@ -31,7 +29,6 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
       return UserModel.fromJson(response);
     }
 
-    // Create user record if not exists - make first user admin
     print('DEBUG: User not found in database, creating new user record');
     final newUser = UserModel(
       id: user.id,
@@ -48,7 +45,6 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
     return newUser;
   } catch (e) {
     print('DEBUG: Error fetching/creating user: $e');
-    // Return a default user with operator role
     return UserModel(
       id: user.id,
       email: user.email ?? '',
@@ -58,7 +54,6 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
   }
 });
 
-// Applications state
 class ApplicationsState {
   final List<ApplicationModel> applications;
   final bool isLoading;
@@ -99,7 +94,6 @@ class ApplicationsState {
   }
 }
 
-// Applications notifier
 class ApplicationsNotifier extends Notifier<ApplicationsState> {
   @override
   ApplicationsState build() {
@@ -197,7 +191,6 @@ final applicationsProvider =
       return ApplicationsNotifier();
     });
 
-// Selected application provider - using a simple Notifier
 class SelectedApplicationNotifier extends Notifier<ApplicationModel?> {
   @override
   ApplicationModel? build() => null;
@@ -216,7 +209,6 @@ final selectedApplicationProvider =
       return SelectedApplicationNotifier();
     });
 
-// Documents for selected application
 final documentsProvider = FutureProvider.family<List<DocumentModel>, String>((
   ref,
   applicationId,
@@ -224,7 +216,6 @@ final documentsProvider = FutureProvider.family<List<DocumentModel>, String>((
   return await DocumentService.fetchDocuments(applicationId);
 });
 
-// Single application provider
 final applicationProvider = FutureProvider.family<ApplicationModel?, String>((
   ref,
   id,

@@ -9,7 +9,6 @@ import 'supabase_service.dart';
 class ApplicationService {
   static const _uuid = Uuid();
 
-  // Fetch all applications
   static Future<List<ApplicationModel>> fetchAllApplications() async {
     final response = await SupabaseService.from(AppConstants.applicationsTable)
         .select()
@@ -28,7 +27,6 @@ class ApplicationService {
         .toList();
   }
 
-  // Fetch applications with filters
   static Future<List<ApplicationModel>> fetchApplications({
     String? searchQuery,
     ApplicationStatus? status,
@@ -39,11 +37,9 @@ class ApplicationService {
     int? limit,
     int? offset,
   }) async {
-    // Build the query step by step
     var baseQuery =
         SupabaseService.from(AppConstants.applicationsTable).select();
 
-    // Execute with filters
     List<dynamic> response;
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -77,7 +73,6 @@ class ApplicationService {
         .toList();
   }
 
-  // Fetch single application
   static Future<ApplicationModel?> fetchApplication(String id) async {
     final response =
         await SupabaseService.from(
@@ -88,7 +83,6 @@ class ApplicationService {
     return ApplicationModel.fromJson(response);
   }
 
-  // Create new application
   static Future<ApplicationModel> createApplication(
     ApplicationModel application,
   ) async {
@@ -107,7 +101,6 @@ class ApplicationService {
     return ApplicationModel.fromJson(response);
   }
 
-  // Update application
   static Future<ApplicationModel> updateApplication(
     ApplicationModel application,
   ) async {
@@ -131,20 +124,16 @@ class ApplicationService {
     }
   }
 
-  // Delete application
   static Future<void> deleteApplication(String id) async {
-    // First delete all related documents
     await SupabaseService.from(
       AppConstants.documentsTable,
     ).delete().eq('application_id', id);
 
-    // Then delete the application
     await SupabaseService.from(
       AppConstants.applicationsTable,
     ).delete().eq('id', id);
   }
 
-  // Update application status
   static Future<ApplicationModel> updateStatus({
     required String applicationId,
     required ApplicationStatus newStatus,
@@ -189,7 +178,6 @@ class ApplicationService {
     return result;
   }
 
-  // Generate application number
   static String generateApplicationNumber({
     required String state,
     required String scheme,
@@ -204,7 +192,6 @@ class ApplicationService {
     return 'NP-$schemeCode$year-$random';
   }
 
-  // Get application statistics
   static Future<Map<String, int>> getApplicationStats() async {
     final applications = await fetchAllApplications();
 
@@ -235,9 +222,7 @@ class ApplicationService {
     return stats;
   }
 
-  // ============ APPROVAL WORKFLOW METHODS ============
 
-  // Submit application for admin approval
   static Future<ApplicationModel> submitForApproval(
     ApplicationModel application,
     String submittedByUserId,
@@ -249,7 +234,6 @@ class ApplicationService {
     return await updateApplication(updatedApplication);
   }
 
-  // Admin approves the application
   static Future<ApplicationModel> approveApplication(
     ApplicationModel application,
     String approvedByUserId, {
@@ -264,7 +248,6 @@ class ApplicationService {
     return await updateApplication(updatedApplication);
   }
 
-  // Admin rejects the application
   static Future<ApplicationModel> rejectApplication(
     ApplicationModel application,
     String rejectedByUserId, {
@@ -279,7 +262,6 @@ class ApplicationService {
     return await updateApplication(updatedApplication);
   }
 
-  // Admin requests changes
   static Future<ApplicationModel> requestChanges(
     ApplicationModel application,
     String requestedByUserId,
@@ -294,7 +276,6 @@ class ApplicationService {
     return await updateApplication(updatedApplication);
   }
 
-  // Fetch applications pending approval (for admin dashboard)
   static Future<List<ApplicationModel>> fetchPendingApprovals() async {
     final response = await SupabaseService.from(AppConstants.applicationsTable)
         .select()
@@ -306,7 +287,6 @@ class ApplicationService {
         .toList();
   }
 
-  // Fetch applications by approval status
   static Future<List<ApplicationModel>> fetchByApprovalStatus(
     ApprovalStatus status,
   ) async {
@@ -324,7 +304,6 @@ class ApplicationService {
 class DocumentService {
   static const _uuid = Uuid();
 
-  // Fetch documents for an application
   static Future<List<DocumentModel>> fetchDocuments(
     String applicationId,
   ) async {
@@ -338,7 +317,6 @@ class DocumentService {
         .toList();
   }
 
-  // Upload document (web-compatible using bytes)
   static Future<DocumentModel> uploadDocument({
     required String applicationId,
     required String documentType,
@@ -349,7 +327,6 @@ class DocumentService {
     final fileExtension = fileName.split('.').last;
     final storagePath = '$applicationId/${_uuid.v4()}.$fileExtension';
 
-    // Upload to Supabase Storage using bytes (works on Web too)
     await SupabaseService.storage
         .from(AppConstants.documentsBucket)
         .uploadBinary(
@@ -358,12 +335,10 @@ class DocumentService {
           fileOptions: FileOptions(contentType: mimeType, upsert: false),
         );
 
-    // Get public URL
     final fileUrl = SupabaseService.storage
         .from(AppConstants.documentsBucket)
         .getPublicUrl(storagePath);
 
-    // Create document record in DB
     final document = DocumentModel(
       id: _uuid.v4(),
       applicationId: applicationId,
@@ -383,14 +358,11 @@ class DocumentService {
     return document;
   }
 
-  // Delete document
   static Future<void> deleteDocument(DocumentModel document) async {
-    // Delete from storage
     await SupabaseService.storage.from(AppConstants.documentsBucket).remove([
       document.filePath,
     ]);
 
-    // Delete record
     await SupabaseService.from(
       AppConstants.documentsTable,
     ).delete().eq('id', document.id);

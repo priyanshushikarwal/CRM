@@ -40,7 +40,6 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Navigate after splash
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         context.go('/login');
@@ -77,7 +76,6 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Logo Container
                         Container(
                           width: 120,
                           height: 120,
@@ -99,7 +97,6 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                         ),
                         const SizedBox(height: 32),
-                        // App Name
                         Text(
                           'DoonInfra',
                           style: AppTextStyles.heading1.copyWith(
@@ -134,7 +131,6 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                         ),
                         const SizedBox(height: 48),
-                        // Loading indicator
                         SizedBox(
                           width: 40,
                           height: 40,

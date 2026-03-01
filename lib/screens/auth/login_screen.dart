@@ -22,7 +22,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
 
-  // Default admin credentials
   static const String _defaultEmail = 'admin@dooninfra.net';
   static const String _defaultPassword = '12345678';
 
@@ -49,7 +48,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _errorMessage = null;
     });
 
-    // ── Demo / hardcoded admin bypass ──────────────────────────────────────
     final enteredEmail = _emailController.text.trim();
     final enteredPassword = _passwordController.text;
     if (enteredEmail == _defaultEmail && enteredPassword == _defaultPassword) {
@@ -61,7 +59,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       return;
     }
-    // ───────────────────────────────────────────────────────────────────────
 
     try {
       final response = await SupabaseService.signInWithEmail(
@@ -78,7 +75,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (response.user != null) {
         try {
-          // Check if user is active
           final userResponse =
               await SupabaseService.from('users')
                   .select('is_active, role')
@@ -89,7 +85,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             final isActive = userResponse['is_active'] as bool? ?? true;
 
             if (!isActive) {
-              // User is deactivated, sign them out
               await SupabaseService.signOut();
               setState(() {
                 _errorMessage =
@@ -98,17 +93,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               return;
             }
 
-            // Update last login time
             await SupabaseService.from('users')
                 .update({'last_login_at': DateTime.now().toIso8601String()})
                 .eq('id', response.user!.id);
           }
         } catch (dbError) {
-          // Database error (e.g. users table not set up yet) — still allow login
           debugPrint('DEBUG: DB check error (non-fatal): $dbError');
         }
 
-        // IMPORTANT: Invalidate the current user provider to force a fresh fetch
         ref.invalidate(currentUserProvider);
       } else {
         if (mounted) {
@@ -162,7 +154,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Scaffold(
       body: Row(
         children: [
-          // Left side - Branding (Desktop only)
           if (isDesktop)
             Expanded(
               flex: 5,
@@ -176,11 +167,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 child: Stack(
                   children: [
-                    // Background pattern
                     Positioned.fill(
                       child: CustomPaint(painter: GridPatternPainter()),
                     ),
-                    // Content
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(48),
@@ -188,7 +177,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Logo
                             Container(
                               width: 80,
                               height: 80,
@@ -220,7 +208,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ),
                             const SizedBox(height: 48),
-                            // Features list
                             _buildFeatureItem(
                               Icons.dashboard_rounded,
                               'Real-time Dashboard',
@@ -244,7 +231,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ),
-                    // Company name at bottom
                     Positioned(
                       bottom: 32,
                       left: 48,
@@ -259,7 +245,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
             ),
-          // Right side - Login form
           Expanded(
             flex: isDesktop ? 4 : 1,
             child: Container(
@@ -277,7 +262,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Mobile logo
                           if (!isDesktop) ...[
                             Center(
                               child: Container(
@@ -310,7 +294,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 40),
-                          // Error message
                           if (_errorMessage != null) ...[
                             Container(
                               padding: const EdgeInsets.all(16),
@@ -342,7 +325,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             const SizedBox(height: 24),
                           ],
-                          // Email field
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
@@ -361,7 +343,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             },
                           ),
                           const SizedBox(height: 20),
-                          // Password field
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
@@ -392,12 +373,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             },
                           ),
                           const SizedBox(height: 12),
-                          // Forgot password
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
                               onPressed: () {
-                                // TODO: Implement forgot password
                               },
                               child: Text(
                                 'Forgot Password?',
@@ -409,7 +388,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          // Login button
                           SizedBox(
                             height: 52,
                             child: ElevatedButton(
@@ -428,7 +406,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          // Register link
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -451,7 +428,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ],
                           ),
                           const SizedBox(height: 32),
-                          // Default credentials card
                           GestureDetector(
                             onTap: _fillDemoCredentials,
                             child: Container(
@@ -581,7 +557,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-// Custom painter for grid pattern
 class GridPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -592,12 +567,10 @@ class GridPatternPainter extends CustomPainter {
 
     const spacing = 50.0;
 
-    // Vertical lines
     for (double x = 0; x < size.width; x += spacing) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
-    // Horizontal lines
     for (double y = 0; y < size.height; y += spacing) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }

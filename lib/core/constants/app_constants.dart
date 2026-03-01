@@ -1,16 +1,12 @@
 class AppConstants {
-  // App Info
   static const String appName = 'DoonInfra Solar Manager';
   static const String appVersion = '1.0.5';
   static const String companyName = 'Doon Infrapower Projects Pvt. Ltd.';
 
-  // Supabase Configuration
-  // TODO: Replace with your actual Supabase credentials
   static const String supabaseUrl = 'https://mclanssbjbmcelunhpip.supabase.co';
   static const String supabaseAnonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jbGFuc3NiamJtY2VsdW5ocGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MjAzMTEsImV4cCI6MjA4MTM5NjMxMX0.DeISAs5HhnOoSyZY0brJO9K17tx1QBY2SkRdhCKqsU4';
 
-  // Table Names
   static const String applicationsTable = 'applications';
   static const String documentsTable = 'documents';
   static const String usersTable = 'users';
@@ -18,10 +14,8 @@ class AppConstants {
   static const String inventoryTable = 'solar_inventory';
   static const String inventoryAssignmentsTable = 'solar_inventory_assignments';
 
-  // Storage Buckets
   static const String documentsBucket = 'documents';
 
-  // Application Status Types
   static const List<String> applicationStatuses = [
     'Consumer Registration',
     'Consumer Application',
@@ -34,7 +28,6 @@ class AppConstants {
     'Consumer Subsidy Request',
   ];
 
-  // Document Types
   static const List<String> documentTypes = [
     'Application Acknowledgement',
     'EToken',
@@ -49,7 +42,6 @@ class AppConstants {
     'Other',
   ];
 
-  // States of India
   static const List<String> indianStates = [
     'Andhra Pradesh',
     'Arunachal Pradesh',
@@ -81,7 +73,6 @@ class AppConstants {
     'West Bengal',
   ];
 
-  // Category Types
   static const List<String> categoryTypes = [
     'Residential',
     'Commercial',
@@ -89,10 +80,8 @@ class AppConstants {
     'Institutional',
   ];
 
-  // Gender Options
   static const List<String> genderOptions = ['Male', 'Female', 'Other'];
 
-  // Loan Status Options
   static const List<String> loanStatusOptions = [
     'Not Applied',
     'Applied',
@@ -102,7 +91,6 @@ class AppConstants {
     'Disbursed',
   ];
 
-  // Feasibility Status Options
   static const List<String> feasibilityStatusOptions = [
     'Pending',
     'Under Review',

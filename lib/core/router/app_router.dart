@@ -13,8 +13,6 @@ import '../../screens/inventory/inventory_screen.dart';
 import '../../screens/settings/settings_screen.dart';
 import '../../services/supabase_service.dart';
 
-/// Tracks whether the user is logged in via the hardcoded demo bypass.
-/// This lets the router allow navigation even when Supabase is offline.
 class DemoSession {
   DemoSession._();
   static bool _active = false;

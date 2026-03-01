@@ -38,9 +38,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       backgroundColor: AppTheme.backgroundColor,
       body: Column(
         children: [
-          // Header
           _buildHeader(context, inventoryState),
-          // Content
           Expanded(
             child:
                 inventoryState.isLoading
@@ -81,7 +79,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title + Stats
           Row(
             children: [
               Expanded(
@@ -103,7 +100,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   ],
                 ),
               ),
-              // Quick stats
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -143,7 +139,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // Search bar
           TextField(
             controller: _searchController,
             onChanged: (value) {
@@ -231,7 +226,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   Widget _buildInventoryList(InventoryState state) {
     final items = state.filteredItems;
 
-    // Group items by company Name
     final Map<String, List<SolarInventoryItem>> groupedItems = {};
     for (var item in items) {
       if (!groupedItems.containsKey(item.companyName)) {
@@ -321,7 +315,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Card header
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -412,7 +405,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     ],
                   ),
                 ),
-                // Status badge
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -433,7 +425,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               ],
             ),
           ),
-          // Models List
           ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: items.length,
@@ -444,7 +435,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               return _buildModelListItem(items[index]);
             },
           ),
-          // Bottom Summary
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Row(
@@ -476,7 +466,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               ],
             ),
           ),
-          // Progress bar
           ClipRRect(
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(16),
@@ -576,7 +565,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 ],
               ),
             ),
-            // Actions
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -701,7 +689,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     );
   }
 
-  // ===================== DIALOGS =====================
 
   void _showAddInventoryDialog(BuildContext context) {
     showDialog(
@@ -837,7 +824,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 }
 
-// ===================== ADD/EDIT DIALOG =====================
 
 class _AddEditInventoryDialog extends StatefulWidget {
   final SolarInventoryItem? existingItem;
@@ -879,11 +865,9 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
   final _invoiceController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  // Single edit mode controllers
   final _modelController = TextEditingController();
   bool _isDcrEdit = true;
 
-  // Add multiple mode state
   final _dcrInputController = TextEditingController();
   final _dcrCapacityController = TextEditingController();
   final _dcrQuantityController = TextEditingController();
@@ -895,7 +879,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
 
   bool _isLoading = false;
 
-  // Preset company names for quick selection
   static const List<String> _commonCompanies = [
     'Adani Solar',
     'Tata Power Solar',
@@ -956,7 +939,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Dialog header
               Row(
                 children: [
                   Container(
@@ -1009,7 +991,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Company name field
                       Text(
                         'Solar Panel Company *',
                         style: AppTextStyles.bodySmall.copyWith(
@@ -1059,7 +1040,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Capacity and Quantity in a row
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1140,7 +1120,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                       const SizedBox(height: 16),
 
                       if (isEdit) ...[
-                        // Single model view for edit
                         Text(
                           'Panel Model / Series *',
                           style: AppTextStyles.bodySmall.copyWith(
@@ -1361,7 +1340,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                       ],
 
                       const SizedBox(height: 16),
-                      // Invoice Number
                       Text(
                         'Invoice Number (Optional)',
                         style: AppTextStyles.bodySmall.copyWith(
@@ -1382,7 +1360,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // Description
                       Text(
                         'Notes / Description (Optional)',
                         style: AppTextStyles.bodySmall.copyWith(
@@ -1404,7 +1381,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                 ),
               ),
 
-              // Action buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -1468,7 +1444,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
       capCtrl.clear();
       qtyCtrl.clear();
 
-      // Keep focus on the model field after adding
       FocusScope.of(context).previousFocus();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1505,7 +1480,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Custom validation for add mode
     if (widget.existingItem == null &&
         _dcrModels.isEmpty &&
         _nonDcrModels.isEmpty) {
@@ -1577,7 +1551,6 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
   }
 }
 
-// ===================== ASSIGNMENTS DIALOG =====================
 
 class _AssignmentsDialog extends StatelessWidget {
   final SolarInventoryItem item;
@@ -1595,7 +1568,6 @@ class _AssignmentsDialog extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Row(
               children: [
                 Container(
@@ -1638,7 +1610,6 @@ class _AssignmentsDialog extends StatelessWidget {
             ),
 
             const SizedBox(height: 16),
-            // Summary row
             Row(
               children: [
                 _summaryChip(
@@ -1670,7 +1641,6 @@ class _AssignmentsDialog extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Assignments list
             Expanded(child: _AssignmentsList(inventoryItemId: item.id)),
           ],
         ),
@@ -1818,8 +1788,6 @@ class _AssignmentsList extends ConsumerWidget {
   }
 }
 
-// ===================== SOLAR PANEL PICKER WIDGET =====================
-// Used in vendor selection / application form
 
 class SolarPanelPickerWidget extends ConsumerStatefulWidget {
   final String? initialInventoryItemId;
@@ -1857,7 +1825,6 @@ class _SolarPanelPickerWidgetState
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Already assigned panels
         appAssignmentsAsync.when(
           loading: () => const SizedBox.shrink(),
           error: (_, __) => const SizedBox.shrink(),
@@ -1888,7 +1855,6 @@ class _SolarPanelPickerWidgetState
             );
           },
         ),
-        // Assign new panel
         Text(
           'Assign Panel from Inventory',
           style: AppTextStyles.bodySmall.copyWith(
@@ -2176,7 +2142,6 @@ class _SolarPanelPickerWidgetState
                               ? null
                               : notesController.text.trim(),
                     );
-                    // Refresh providers
                     ref.invalidate(availableInventoryProvider);
                     ref.invalidate(
                       applicationInventoryProvider(widget.applicationId),

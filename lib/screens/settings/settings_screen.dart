@@ -16,14 +16,9 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _checkingForUpdates = false;
 
-  // ─── UPDATE CONFIG ────────────────────────────────────────────────
-  // Replace with your actual GitHub username and repo name
   static const String _versionJsonUrl =
       'https://raw.githubusercontent.com/priyanshushikarwal/CRM-updates/main/version.json';
-  // ─────────────────────────────────────────────────────────────────
 
-  /// Compares two semantic version strings numerically.
-  /// Returns true if [remote] is newer than [local].
   bool _isNewerVersion(String local, String remote) {
     final localParts = local.split('.').map(int.tryParse).toList();
     final remoteParts = remote.split('.').map(int.tryParse).toList();
@@ -154,7 +149,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Page header
           Text(
             'Settings',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -170,7 +164,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 24),
-          // Updates section
           _buildSectionCard(
             title: 'Updates',
             icon: Icons.system_update_alt_rounded,

@@ -58,7 +58,6 @@ class _ApplicationsListScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -92,7 +91,6 @@ class _ApplicationsListScreenState
               ),
               Row(
                 children: [
-                  // Export buttons
                   if (!isMobile) ...[
                     OutlinedButton.icon(
                       onPressed: () {
@@ -122,7 +120,6 @@ class _ApplicationsListScreenState
                     ),
                     const SizedBox(width: 12),
                   ],
-                  // Add button - only visible to users who can edit
                   if (canEdit)
                     ElevatedButton.icon(
                       onPressed: () => context.go('/applications/add'),
@@ -134,7 +131,6 @@ class _ApplicationsListScreenState
             ],
           ),
           const SizedBox(height: 24),
-          // Filters section
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -146,7 +142,6 @@ class _ApplicationsListScreenState
               children: [
                 Row(
                   children: [
-                    // Search field
                     Expanded(
                       flex: 3,
                       child: TextField(
@@ -176,7 +171,6 @@ class _ApplicationsListScreenState
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Status filter
                     if (!isMobile) ...[
                       Expanded(
                         flex: 2,
@@ -207,7 +201,6 @@ class _ApplicationsListScreenState
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // State filter
                       Expanded(
                         flex: 2,
                         child: DropdownButtonFormField<String?>(
@@ -238,7 +231,6 @@ class _ApplicationsListScreenState
                       ),
                     ],
                     const SizedBox(width: 16),
-                    // Filter button
                     OutlinedButton.icon(
                       onPressed: () {
                         _showFilterDialog(context);
@@ -252,7 +244,6 @@ class _ApplicationsListScreenState
             ),
           ),
           const SizedBox(height: 24),
-          // Applications table
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -324,7 +315,6 @@ class _ApplicationsListScreenState
   ) {
     return Column(
       children: [
-        // Table header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
@@ -386,7 +376,6 @@ class _ApplicationsListScreenState
             ],
           ),
         ),
-        // Table body
         Expanded(
           child: ListView.separated(
             itemCount: applications.length,
@@ -477,7 +466,6 @@ class _ApplicationsListScreenState
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Quick Progress View button (icon only)
                   Tooltip(
                     message: 'View Progress',
                     child: InkWell(
@@ -586,9 +574,6 @@ class _ApplicationsListScreenState
     );
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // CSV Export
-  // ─────────────────────────────────────────────────────────────
   Future<void> _exportToCSV(List<ApplicationModel> applications) async {
     if (applications.isEmpty) {
       ScaffoldMessenger.of(
@@ -599,7 +584,6 @@ class _ApplicationsListScreenState
 
     final fmt = DateFormat('dd-MM-yyyy');
 
-    // Header row
     final headers = [
       'Sr.No.',
       'Application Number',
@@ -702,9 +686,6 @@ class _ApplicationsListScreenState
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // MIS PDF Export
-  // ─────────────────────────────────────────────────────────────
   Future<void> _exportToPDF(List<ApplicationModel> applications) async {
     if (applications.isEmpty) {
       ScaffoldMessenger.of(
@@ -716,7 +697,6 @@ class _ApplicationsListScreenState
     final fmt = DateFormat('dd-MM-yyyy');
     final now = DateTime.now();
 
-    // ── Create PDF document ──
     final document = PdfDocument();
     document.pageSettings.orientation = PdfPageOrientation.landscape;
     document.pageSettings.margins.all = 20;
@@ -724,7 +704,6 @@ class _ApplicationsListScreenState
     final page = document.pages.add();
     final pageWidth = page.getClientSize().width;
 
-    // ── Fonts ──
     final titleFont = PdfStandardFont(
       PdfFontFamily.helvetica,
       16,
@@ -740,7 +719,6 @@ class _ApplicationsListScreenState
 
     double yPos = 0;
 
-    // ── Header ──
     page.graphics.drawString(
       AppConstants.companyName,
       titleFont,
@@ -764,7 +742,6 @@ class _ApplicationsListScreenState
     );
     yPos += 20;
 
-    // Divider line
     page.graphics.drawLine(
       PdfPen(PdfColor(30, 64, 175), width: 1.5),
       Offset(0, yPos),
@@ -772,7 +749,6 @@ class _ApplicationsListScreenState
     );
     yPos += 10;
 
-    // ── Summary Stats Box ──
     final pending =
         applications
             .where(
@@ -841,7 +817,6 @@ class _ApplicationsListScreenState
     }
     yPos += 44;
 
-    // ── Main Table ──
     final tableHeaders = [
       'Sr.',
       'App. No.',
@@ -871,7 +846,6 @@ class _ApplicationsListScreenState
       65.0,
     ];
 
-    // Table header row
     double xPos = 0;
     for (var i = 0; i < tableHeaders.length; i++) {
       page.graphics.drawRectangle(
@@ -889,7 +863,6 @@ class _ApplicationsListScreenState
     }
     yPos += 18;
 
-    // Table data rows
     for (var rowIdx = 0; rowIdx < applications.length; rowIdx++) {
       final app = applications[rowIdx];
       final rowData = [
@@ -907,10 +880,8 @@ class _ApplicationsListScreenState
         fmt.format(app.applicationSubmissionDate),
       ];
 
-      // Row height
       const rowH = 14.0;
 
-      // Alternate row shading
       if (rowIdx % 2 == 0) {
         page.graphics.drawRectangle(
           brush: PdfSolidBrush(PdfColor(239, 246, 255)),
@@ -934,7 +905,6 @@ class _ApplicationsListScreenState
         xPos += colWidths[col];
       }
 
-      // Bottom border
       page.graphics.drawLine(
         PdfPen(PdfColor(220, 220, 220)),
         Offset(0, yPos + rowH),
@@ -942,12 +912,10 @@ class _ApplicationsListScreenState
       );
       yPos += rowH;
 
-      // Add new page if needed
       if (yPos > page.getClientSize().height - 30 &&
           rowIdx < applications.length - 1) {
         final newPage = document.pages.add();
         yPos = 0;
-        // Redraw header on new page
         xPos = 0;
         for (var i = 0; i < tableHeaders.length; i++) {
           newPage.graphics.drawRectangle(
@@ -966,7 +934,6 @@ class _ApplicationsListScreenState
       }
     }
 
-    // Footer on last page
     final lastPage = document.pages[document.pages.count - 1];
     lastPage.graphics.drawString(
       '© ${now.year} ${AppConstants.companyName} | Confidential MIS Report',
@@ -980,7 +947,6 @@ class _ApplicationsListScreenState
       ),
     );
 
-    // ── Save & Download ──
     final List<int> bytes = document.saveSync();
     document.dispose();
 
@@ -1106,7 +1072,6 @@ class _ApplicationsListScreenState
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1160,7 +1125,6 @@ class _ApplicationsListScreenState
                     ],
                   ),
                   const SizedBox(height: 28),
-                  // Horizontal stepper
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -1177,13 +1141,11 @@ class _ApplicationsListScreenState
                             return Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Step column
                                 SizedBox(
                                   width: 90,
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      // Circle
                                       Container(
                                         width: 40,
                                         height: 40,
@@ -1228,7 +1190,6 @@ class _ApplicationsListScreenState
                                         ),
                                       ),
                                       const SizedBox(height: 10),
-                                      // Step label
                                       Text(
                                         _getStatusDisplayName(status),
                                         textAlign: TextAlign.center,
@@ -1247,7 +1208,6 @@ class _ApplicationsListScreenState
                                         ),
                                       ),
                                       const SizedBox(height: 4),
-                                      // Status badge
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 6,
@@ -1287,7 +1247,6 @@ class _ApplicationsListScreenState
                                     ],
                                   ),
                                 ),
-                                // Connector line
                                 if (!isLast)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 19),
@@ -1309,7 +1268,6 @@ class _ApplicationsListScreenState
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Progress bar
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

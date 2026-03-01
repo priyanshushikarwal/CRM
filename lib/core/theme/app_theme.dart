@@ -1,35 +1,29 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Primary colors - Professional Blue theme inspired by government portals
   static const Color primaryColor = Color(0xFF1E3A5F);
   static const Color primaryLight = Color(0xFF2E5077);
   static const Color primaryDark = Color(0xFF0F2744);
 
-  // Accent colors
   static const Color accentColor = Color(0xFF00A86B);
   static const Color accentLight = Color(0xFF4CAF50);
   static const Color warningColor = Color(0xFFFFA726);
   static const Color errorColor = Color(0xFFE53935);
   static const Color successColor = Color(0xFF43A047);
 
-  // Background colors
   static const Color backgroundColor = Color(0xFFF5F7FA);
   static const Color surfaceColor = Colors.white;
   static const Color cardColor = Colors.white;
 
-  // Text colors
   static const Color textPrimary = Color(0xFF1A1A2E);
   static const Color textSecondary = Color(0xFF6B7280);
   static const Color textLight = Color(0xFF9CA3AF);
 
-  // Status colors
   static const Color statusCompleted = Color(0xFF4CAF50);
   static const Color statusInProgress = Color(0xFF2196F3);
   static const Color statusPending = Color(0xFF9E9E9E);
   static const Color statusRejected = Color(0xFFE53935);
 
-  // Border colors
   static const Color borderColor = Color(0xFFE5E7EB);
   static const Color dividerColor = Color(0xFFE5E7EB);
 
@@ -161,7 +155,6 @@ class AppTheme {
   }
 }
 
-// Text styles
 class AppTextStyles {
   static const TextStyle heading1 = TextStyle(
     fontFamily: 'Inter',

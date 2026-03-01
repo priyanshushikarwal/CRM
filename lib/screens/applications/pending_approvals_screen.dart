@@ -96,7 +96,6 @@ class _PendingApprovalsScreenState
               ],
             ),
           ),
-          // Refresh button
           IconButton(
             onPressed: _loadPendingApplications,
             icon: const Icon(Icons.refresh_rounded),
@@ -162,7 +161,6 @@ class _PendingApprovalsScreenState
       ),
       child: Column(
         children: [
-          // Card Header
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -222,12 +220,10 @@ class _PendingApprovalsScreenState
               ],
             ),
           ),
-          // Card Body
           Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // Application details
                 Row(
                   children: [
                     Expanded(
@@ -261,10 +257,8 @@ class _PendingApprovalsScreenState
                   ],
                 ),
                 const SizedBox(height: 20),
-                // Action buttons
                 Row(
                   children: [
-                    // View Details button
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
@@ -275,7 +269,6 @@ class _PendingApprovalsScreenState
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Approve button
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => _showApprovalDialog(app, true),
@@ -287,7 +280,6 @@ class _PendingApprovalsScreenState
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Request Changes button
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => _showChangesDialog(app),
@@ -299,7 +291,6 @@ class _PendingApprovalsScreenState
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Reject button
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => _showApprovalDialog(app, false),

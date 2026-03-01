@@ -101,7 +101,6 @@ class UserModel {
     }
   }
 
-  // Permission helpers
   bool get isSuperAdmin => role == UserRole.superadmin;
   bool get isAdmin => role == UserRole.admin || role == UserRole.superadmin;
   bool get canEdit =>

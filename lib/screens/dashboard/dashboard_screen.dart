@@ -21,7 +21,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Load applications on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(applicationsProvider.notifier).loadApplications();
     });
@@ -36,14 +35,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       body: Row(
         children: [
-          // Sidebar (Desktop only)
           if (isDesktop)
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: _isCollapsed ? 80 : 260,
               child: _buildSidebar(context, _isCollapsed),
             ),
-          // Main content
           Expanded(
             child: Column(
               children: [
@@ -79,7 +76,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       child: Column(
         children: [
-          // Logo section
           Container(
             height: 80,
             padding: EdgeInsets.symmetric(
@@ -129,7 +125,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Navigation items
           Expanded(
             child: Consumer(
               builder: (context, ref, child) {
@@ -163,7 +158,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         isCollapsed: isCollapsed,
                       ),
                       const SizedBox(height: 8),
-                      // Pending Approvals - only visible to admins and superadmins
                       if (canManageUsers) ...[
                         _buildNavItem(
                           context,
@@ -216,7 +210,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               },
             ),
           ),
-          // Collapse button
           if (MediaQuery.of(context).size.width > 900)
             Padding(
               padding: const EdgeInsets.all(12),
@@ -256,7 +249,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
             ),
-          // Version label
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(
@@ -275,7 +267,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               textAlign: isCollapsed ? TextAlign.center : TextAlign.left,
             ),
           ),
-          // User section
           Consumer(
             builder: (context, ref, child) {
               final currentUserAsync = ref.watch(currentUserProvider);
@@ -379,7 +370,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           if (!isActive) {
             context.go(route);
           }
-          // Close drawer on mobile
           if (MediaQuery.of(context).size.width < 900) {
             Navigator.of(context).pop();
           }
@@ -466,7 +456,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ),
       child: Row(
         children: [
-          // Menu button (mobile/tablet)
           if (!isDesktop)
             IconButton(
               icon: const Icon(Icons.menu_rounded),
@@ -474,7 +463,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 Scaffold.of(context).openDrawer();
               },
             ),
-          // Title
           if (!isMobile)
             Text(
               title,
@@ -483,23 +471,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
           const Spacer(),
-          // Search button
           IconButton(
             icon: const Icon(Icons.search_rounded),
             color: AppTheme.textSecondary,
             onPressed: () {
-              // TODO: Implement global search
             },
           ),
           const SizedBox(width: 8),
-          // Notifications
           Stack(
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined),
                 color: AppTheme.textSecondary,
                 onPressed: () {
-                  // TODO: Implement notifications
                 },
               ),
               Positioned(
@@ -520,7 +504,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const SizedBox(width: 16),
             Container(width: 1, height: 32, color: AppTheme.borderColor),
             const SizedBox(width: 16),
-            // Company badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -575,7 +558,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
 
     if (shouldLogout == true) {
-      // Invalidate the current user provider to clear cached data
       ref.invalidate(currentUserProvider);
       await SupabaseService.signOut();
       if (context.mounted) {
@@ -585,7 +567,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
-// Dashboard Overview Widget
 class DashboardOverviewContent extends ConsumerWidget {
   const DashboardOverviewContent({super.key});
 
@@ -599,7 +580,6 @@ class DashboardOverviewContent extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Welcome section
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -667,7 +647,6 @@ class DashboardOverviewContent extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          // Stats cards
           LayoutBuilder(
             builder: (context, constraints) {
               final crossAxisCount =
@@ -718,7 +697,6 @@ class DashboardOverviewContent extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 24),
-          // Recent applications section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -966,7 +944,6 @@ class DashboardOverviewContent extends ConsumerWidget {
   }
 
   Color _getStatusColor(dynamic status) {
-    // Simple mapping for status colors
     return AppTheme.statusInProgress;
   }
 }

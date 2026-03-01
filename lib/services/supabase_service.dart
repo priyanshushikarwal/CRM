@@ -23,7 +23,6 @@ class SupabaseService {
 
   static bool get isInitialized => _client != null;
 
-  // Auth methods
   static User? get currentUser => _client?.auth.currentUser;
   static bool get isLoggedIn => currentUser != null;
 
@@ -60,12 +59,9 @@ class SupabaseService {
     await client.auth.resetPasswordForEmail(email);
   }
 
-  // Database methods
   static SupabaseQueryBuilder from(String table) => client.from(table);
 
-  // Storage methods
   static SupabaseStorageClient get storage => client.storage;
 
-  // Realtime methods
   static RealtimeChannel channel(String name) => client.channel(name);
 }

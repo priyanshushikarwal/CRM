@@ -93,7 +93,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -110,7 +109,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                         ),
                       ],
                     ),
-                    // Info chip about registration
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -141,7 +139,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                // Search bar
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -162,10 +159,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Stats cards
                 _buildStatsRow(),
                 const SizedBox(height: 24),
-                // Users table
                 Expanded(
                   child:
                       _isLoading
@@ -318,7 +313,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
       ),
       child: Column(
         children: [
-          // Table header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
@@ -374,7 +368,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
               ],
             ),
           ),
-          // Table rows
           Expanded(
             child: ListView.builder(
               itemCount: users.length,

@@ -99,7 +99,6 @@ class SolarInventoryItem {
   }
 }
 
-// Model to track which solar panel is assigned to which application
 @immutable
 class SolarAssignment {
   final String id;

@@ -107,7 +107,6 @@ class _ApplicationDetailsScreenState
         return Scaffold(
           body: Row(
             children: [
-              // Main content
               Expanded(
                 child: Column(
                   children: [
@@ -115,9 +114,7 @@ class _ApplicationDetailsScreenState
                     Expanded(
                       child: Row(
                         children: [
-                          // Details content
                           Expanded(child: _buildDetailsContent(application)),
-                          // Tracking panel (desktop)
                           if (isDesktop && _showTrackingPanel)
                             Container(
                               width: 350,
@@ -187,7 +184,6 @@ class _ApplicationDetailsScreenState
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Approval status badge
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -230,7 +226,6 @@ class _ApplicationDetailsScreenState
               ],
             ),
           ),
-          // Action buttons
           OutlinedButton.icon(
             onPressed: () {
               setState(() {
@@ -247,7 +242,6 @@ class _ApplicationDetailsScreenState
             label: const Text('Edit'),
           ),
           const SizedBox(width: 12),
-          // Admin approval buttons - only show if pending and user can manage users
           Consumer(
             builder: (context, ref, child) {
               final currentUser = ref.watch(currentUserProvider).value;
@@ -325,10 +319,8 @@ class _ApplicationDetailsScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Progress bar
           _buildProgressTracker(app),
           const SizedBox(height: 24),
-          // Details sections
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -431,7 +423,6 @@ class _ApplicationDetailsScreenState
                       ],
                     ),
                     const SizedBox(height: 20),
-                    // ── Solar Panel Inventory Picker ──
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -545,7 +536,6 @@ class _ApplicationDetailsScreenState
             ],
           ),
           const SizedBox(height: 24),
-          // Documents section
           _buildDocumentsSection(app),
         ],
       ),
@@ -883,7 +873,6 @@ class _ApplicationDetailsScreenState
     );
   }
 
-  // ───── Document Upload Dialog ─────
   void _showUploadDocumentDialog(BuildContext context, ApplicationModel app) {
     String selectedDocType = AppConstants.documentTypes.first;
     PlatformFile? pickedFile;
@@ -907,7 +896,6 @@ class _ApplicationDetailsScreenState
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -931,7 +919,6 @@ class _ApplicationDetailsScreenState
                         ),
                         const SizedBox(height: 24),
 
-                        // Document Type Dropdown
                         DropdownButtonFormField<String>(
                           value: selectedDocType,
                           decoration: const InputDecoration(
@@ -954,7 +941,6 @@ class _ApplicationDetailsScreenState
                         ),
                         const SizedBox(height: 20),
 
-                        // File Picker
                         GestureDetector(
                           onTap:
                               isUploading
@@ -1096,7 +1082,6 @@ class _ApplicationDetailsScreenState
 
                         const SizedBox(height: 24),
 
-                        // Upload button
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
@@ -1140,7 +1125,6 @@ class _ApplicationDetailsScreenState
                                           mimeType: mimeType,
                                         );
 
-                                        // Refresh documents list
                                         ref.invalidate(
                                           documentsProvider(app.id),
                                         );
@@ -1195,7 +1179,6 @@ class _ApplicationDetailsScreenState
   Widget _buildDocumentsTable(List<DocumentModel> documents) {
     return Column(
       children: [
-        // Table header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -1212,7 +1195,6 @@ class _ApplicationDetailsScreenState
             ],
           ),
         ),
-        // Table rows
         ...documents.asMap().entries.map((entry) {
           final index = entry.key;
           final doc = entry.value;
@@ -1544,11 +1526,9 @@ class _ApplicationDetailsScreenState
     }
   }
 
-  // Build action menu items based on current status
   List<PopupMenuEntry<String>> _buildActionMenuItems(ApplicationModel app) {
     final items = <PopupMenuEntry<String>>[];
 
-    // Get the next status if available
     final currentIndex = app.currentStatus.index;
     final canAdvance = currentIndex < ApplicationStatus.values.length - 1;
 
@@ -1573,7 +1553,6 @@ class _ApplicationDetailsScreenState
       items.add(const PopupMenuDivider());
     }
 
-    // Add specific actions based on current status
     switch (app.currentStatus) {
       case ApplicationStatus.consumerRegistration:
         items.add(
@@ -1715,7 +1694,6 @@ class _ApplicationDetailsScreenState
         break;
     }
 
-    // Add common actions
     items.add(const PopupMenuDivider());
     items.add(
       const PopupMenuItem(
@@ -1745,7 +1723,6 @@ class _ApplicationDetailsScreenState
     return items;
   }
 
-  // Handle action selection
   Future<void> _handleActionSelection(
     String action,
     ApplicationModel app,
@@ -1794,7 +1771,6 @@ class _ApplicationDetailsScreenState
         actionRemarks = 'Project commissioned successfully';
         break;
       case 'process_subsidy':
-        // Already at final status, show a message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1819,13 +1795,11 @@ class _ApplicationDetailsScreenState
     }
   }
 
-  // Update application status
   Future<void> _updateApplicationStatus(
     ApplicationModel app,
     ApplicationStatus newStatus,
     String? remarks,
   ) async {
-    // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1857,13 +1831,11 @@ class _ApplicationDetailsScreenState
             remarks: remarks,
           );
 
-      // Close loading dialog first
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
 
       if (result != null) {
-        // Refresh the application data
         ref.invalidate(applicationProvider(widget.applicationId));
 
         if (mounted) {
@@ -1877,7 +1849,6 @@ class _ApplicationDetailsScreenState
           );
         }
       } else {
-        // result was null, meaning an error occurred in the provider
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1888,7 +1859,6 @@ class _ApplicationDetailsScreenState
         }
       }
     } catch (e) {
-      // Close loading dialog first
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
@@ -1904,7 +1874,6 @@ class _ApplicationDetailsScreenState
     }
   }
 
-  // Show manual status update dialog
   Future<void> _showUpdateStatusDialog(ApplicationModel app) async {
     ApplicationStatus? selectedStatus = app.currentStatus;
     final remarksController = TextEditingController();
@@ -2032,7 +2001,6 @@ class _ApplicationDetailsScreenState
     }
   }
 
-  // Show status history dialog
   Future<void> _showStatusHistoryDialog(ApplicationModel app) async {
     await showDialog(
       context: context,
@@ -2301,7 +2269,6 @@ class _ApplicationDetailsScreenState
     if (result != true) return;
 
     try {
-      // Show loading
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -2341,10 +2308,8 @@ class _ApplicationDetailsScreenState
           break;
       }
 
-      // Close loading
       if (mounted) Navigator.pop(context);
 
-      // Refresh the application
       ref.invalidate(applicationProvider(widget.applicationId));
       ref.read(applicationsProvider.notifier).loadApplications();
 

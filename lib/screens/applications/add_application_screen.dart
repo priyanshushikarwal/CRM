@@ -27,7 +27,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
   bool _isLoading = false;
   bool _isEditing = false;
 
-  // Controllers - Application Details
   final _fullNameController = TextEditingController();
   final _addressController = TextEditingController();
   final _pincodeController = TextEditingController();
@@ -39,14 +38,12 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
   final _divisionNameController = TextEditingController();
   final _subdivisionNameController = TextEditingController();
 
-  // Controllers - Bank Details
   final _bankNameController = TextEditingController();
   final _ifscCodeController = TextEditingController();
   final _accountHolderNameController = TextEditingController();
   final _accountNumberController = TextEditingController();
   final _bankRemarksController = TextEditingController();
 
-  // Controllers - Solar Details
   final _sanctionedLoadController = TextEditingController();
   final _proposedCapacityController = TextEditingController();
   final _latitudeController = TextEditingController();
@@ -55,18 +52,15 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
   final _netEligibleCapacityController = TextEditingController();
   final _vendorNameController = TextEditingController();
 
-  // Controllers - Loan Details
   final _loanApplicationNumberController = TextEditingController();
   final _sanctionAmountController = TextEditingController();
   final _processingFeesController = TextEditingController();
 
-  // Controllers - Feasibility Details
   final _feasibilityPersonController = TextEditingController();
   final _approvedCapacityController = TextEditingController();
   final _remarksController = TextEditingController();
   final _subsidyAmountController = TextEditingController();
 
-  // Dropdown values
   String? _selectedState;
   String? _selectedDiscom;
   String _selectedGender = 'Male';
@@ -75,7 +69,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
   String _selectedFeasibilityStatus = 'Pending';
   bool _giveUpSubsidy = false;
 
-  // Dates
   DateTime _applicationDate = DateTime.now();
   DateTime? _sanctionDate;
   DateTime? _feasibilityDate;
@@ -89,7 +82,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
     if (_isEditing) {
       _loadApplicationData();
     } else {
-      // Set default values
       _selectedState = 'Rajasthan';
       _vendorNameController.text = AppConstants.companyName;
     }
@@ -103,7 +95,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
         widget.applicationId!,
       );
       if (app != null) {
-        // Populate all fields
         _fullNameController.text = app.fullName;
         _addressController.text = app.address;
         _pincodeController.text = app.pincode;
@@ -167,7 +158,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
 
   @override
   void dispose() {
-    // Dispose all controllers
     _fullNameController.dispose();
     _addressController.dispose();
     _pincodeController.dispose();
@@ -1009,7 +999,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          // ── Solar Panel from Inventory ──
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1394,7 +1383,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
                 label: const Text('Next'),
               )
             else ...[
-              // Save as Draft button
               OutlinedButton.icon(
                 onPressed:
                     _isLoading ? null : () => _handleSubmit(asDraft: true),
@@ -1402,7 +1390,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
                 label: const Text('Save as Draft'),
               ),
               const SizedBox(width: 12),
-              // Submit for Approval button
               ElevatedButton.icon(
                 onPressed:
                     _isLoading ? null : () => _handleSubmit(asDraft: false),
@@ -1432,7 +1419,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
   }
 
   bool _validateCurrentStep() {
-    // Basic validation for required fields
     switch (_currentStep) {
       case 0:
         if (_selectedState == null ||
@@ -1555,7 +1541,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
         remarks:
             _remarksController.text.isNotEmpty ? _remarksController.text : null,
         subsidyAmount: double.tryParse(_subsidyAmountController.text),
-        // Approval workflow fields
         approvalStatus: asDraft ? ApprovalStatus.draft : ApprovalStatus.pending,
         submittedBy: asDraft ? null : currentUser?.id,
         createdAt: now,
@@ -1568,7 +1553,6 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
         await ApplicationService.createApplication(application);
       }
 
-      // Refresh applications list
       ref.read(applicationsProvider.notifier).loadApplications();
 
       if (mounted) {

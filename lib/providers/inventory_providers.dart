@@ -3,7 +3,6 @@ import 'package:uuid/uuid.dart';
 import '../models/inventory_model.dart';
 import '../services/inventory_service.dart';
 
-// ===================== INVENTORY STATE =====================
 
 class InventoryState {
   final List<SolarInventoryItem> items;
@@ -54,7 +53,6 @@ class InventoryState {
   }
 }
 
-// ===================== INVENTORY NOTIFIER =====================
 
 class InventoryNotifier extends Notifier<InventoryState> {
   @override
@@ -219,7 +217,6 @@ final inventoryProvider = NotifierProvider<InventoryNotifier, InventoryState>(
   },
 );
 
-// Provider for assignments of a specific inventory item
 final itemAssignmentsProvider =
     FutureProvider.family<List<SolarAssignment>, String>((
       ref,
@@ -228,7 +225,6 @@ final itemAssignmentsProvider =
       return await InventoryService.fetchAssignmentsForItem(inventoryItemId);
     });
 
-// Provider for assignments of a specific application
 final applicationInventoryProvider = FutureProvider.family<
   List<SolarAssignment>,
   String
@@ -236,7 +232,6 @@ final applicationInventoryProvider = FutureProvider.family<
   return await InventoryService.fetchAssignmentsForApplication(applicationId);
 });
 
-// Provider for available inventory (for vendor selection dropdown)
 final availableInventoryProvider = FutureProvider<List<SolarInventoryItem>>((
   ref,
 ) async {

@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class UpdaterService {
-  /// Downloads a file from [url] to [savePath] with streaming progress.
-  /// [onProgress] receives a value between 0.0 and 1.0.
   Future<void> downloadUpdate(
     String url,
     String savePath,
@@ -42,15 +40,10 @@ class UpdaterService {
     }
   }
 
-  /// Installs the downloaded ZIP update and restarts the application.
-  /// The ZIP must contain the full release folder (EXE + DLLs + data/).
-  /// A hidden PowerShell script extracts, backs up, replaces, and relaunches.
   Future<void> installUpdateAndRestart(String downloadedZipPath) async {
     final currentExePath = Platform.resolvedExecutable;
-    // The app install directory (where the EXE + DLLs + data/ live)
     final appDir = File(currentExePath).parent.path;
 
-    // Check if app is in a protected directory (Program Files etc.)
     final needsElevation = appDir.toLowerCase().contains('program files');
 
     final scriptContent = _generateUpdaterScript(
@@ -67,7 +60,6 @@ class UpdaterService {
     await scriptFile.writeAsString(scriptContent);
 
     if (needsElevation) {
-      // Launch PowerShell as Administrator using Start-Process -Verb RunAs
       await Process.start('powershell', [
         '-NoProfile',
         '-ExecutionPolicy',
@@ -92,13 +84,6 @@ class UpdaterService {
     exit(0);
   }
 
-  /// Generates a PowerShell script that:
-  /// 1. Waits for the app to exit
-  /// 2. Backs up the current app folder to <appDir>_backup
-  /// 3. Extracts the ZIP into a temp folder
-  /// 4. Copies all extracted files (EXE + DLLs + data/) over the app folder
-  /// 5. Restarts the app
-  /// 6. Cleans up temp files and itself
   String _generateUpdaterScript(
     String currentExePath,
     String appDir,
@@ -200,7 +185,6 @@ try {
 """;
   }
 
-  /// Escapes a path string for safe embedding in PowerShell single-quoted strings.
   String _escapePowerShellPath(String path) {
     return path.replaceAll("'", "''");
   }

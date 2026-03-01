@@ -6,9 +6,7 @@ import 'supabase_service.dart';
 class InventoryService {
   static const _uuid = Uuid();
 
-  // ===================== INVENTORY ITEMS =====================
 
-  // Fetch all inventory items
   static Future<List<SolarInventoryItem>> fetchAllInventory() async {
     try {
       final response = await SupabaseService.from(
@@ -26,7 +24,6 @@ class InventoryService {
     }
   }
 
-  // Fetch available inventory items only
   static Future<List<SolarInventoryItem>> fetchAvailableInventory() async {
     try {
       final response = await SupabaseService.from(
@@ -45,7 +42,6 @@ class InventoryService {
     }
   }
 
-  // Add new inventory item
   static Future<SolarInventoryItem> addInventoryItem({
     required String companyName,
     required String panelModel,
@@ -80,7 +76,6 @@ class InventoryService {
     }
   }
 
-  // Add multiple inventory items
   static Future<List<SolarInventoryItem>> addMultipleInventoryItems(
     List<SolarInventoryItem> items,
   ) async {
@@ -101,7 +96,6 @@ class InventoryService {
     }
   }
 
-  // Update inventory item
   static Future<SolarInventoryItem> updateInventoryItem(
     SolarInventoryItem item,
   ) async {
@@ -120,15 +114,12 @@ class InventoryService {
     }
   }
 
-  // Delete inventory item
   static Future<void> deleteInventoryItem(String itemId) async {
     try {
-      // First delete all assignments for this item
       await SupabaseService.from(
         AppConstants.inventoryAssignmentsTable,
       ).delete().eq('inventory_item_id', itemId);
 
-      // Then delete the item
       await SupabaseService.from(
         AppConstants.inventoryTable,
       ).delete().eq('id', itemId);
@@ -138,9 +129,7 @@ class InventoryService {
     }
   }
 
-  // ===================== ASSIGNMENTS =====================
 
-  // Assign solar panel to application
   static Future<SolarAssignment> assignToApplication({
     required String inventoryItemId,
     required String applicationId,
@@ -149,7 +138,6 @@ class InventoryService {
     required int quantity,
     String? notes,
   }) async {
-    // First get current inventory item to check availability
     final inventoryResponse =
         await SupabaseService.from(
           AppConstants.inventoryTable,
@@ -175,12 +163,10 @@ class InventoryService {
       notes: notes,
     );
 
-    // Create assignment record
     await SupabaseService.from(
       AppConstants.inventoryAssignmentsTable,
     ).insert(assignment.toJson());
 
-    // Update used quantity in inventory
     await SupabaseService.from(AppConstants.inventoryTable)
         .update({
           'used_quantity': item.usedQuantity + quantity,
@@ -191,7 +177,6 @@ class InventoryService {
     return assignment;
   }
 
-  // Fetch assignments for a specific inventory item
   static Future<List<SolarAssignment>> fetchAssignmentsForItem(
     String inventoryItemId,
   ) async {
@@ -212,7 +197,6 @@ class InventoryService {
     }
   }
 
-  // Fetch assignments for a specific application
   static Future<List<SolarAssignment>> fetchAssignmentsForApplication(
     String applicationId,
   ) async {
@@ -233,7 +217,6 @@ class InventoryService {
     }
   }
 
-  // Remove assignment
   static Future<void> removeAssignment(
     String assignmentId,
     String inventoryItemId,
@@ -251,12 +234,10 @@ class InventoryService {
         item.totalQuantity,
       );
 
-      // Delete the assignment
       await SupabaseService.from(
         AppConstants.inventoryAssignmentsTable,
       ).delete().eq('id', assignmentId);
 
-      // Update inventory used count
       await SupabaseService.from(AppConstants.inventoryTable)
           .update({
             'used_quantity': newUsed,

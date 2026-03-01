@@ -14,7 +14,6 @@ enum ApplicationStatus {
 
 enum StageStatus { pending, inProgress, completed, rejected }
 
-// Approval status for admin review workflow
 enum ApprovalStatus {
   draft, // Employee is still working on it
   pending, // Submitted for admin review
@@ -29,7 +28,6 @@ class ApplicationModel {
   final String applicationNumber;
   final String? userId;
 
-  // Application Details
   final String state;
   final String discomName;
   final String fullName;
@@ -53,7 +51,6 @@ class ApplicationModel {
   final String? bankRemarks;
   final bool giveUpSubsidy;
 
-  // Solar Rooftop Details
   final double sanctionedLoad;
   final double proposedCapacity;
   final double? latitude;
@@ -63,35 +60,29 @@ class ApplicationModel {
   final double netEligibleCapacity;
   final String vendorName;
 
-  // Loan Details
   final String loanStatus;
   final String? loanApplicationNumber;
   final DateTime? sanctionDate;
   final double? sanctionAmount;
   final double? processingFees;
 
-  // Feasibility Details
   final DateTime? feasibilityDate;
   final String feasibilityStatus;
   final String? feasibilityPerson;
   final double? approvedCapacity;
   final String? remarks;
 
-  // Subsidy Details
   final double? subsidyAmount;
 
-  // Status Tracking
   final ApplicationStatus currentStatus;
   final List<StatusHistoryItem> statusHistory;
 
-  // Approval Workflow
   final ApprovalStatus approvalStatus;
   final String? submittedBy; // User ID of employee who submitted
   final String? approvedBy; // User ID of admin who approved/rejected
   final DateTime? approvalDate;
   final String? approvalRemarks; // Comments from admin
 
-  // Timestamps
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -437,7 +428,6 @@ class ApplicationModel {
   double get progressPercentage =>
       (statusIndex + 1) / ApplicationStatus.values.length * 100;
 
-  // Approval status helpers
   String get approvalStatusDisplayName {
     switch (approvalStatus) {
       case ApprovalStatus.draft:
