@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:html' as html;
-import 'dart:typed_data';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -589,7 +589,7 @@ class _ApplicationsListScreenState
   // ─────────────────────────────────────────────────────────────
   // CSV Export
   // ─────────────────────────────────────────────────────────────
-  void _exportToCSV(List<ApplicationModel> applications) {
+  Future<void> _exportToCSV(List<ApplicationModel> applications) async {
     if (applications.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -675,29 +675,37 @@ class _ApplicationsListScreenState
 
     final csvContent = rows.map((row) => row.join(',')).join('\n');
     final bytes = utf8.encode(csvContent);
-    final blob = html.Blob([Uint8List.fromList(bytes)], 'text/csv');
-    final url = html.Url.createObjectUrlFromBlob(blob);
     final fileName =
         'applications_export_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.csv';
 
-    html.AnchorElement(href: url)
-      ..setAttribute('download', fileName)
-      ..click();
-
-    html.Url.revokeObjectUrl(url);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Exported ${applications.length} applications to CSV'),
-        backgroundColor: AppTheme.successColor,
-      ),
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save CSV Export',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
     );
+
+    if (result != null) {
+      final file = File(result);
+      await file.writeAsBytes(bytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Exported ${applications.length} applications to CSV',
+            ),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────────
   // MIS PDF Export
   // ─────────────────────────────────────────────────────────────
-  void _exportToPDF(List<ApplicationModel> applications) {
+  Future<void> _exportToPDF(List<ApplicationModel> applications) async {
     if (applications.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -976,23 +984,29 @@ class _ApplicationsListScreenState
     final List<int> bytes = document.saveSync();
     document.dispose();
 
-    final blob = html.Blob([Uint8List.fromList(bytes)], 'application/pdf');
-    final url = html.Url.createObjectUrlFromBlob(blob);
     final fileName =
         'MIS_Report_${DateFormat('yyyyMMdd_HHmm').format(now)}.pdf';
 
-    html.AnchorElement(href: url)
-      ..setAttribute('download', fileName)
-      ..click();
-
-    html.Url.revokeObjectUrl(url);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('MIS PDF exported: $fileName'),
-        backgroundColor: AppTheme.successColor,
-      ),
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save MIS PDF Report',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
     );
+
+    if (result != null) {
+      final file = File(result);
+      await file.writeAsBytes(bytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('MIS PDF exported: $fileName'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    }
   }
 
   void _showFilterDialog(BuildContext context) {

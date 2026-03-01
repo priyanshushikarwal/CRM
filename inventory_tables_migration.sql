@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS solar_inventory (
     capacity_kw NUMERIC(8,2) NOT NULL,
     total_quantity INTEGER NOT NULL DEFAULT 0,
     used_quantity INTEGER NOT NULL DEFAULT 0,
+    invoice_number TEXT,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -83,3 +84,6 @@ CREATE POLICY "Allow authenticated users to delete assignments"
 -- DONE! Copy and run this in Supabase SQL Editor
 -- Go to: https://supabase.com > Your Project > SQL Editor
 -- ============================================================
+
+-- If you have ALREADY run the above migration previously and just need to add the invoice_number column, run this query specifically:
+-- ALTER TABLE solar_inventory ADD COLUMN IF NOT EXISTS invoice_number TEXT;

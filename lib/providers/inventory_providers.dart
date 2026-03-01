@@ -80,6 +80,7 @@ class InventoryNotifier extends Notifier<InventoryState> {
     required double capacityKw,
     required int quantity,
     bool isDcr = true,
+    String? invoiceNumber,
     String? description,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -93,6 +94,7 @@ class InventoryNotifier extends Notifier<InventoryState> {
         totalQuantity: quantity,
         usedQuantity: 0,
         isDcr: isDcr,
+        invoiceNumber: invoiceNumber?.trim(),
         description: description?.trim(),
         createdAt: now,
         updatedAt: now,
@@ -107,10 +109,9 @@ class InventoryNotifier extends Notifier<InventoryState> {
 
   Future<void> addMultipleItems({
     required String companyName,
-    required double capacityKw,
-    required int quantity,
-    required List<String> dcrModels,
-    required List<String> nonDcrModels,
+    required List<Map<String, dynamic>> dcrModels,
+    required List<Map<String, dynamic>> nonDcrModels,
+    String? invoiceNumber,
     String? description,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -123,11 +124,12 @@ class InventoryNotifier extends Notifier<InventoryState> {
           SolarInventoryItem(
             id: const Uuid().v4(),
             companyName: companyName.trim(),
-            panelModel: model.trim(),
-            capacityKw: capacityKw,
-            totalQuantity: quantity,
+            panelModel: model['name'].toString().trim(),
+            capacityKw: model['capacityKw'] as double,
+            totalQuantity: model['quantity'] as int,
             usedQuantity: 0,
             isDcr: true,
+            invoiceNumber: invoiceNumber?.trim(),
             description: description?.trim(),
             createdAt: now,
             updatedAt: now,
@@ -140,11 +142,12 @@ class InventoryNotifier extends Notifier<InventoryState> {
           SolarInventoryItem(
             id: const Uuid().v4(),
             companyName: companyName.trim(),
-            panelModel: model.trim(),
-            capacityKw: capacityKw,
-            totalQuantity: quantity,
+            panelModel: model['name'].toString().trim(),
+            capacityKw: model['capacityKw'] as double,
+            totalQuantity: model['quantity'] as int,
             usedQuantity: 0,
             isDcr: false,
+            invoiceNumber: invoiceNumber?.trim(),
             description: description?.trim(),
             createdAt: now,
             updatedAt: now,

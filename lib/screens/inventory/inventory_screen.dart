@@ -539,6 +539,31 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                           ),
                         ),
                       ),
+                      if (item.invoiceNumber != null &&
+                          item.invoiceNumber!.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: Colors.orange.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Text(
+                            'INV: ${item.invoiceNumber}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Colors.orange.shade800,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -685,20 +710,18 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           (context) => _AddEditInventoryDialog(
             onSaveMultiple: (
               company,
-              capacity,
-              qty,
               dcrModels,
               nonDcrModels,
+              invoice,
               desc,
             ) async {
               await ref
                   .read(inventoryProvider.notifier)
                   .addMultipleItems(
                     companyName: company,
-                    capacityKw: capacity,
-                    quantity: qty,
                     dcrModels: dcrModels,
                     nonDcrModels: nonDcrModels,
+                    invoiceNumber: invoice,
                     description: desc,
                   );
             },
@@ -712,13 +735,22 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       builder:
           (context) => _AddEditInventoryDialog(
             existingItem: item,
-            onSaveSingle: (company, model, capacity, qty, isDcr, desc) async {
+            onSaveSingle: (
+              company,
+              model,
+              capacity,
+              qty,
+              isDcr,
+              invoice,
+              desc,
+            ) async {
               final updated = item.copyWith(
                 companyName: company,
                 panelModel: model,
                 capacityKw: capacity,
                 totalQuantity: qty,
                 isDcr: isDcr,
+                invoiceNumber: invoice,
                 description: desc,
               );
               await ref.read(inventoryProvider.notifier).updateItem(updated);
@@ -815,15 +847,15 @@ class _AddEditInventoryDialog extends StatefulWidget {
     double capacity,
     int quantity,
     bool isDcr,
+    String? invoiceNumber,
     String? description,
   )?
   onSaveSingle;
   final Future<void> Function(
     String company,
-    double capacity,
-    int quantity,
-    List<String> dcrModels,
-    List<String> nonDcrModels,
+    List<Map<String, dynamic>> dcrModels,
+    List<Map<String, dynamic>> nonDcrModels,
+    String? invoiceNumber,
     String? description,
   )?
   onSaveMultiple;
@@ -844,6 +876,7 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
   final _companyController = TextEditingController();
   final _capacityController = TextEditingController();
   final _quantityController = TextEditingController();
+  final _invoiceController = TextEditingController();
   final _descriptionController = TextEditingController();
 
   // Single edit mode controllers
@@ -852,9 +885,13 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
 
   // Add multiple mode state
   final _dcrInputController = TextEditingController();
+  final _dcrCapacityController = TextEditingController();
+  final _dcrQuantityController = TextEditingController();
   final _nonDcrInputController = TextEditingController();
-  final List<String> _dcrModels = [];
-  final List<String> _nonDcrModels = [];
+  final _nonDcrCapacityController = TextEditingController();
+  final _nonDcrQuantityController = TextEditingController();
+  final List<Map<String, dynamic>> _dcrModels = [];
+  final List<Map<String, dynamic>> _nonDcrModels = [];
 
   bool _isLoading = false;
 
@@ -881,6 +918,7 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
       _modelController.text = widget.existingItem!.panelModel;
       _capacityController.text = widget.existingItem!.capacityKw.toString();
       _quantityController.text = widget.existingItem!.totalQuantity.toString();
+      _invoiceController.text = widget.existingItem!.invoiceNumber ?? '';
       _descriptionController.text = widget.existingItem!.description ?? '';
       _isDcrEdit = widget.existingItem!.isDcr;
     }
@@ -892,9 +930,14 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
     _modelController.dispose();
     _capacityController.dispose();
     _quantityController.dispose();
+    _invoiceController.dispose();
     _descriptionController.dispose();
     _dcrInputController.dispose();
+    _dcrCapacityController.dispose();
+    _dcrQuantityController.dispose();
     _nonDcrInputController.dispose();
+    _nonDcrCapacityController.dispose();
+    _nonDcrQuantityController.dispose();
     super.dispose();
   }
 
@@ -1020,74 +1063,78 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Capacity (kW) *',
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _capacityController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.allow(
-                                      RegExp(r'^\d*\.?\d*'),
+                          if (isEdit) ...[
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Capacity (kW) *',
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimary,
                                     ),
-                                  ],
-                                  decoration: _inputDecoration('e.g., 3.0'),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty)
-                                      return 'Capacity required';
-                                    if (double.tryParse(v) == null ||
-                                        double.parse(v) <= 0)
-                                      return 'Invalid capacity';
-                                    return null;
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Quantity per Model *',
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimary,
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: _quantityController,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: _inputDecoration('No. of panels'),
-                                  validator: (v) {
-                                    if (v == null || v.isEmpty)
-                                      return 'Quantity required';
-                                    if (int.tryParse(v) == null ||
-                                        int.parse(v) < 0)
-                                      return 'Invalid quantity';
-                                    return null;
-                                  },
-                                ),
-                              ],
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: _capacityController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'^\d*\.?\d*'),
+                                      ),
+                                    ],
+                                    decoration: _inputDecoration('e.g., 3.0'),
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty)
+                                        return 'Capacity required';
+                                      if (double.tryParse(v) == null ||
+                                          double.parse(v) <= 0)
+                                        return 'Invalid capacity';
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Quantity *',
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: _quantityController,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    decoration: _inputDecoration(
+                                      'Total No. of panels',
+                                    ),
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty)
+                                        return 'Quantity required';
+                                      if (int.tryParse(v) == null ||
+                                          int.parse(v) < 0)
+                                        return 'Invalid quantity';
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -1135,13 +1182,47 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                             color: Colors.blue,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _dcrInputController,
-                          decoration: _inputDecoration(
-                            'e.g., Model A, Model B...',
-                          ).copyWith(
-                            suffixIcon: IconButton(
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextFormField(
+                                controller: _dcrInputController,
+                                decoration: _inputDecoration('Model Name'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 1,
+                              child: TextFormField(
+                                controller: _dcrCapacityController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                decoration: _inputDecoration('Capacity (kW)'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 1,
+                              child: TextFormField(
+                                controller: _dcrQuantityController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: _inputDecoration('Qty'),
+                                onFieldSubmitted:
+                                    (_) => _addModel(
+                                      _dcrInputController,
+                                      _dcrCapacityController,
+                                      _dcrQuantityController,
+                                      _dcrModels,
+                                    ),
+                              ),
+                            ),
+                            IconButton(
                               icon: const Icon(
                                 Icons.add_circle,
                                 color: Colors.blue,
@@ -1149,12 +1230,12 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                               onPressed:
                                   () => _addModel(
                                     _dcrInputController,
+                                    _dcrCapacityController,
+                                    _dcrQuantityController,
                                     _dcrModels,
                                   ),
                             ),
-                          ),
-                          onFieldSubmitted:
-                              (_) => _addModel(_dcrInputController, _dcrModels),
+                          ],
                         ),
                         if (_dcrModels.isNotEmpty) ...[
                           const SizedBox(height: 8),
@@ -1166,7 +1247,7 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                                     .map(
                                       (m) => Chip(
                                         label: Text(
-                                          m,
+                                          '${m["name"]} (${m["capacityKw"]} kW, ${m["quantity"]} Qty)',
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                         deleteIconColor: Colors.red,
@@ -1194,12 +1275,47 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _nonDcrInputController,
-                          decoration: _inputDecoration(
-                            'e.g., Model X, Model Y...',
-                          ).copyWith(
-                            suffixIcon: IconButton(
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextFormField(
+                                controller: _nonDcrInputController,
+                                decoration: _inputDecoration('Model Name'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 1,
+                              child: TextFormField(
+                                controller: _nonDcrCapacityController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                decoration: _inputDecoration('Capacity (kW)'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 1,
+                              child: TextFormField(
+                                controller: _nonDcrQuantityController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: _inputDecoration('Qty'),
+                                onFieldSubmitted:
+                                    (_) => _addModel(
+                                      _nonDcrInputController,
+                                      _nonDcrCapacityController,
+                                      _nonDcrQuantityController,
+                                      _nonDcrModels,
+                                    ),
+                              ),
+                            ),
+                            IconButton(
                               icon: const Icon(
                                 Icons.add_circle,
                                 color: Colors.purple,
@@ -1207,15 +1323,12 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                               onPressed:
                                   () => _addModel(
                                     _nonDcrInputController,
+                                    _nonDcrCapacityController,
+                                    _nonDcrQuantityController,
                                     _nonDcrModels,
                                   ),
                             ),
-                          ),
-                          onFieldSubmitted:
-                              (_) => _addModel(
-                                _nonDcrInputController,
-                                _nonDcrModels,
-                              ),
+                          ],
                         ),
                         if (_nonDcrModels.isNotEmpty) ...[
                           const SizedBox(height: 8),
@@ -1227,7 +1340,7 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                                     .map(
                                       (m) => Chip(
                                         label: Text(
-                                          m,
+                                          '${m["name"]} (${m["capacityKw"]} kW, ${m["quantity"]} Qty)',
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                         deleteIconColor: Colors.red,
@@ -1247,6 +1360,27 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
                         ],
                       ],
 
+                      const SizedBox(height: 16),
+                      // Invoice Number
+                      Text(
+                        'Invoice Number (Optional)',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _invoiceController,
+                        decoration: _inputDecoration(
+                          'e.g., INV-2026-001',
+                        ).copyWith(
+                          prefixIcon: const Icon(
+                            Icons.receipt_long_rounded,
+                            size: 20,
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       // Description
                       Text(
@@ -1311,12 +1445,41 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
     );
   }
 
-  void _addModel(TextEditingController controller, List<String> list) {
-    final text = controller.text.trim();
-    if (text.isNotEmpty && !list.contains(text)) {
-      setState(() => list.add(text));
+  void _addModel(
+    TextEditingController modelCtrl,
+    TextEditingController capCtrl,
+    TextEditingController qtyCtrl,
+    List<Map<String, dynamic>> list,
+  ) {
+    final text = modelCtrl.text.trim();
+    final capText = capCtrl.text.trim();
+    final qtyText = qtyCtrl.text.trim();
+
+    final cap = double.tryParse(capText);
+    final qty = int.tryParse(qtyText);
+
+    if (text.isNotEmpty && cap != null && cap > 0 && qty != null && qty > 0) {
+      if (!list.any((m) => m['name'] == text)) {
+        setState(
+          () => list.add({'name': text, 'capacityKw': cap, 'quantity': qty}),
+        );
+      }
+      modelCtrl.clear();
+      capCtrl.clear();
+      qtyCtrl.clear();
+
+      // Keep focus on the model field after adding
+      FocusScope.of(context).previousFocus();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a valid model name, capacity (kW), and quantity (numeric)',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-    controller.clear();
   }
 
   InputDecoration _inputDecoration(String hint) {
@@ -1362,6 +1525,10 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
           _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim();
+      final invoice =
+          _invoiceController.text.trim().isEmpty
+              ? null
+              : _invoiceController.text.trim();
 
       if (widget.existingItem != null && widget.onSaveSingle != null) {
         await widget.onSaveSingle!(
@@ -1370,15 +1537,15 @@ class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
           double.parse(_capacityController.text.trim()),
           int.parse(_quantityController.text.trim()),
           _isDcrEdit,
+          invoice,
           desc,
         );
       } else if (widget.onSaveMultiple != null) {
         await widget.onSaveMultiple!(
           _companyController.text.trim(),
-          double.parse(_capacityController.text.trim()),
-          int.parse(_quantityController.text.trim()),
           _dcrModels,
           _nonDcrModels,
+          invoice,
           desc,
         );
       }
@@ -1455,7 +1622,7 @@ class _AssignmentsDialog extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${item.companyName} - ${item.panelModel} (${item.capacityKw}kW)',
+                        '${item.companyName} - ${item.panelModel} (${item.capacityKw}kW) ${item.isDcr ? "DCR" : "Non-DCR"}',
                         style: AppTextStyles.caption.copyWith(
                           color: AppTheme.textSecondary,
                         ),
@@ -1802,7 +1969,7 @@ class _SolarPanelPickerWidgetState
                         return DropdownMenuItem<SolarInventoryItem>(
                           value: item,
                           child: Text(
-                            '${item.companyName} - ${item.panelModel} (${item.capacityKw}kW) | ${item.availableQuantity} left',
+                            '${item.companyName} - ${item.panelModel} (${item.capacityKw}kW) ${item.isDcr ? "DCR" : "Non-DCR"} | ${item.availableQuantity} left',
                             overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.bodySmall,
                           ),

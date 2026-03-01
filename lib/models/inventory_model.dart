@@ -10,6 +10,7 @@ class SolarInventoryItem {
   final int totalQuantity; // Total panels in stock
   final int usedQuantity; // Panels assigned to applications
   final bool isDcr; // Domestic Content Requirement true/false
+  final String? invoiceNumber; // Invoice number for this inventory entry
   final String? description; // Optional notes
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -22,6 +23,7 @@ class SolarInventoryItem {
     required this.totalQuantity,
     this.usedQuantity = 0,
     this.isDcr = true,
+    this.invoiceNumber,
     this.description,
     required this.createdAt,
     required this.updatedAt,
@@ -31,7 +33,10 @@ class SolarInventoryItem {
 
   bool get isAvailable => availableQuantity > 0;
 
-  String get displayName => '$companyName - $panelModel (${capacityKw}kW)';
+  String get dcrType => isDcr ? 'DCR' : 'Non-DCR';
+
+  String get displayName =>
+      '$companyName - $panelModel (${capacityKw}kW) $dcrType';
 
   factory SolarInventoryItem.fromJson(Map<String, dynamic> json) {
     return SolarInventoryItem(
@@ -42,6 +47,7 @@ class SolarInventoryItem {
       totalQuantity: json['total_quantity'] as int,
       usedQuantity: json['used_quantity'] as int? ?? 0,
       isDcr: json['is_dcr'] as bool? ?? true,
+      invoiceNumber: json['invoice_number'] as String?,
       description: json['description'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -57,6 +63,7 @@ class SolarInventoryItem {
       'total_quantity': totalQuantity,
       'used_quantity': usedQuantity,
       'is_dcr': isDcr,
+      'invoice_number': invoiceNumber,
       'description': description,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -71,6 +78,7 @@ class SolarInventoryItem {
     int? totalQuantity,
     int? usedQuantity,
     bool? isDcr,
+    String? invoiceNumber,
     String? description,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -83,6 +91,7 @@ class SolarInventoryItem {
       totalQuantity: totalQuantity ?? this.totalQuantity,
       usedQuantity: usedQuantity ?? this.usedQuantity,
       isDcr: isDcr ?? this.isDcr,
+      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
