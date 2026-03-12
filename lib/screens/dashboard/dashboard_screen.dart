@@ -135,19 +135,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   error: (_, __) => null,
                 );
                 final canManageUsers = currentUser?.canManageUsers ?? false;
+                final canViewDashboard = currentUser?.canViewDashboard ?? false;
+                final canManageInstallations = currentUser?.canManageInstallations ?? false;
+                final isAdmin = currentUser?.isAdmin ?? false;
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Column(
                     children: [
-                      _buildNavItem(
-                        context,
-                        icon: Icons.dashboard_rounded,
-                        label: 'Dashboard',
-                        route: '/dashboard',
-                        isActive: currentLocation == '/dashboard',
-                        isCollapsed: isCollapsed,
-                      ),
+                      if (canViewDashboard) ...[
+                        _buildNavItem(
+                          context,
+                          icon: Icons.dashboard_rounded,
+                          label: 'Dashboard',
+                          route: '/dashboard',
+                          isActive: currentLocation == '/dashboard',
+                          isCollapsed: isCollapsed,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       const SizedBox(height: 8),
                       _buildNavItem(
                         context,
@@ -178,32 +184,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 8),
                       ],
-                      _buildNavItem(
-                        context,
-                        icon: Icons.inventory_2_rounded,
-                        label: 'Inventory',
-                        route: '/inventory',
-                        isActive: currentLocation == '/inventory',
-                        isCollapsed: isCollapsed,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildNavItem(
-                        context,
-                        icon: Icons.bar_chart_rounded,
-                        label: 'Reports',
-                        route: '/reports',
-                        isActive: currentLocation == '/reports',
-                        isCollapsed: isCollapsed,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildNavItem(
-                        context,
-                        icon: Icons.settings_rounded,
-                        label: 'Settings',
-                        route: '/settings',
-                        isActive: currentLocation == '/settings',
-                        isCollapsed: isCollapsed,
-                      ),
+                      if (canManageInstallations) ...[
+                        _buildNavItem(
+                          context,
+                          icon: Icons.inventory_2_rounded,
+                          label: 'Inventory',
+                          route: '/inventory',
+                          isActive: currentLocation == '/inventory',
+                          isCollapsed: isCollapsed,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      if (canViewDashboard) ...[
+                        _buildNavItem(
+                          context,
+                          icon: Icons.bar_chart_rounded,
+                          label: 'Reports',
+                          route: '/reports',
+                          isActive: currentLocation == '/reports',
+                          isCollapsed: isCollapsed,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      if (isAdmin) ...[
+                        _buildNavItem(
+                          context,
+                          icon: Icons.settings_rounded,
+                          label: 'Settings',
+                          route: '/settings',
+                          isActive: currentLocation == '/settings',
+                          isCollapsed: isCollapsed,
+                        ),
+                      ],
                     ],
                   ),
                 );
@@ -340,16 +352,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Color _getRoleColor(UserRole? role) {
     switch (role) {
-      case UserRole.superadmin:
-        return Colors.purple;
       case UserRole.admin:
         return AppTheme.errorColor;
-      case UserRole.vendor:
+      case UserRole.staff:
         return AppTheme.successColor;
-      case UserRole.operator:
-        return AppTheme.warningColor;
-      case UserRole.viewer:
-        return AppTheme.accentColor;
       case null:
         return AppTheme.primaryColor;
     }

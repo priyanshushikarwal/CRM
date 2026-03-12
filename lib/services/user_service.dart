@@ -86,7 +86,7 @@ class UserService {
 
     return UserRole.values.firstWhere(
       (e) => e.name == response['role'],
-      orElse: () => UserRole.viewer,
+      orElse: () => UserRole.staff,
     );
   }
 }

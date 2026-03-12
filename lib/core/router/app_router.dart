@@ -40,7 +40,7 @@ final appRouter = GoRouter(
     }
 
     if (isLoggedIn && isAuthRoute) {
-      return '/dashboard';
+      return '/applications';
     }
 
     return null;

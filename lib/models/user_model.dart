@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum UserRole { superadmin, admin, vendor, operator, viewer }
+enum UserRole { admin, staff }
 
 @immutable
 class UserModel {
@@ -19,7 +19,7 @@ class UserModel {
     required this.email,
     this.fullName,
     this.phone,
-    this.role = UserRole.viewer,
+    this.role = UserRole.staff,
     this.isActive = true,
     required this.createdAt,
     this.lastLoginAt,
@@ -34,7 +34,12 @@ class UserModel {
       phone: json['phone'] as String?,
       role: UserRole.values.firstWhere(
         (e) => e.name == json['role'],
-        orElse: () => UserRole.viewer,
+        orElse: () {
+          if (json['role'] == 'superadmin' || json['role'] == 'admin') {
+            return UserRole.admin;
+          }
+          return UserRole.staff;
+        },
       ),
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -88,29 +93,22 @@ class UserModel {
 
   String get roleDisplayName {
     switch (role) {
-      case UserRole.superadmin:
-        return 'Super Admin';
       case UserRole.admin:
-        return 'Administrator';
-      case UserRole.vendor:
-        return 'Vendor';
-      case UserRole.operator:
-        return 'Operator';
-      case UserRole.viewer:
-        return 'Viewer';
+        return 'Admin';
+      case UserRole.staff:
+        return 'Staff';
     }
   }
 
-  bool get isSuperAdmin => role == UserRole.superadmin;
-  bool get isAdmin => role == UserRole.admin || role == UserRole.superadmin;
-  bool get canEdit =>
-      role == UserRole.superadmin ||
-      role == UserRole.admin ||
-      role == UserRole.operator ||
-      role == UserRole.vendor;
-  bool get canDelete => role == UserRole.superadmin || role == UserRole.admin;
-  bool get canManageUsers =>
-      role == UserRole.superadmin || role == UserRole.admin;
-  bool get canManageAdmins =>
-      role == UserRole.superadmin; // Only superadmin can change admin roles
+  bool get isAdmin => role == UserRole.admin;
+  bool get isStaff => role == UserRole.staff;
+  
+  // Feature Access based on screenshot exactly
+  bool get canEdit => true; // Both can add/edit solar applications
+  bool get canDelete => role == UserRole.admin; // Only admin
+  bool get canManageUsers => role == UserRole.admin;
+  bool get canViewDashboard => role == UserRole.admin; // Reports & dashboard
+  bool get canManagePayments => role == UserRole.admin; // Payment tracking
+  bool get canManageInstallations => role == UserRole.admin; // Installation management
+  bool get canManageAdmins => role == UserRole.admin;
 }

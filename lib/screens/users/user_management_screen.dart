@@ -176,13 +176,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   }
 
   Widget _buildStatsRow() {
-    final superadminCount =
-        _users.where((u) => u.role == UserRole.superadmin).length;
     final adminCount = _users.where((u) => u.role == UserRole.admin).length;
-    final vendorCount = _users.where((u) => u.role == UserRole.vendor).length;
-    final operatorCount =
-        _users.where((u) => u.role == UserRole.operator).length;
-    final viewerCount = _users.where((u) => u.role == UserRole.viewer).length;
+    final staffCount = _users.where((u) => u.role == UserRole.staff).length;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -196,13 +191,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
           ),
           const SizedBox(width: 12),
           _buildStatCard(
-            'Super Admins',
-            superadminCount.toString(),
-            Icons.security_rounded,
-            Colors.purple,
-          ),
-          const SizedBox(width: 12),
-          _buildStatCard(
             'Admins',
             adminCount.toString(),
             Icons.admin_panel_settings_rounded,
@@ -210,24 +198,10 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
           ),
           const SizedBox(width: 12),
           _buildStatCard(
-            'Vendors',
-            vendorCount.toString(),
-            Icons.business_rounded,
+            'Staff',
+            staffCount.toString(),
+            Icons.people_outline_rounded,
             AppTheme.successColor,
-          ),
-          const SizedBox(width: 12),
-          _buildStatCard(
-            'Operators',
-            operatorCount.toString(),
-            Icons.engineering_rounded,
-            AppTheme.warningColor,
-          ),
-          const SizedBox(width: 12),
-          _buildStatCard(
-            'Viewers',
-            viewerCount.toString(),
-            Icons.visibility_rounded,
-            AppTheme.accentColor,
           ),
         ],
       ),
@@ -489,16 +463,10 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
 
   Color _getRoleColor(UserRole role) {
     switch (role) {
-      case UserRole.superadmin:
-        return Colors.purple;
       case UserRole.admin:
         return AppTheme.errorColor;
-      case UserRole.vendor:
+      case UserRole.staff:
         return AppTheme.successColor;
-      case UserRole.operator:
-        return AppTheme.warningColor;
-      case UserRole.viewer:
-        return AppTheme.accentColor;
     }
   }
 
@@ -729,46 +697,28 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
 
   IconData _getRoleIcon(UserRole role) {
     switch (role) {
-      case UserRole.superadmin:
-        return Icons.security_rounded;
       case UserRole.admin:
         return Icons.admin_panel_settings_rounded;
-      case UserRole.vendor:
-        return Icons.business_rounded;
-      case UserRole.operator:
-        return Icons.engineering_rounded;
-      case UserRole.viewer:
-        return Icons.visibility_rounded;
+      case UserRole.staff:
+        return Icons.people_outline_rounded;
     }
   }
 
   String _getRoleDisplayName(UserRole role) {
     switch (role) {
-      case UserRole.superadmin:
-        return 'Super Admin';
       case UserRole.admin:
-        return 'Administrator';
-      case UserRole.vendor:
-        return 'Vendor';
-      case UserRole.operator:
-        return 'Operator';
-      case UserRole.viewer:
-        return 'Viewer';
+        return 'Admin';
+      case UserRole.staff:
+        return 'Staff';
     }
   }
 
   String _getRoleDescription(UserRole role) {
     switch (role) {
-      case UserRole.superadmin:
-        return 'Owner access: Full control over the system, users, and all data.';
       case UserRole.admin:
         return 'Full access: Can manage users, settings, and all applications.';
-      case UserRole.vendor:
-        return 'Field access: Can manage installations, upload documents, update status.';
-      case UserRole.operator:
-        return 'Office access: Can add/edit applications, upload documents.';
-      case UserRole.viewer:
-        return 'Read-only: Can view applications and reports only.';
+      case UserRole.staff:
+        return 'Limited access: Can add/edit applications, upload documents, update status.';
     }
   }
 }

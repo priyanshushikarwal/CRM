@@ -48,7 +48,7 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
     return UserModel(
       id: user.id,
       email: user.email ?? '',
-      role: UserRole.operator,
+      role: UserRole.staff,
       createdAt: DateTime.now(),
     );
   }
