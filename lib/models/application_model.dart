@@ -1,15 +1,16 @@
 import 'package:flutter/foundation.dart';
 
 enum ApplicationStatus {
-  consumerRegistration,
-  consumerApplication,
-  discomFeasibility,
-  consumerVendorSelection,
-  vendorUploadAgreement,
-  vendorInstallation,
-  discomInspection,
-  projectCommissioning,
-  consumerSubsidyRequest,
+  applicationReceived,
+  documentsVerified,
+  siteSurveyPending,
+  siteSurveyCompleted,
+  solarDemandPending,
+  solarDemandDeposit,
+  meterTested,
+  installationScheduled,
+  installationCompleted,
+  subsidyProcess,
 }
 
 enum StageStatus { pending, inProgress, completed, rejected }
@@ -59,6 +60,9 @@ class ApplicationModel {
   final double existingInstalledCapacity;
   final double netEligibleCapacity;
   final String vendorName;
+
+  final String? nameAsPerBill;
+  final double? finalAmount;
 
   final String loanStatus;
   final String? loanApplicationNumber;
@@ -120,6 +124,8 @@ class ApplicationModel {
     this.existingInstalledCapacity = 0,
     required this.netEligibleCapacity,
     required this.vendorName,
+    this.nameAsPerBill,
+    this.finalAmount,
     this.loanStatus = 'Not Applied',
     this.loanApplicationNumber,
     this.sanctionDate,
@@ -131,7 +137,7 @@ class ApplicationModel {
     this.approvedCapacity,
     this.remarks,
     this.subsidyAmount,
-    this.currentStatus = ApplicationStatus.consumerRegistration,
+    this.currentStatus = ApplicationStatus.applicationReceived,
     this.statusHistory = const [],
     this.approvalStatus = ApprovalStatus.draft,
     this.submittedBy,
@@ -181,6 +187,8 @@ class ApplicationModel {
           (json['existing_installed_capacity'] as num?)?.toDouble() ?? 0,
       netEligibleCapacity: (json['net_eligible_capacity'] as num).toDouble(),
       vendorName: json['vendor_name'] as String,
+      nameAsPerBill: json['name_as_per_bill'] as String?,
+      finalAmount: (json['final_amount'] as num?)?.toDouble(),
       loanStatus: json['loan_status'] as String? ?? 'Not Applied',
       loanApplicationNumber: json['loan_application_number'] as String?,
       sanctionDate:
@@ -200,7 +208,7 @@ class ApplicationModel {
       subsidyAmount: (json['subsidy_amount'] as num?)?.toDouble(),
       currentStatus: ApplicationStatus.values.firstWhere(
         (e) => e.name == json['current_status'],
-        orElse: () => ApplicationStatus.consumerRegistration,
+        orElse: () => ApplicationStatus.applicationReceived,
       ),
       statusHistory:
           (json['status_history'] as List<dynamic>?)
@@ -261,6 +269,8 @@ class ApplicationModel {
       'existing_installed_capacity': existingInstalledCapacity,
       'net_eligible_capacity': netEligibleCapacity,
       'vendor_name': vendorName,
+      'name_as_per_bill': nameAsPerBill,
+      'final_amount': finalAmount,
       'loan_status': loanStatus,
       'loan_application_number': loanApplicationNumber,
       'sanction_date': sanctionDate?.toIso8601String(),
@@ -318,6 +328,8 @@ class ApplicationModel {
     double? existingInstalledCapacity,
     double? netEligibleCapacity,
     String? vendorName,
+    String? nameAsPerBill,
+    double? finalAmount,
     String? loanStatus,
     String? loanApplicationNumber,
     DateTime? sanctionDate,
@@ -376,6 +388,8 @@ class ApplicationModel {
           existingInstalledCapacity ?? this.existingInstalledCapacity,
       netEligibleCapacity: netEligibleCapacity ?? this.netEligibleCapacity,
       vendorName: vendorName ?? this.vendorName,
+      nameAsPerBill: nameAsPerBill ?? this.nameAsPerBill,
+      finalAmount: finalAmount ?? this.finalAmount,
       loanStatus: loanStatus ?? this.loanStatus,
       loanApplicationNumber:
           loanApplicationNumber ?? this.loanApplicationNumber,
@@ -402,24 +416,26 @@ class ApplicationModel {
 
   String get statusDisplayName {
     switch (currentStatus) {
-      case ApplicationStatus.consumerRegistration:
-        return 'Consumer Registration';
-      case ApplicationStatus.consumerApplication:
-        return 'Consumer Application';
-      case ApplicationStatus.discomFeasibility:
-        return 'Discom Feasibility';
-      case ApplicationStatus.consumerVendorSelection:
-        return 'Vendor Selection';
-      case ApplicationStatus.vendorUploadAgreement:
-        return 'Upload Agreement';
-      case ApplicationStatus.vendorInstallation:
-        return 'Installation';
-      case ApplicationStatus.discomInspection:
-        return 'Inspection';
-      case ApplicationStatus.projectCommissioning:
-        return 'Project Commissioning';
-      case ApplicationStatus.consumerSubsidyRequest:
-        return 'Subsidy Request';
+      case ApplicationStatus.applicationReceived:
+        return 'Application Received';
+      case ApplicationStatus.documentsVerified:
+        return 'Documents Verified';
+      case ApplicationStatus.siteSurveyPending:
+        return 'Site Survey Pending';
+      case ApplicationStatus.siteSurveyCompleted:
+        return 'Site Survey Completed';
+      case ApplicationStatus.solarDemandPending:
+        return 'Solar Demand Pending';
+      case ApplicationStatus.solarDemandDeposit:
+        return 'Solar Demand Deposit';
+      case ApplicationStatus.meterTested:
+        return 'Meter Tested';
+      case ApplicationStatus.installationScheduled:
+        return 'Installation Scheduled';
+      case ApplicationStatus.installationCompleted:
+        return 'Installation Completed';
+      case ApplicationStatus.subsidyProcess:
+        return 'Subsidy Process';
     }
   }
 
@@ -472,7 +488,7 @@ class StatusHistoryItem {
       id: json['id'] as String,
       status: ApplicationStatus.values.firstWhere(
         (e) => e.name == json['status'],
-        orElse: () => ApplicationStatus.consumerRegistration,
+        orElse: () => ApplicationStatus.applicationReceived,
       ),
       stageStatus: StageStatus.values.firstWhere(
         (e) => e.name == json['stage_status'],

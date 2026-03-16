@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/user_model.dart';
+import '../../models/application_model.dart';
 import '../../providers/app_providers.dart';
 import '../../services/supabase_service.dart';
 
@@ -18,6 +20,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isCollapsed = false;
+
   @override
   void initState() {
     super.initState();
@@ -30,28 +33,49 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 900;
-    final isMobile = size.width < 600;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Row(
         children: [
           if (isDesktop)
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: _isCollapsed ? 80 : 260,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(right: BorderSide(color: AppTheme.borderColor)),
+              ),
               child: _buildSidebar(context, _isCollapsed),
             ),
           Expanded(
-            child: Column(
-              children: [
-                _buildTopBar(context, isDesktop, isMobile),
-                Expanded(
-                  child: Container(
-                    color: AppTheme.backgroundColor,
-                    child: widget.child,
+            child: Container(
+              color: AppTheme.backgroundColor,
+              child: Column(
+                children: [
+                  _buildTopBar(context, isDesktop, size.width < 600),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
+                      child: Container(
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.02),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: widget.child,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -64,23 +88,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final currentLocation = GoRouterState.of(context).matchedLocation;
 
     return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.primaryDark,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(2, 0),
-          ),
-        ],
-      ),
+      color: Colors.white,
       child: Column(
         children: [
           Container(
-            height: 80,
+            height: 100,
             padding: EdgeInsets.symmetric(
-              horizontal: isCollapsed ? 16 : 24,
-              vertical: 16,
+              horizontal: isCollapsed ? 12 : 24,
+              vertical: 24,
             ),
             child: Row(
               children: [
@@ -88,43 +103,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.solar_power_rounded,
                     color: AppTheme.primaryColor,
-                    size: 28,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'In',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
                   ),
                 ),
                 if (!isCollapsed) ...[
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'DoonInfra',
-                          style: AppTextStyles.heading4.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          'Solar Manager',
-                          style: AppTextStyles.caption.copyWith(
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
+                  const Expanded(
+                    child: Text(
+                      'DoonInfra',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           Expanded(
             child: Consumer(
               builder: (context, ref, child) {
@@ -140,49 +150,66 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 final isAdmin = currentUser?.isAdmin ?? false;
 
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
                     children: [
                       if (canViewDashboard) ...[
                         _buildNavItem(
                           context,
-                          icon: Icons.dashboard_rounded,
+                          icon: Icons.grid_view_rounded,
                           label: 'Dashboard',
                           route: '/dashboard',
                           isActive: currentLocation == '/dashboard',
                           isCollapsed: isCollapsed,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                       ],
-                      const SizedBox(height: 8),
                       _buildNavItem(
                         context,
-                        icon: Icons.description_rounded,
+                        icon: Icons.layers_rounded,
                         label: 'Applications',
                         route: '/applications',
                         isActive: currentLocation.startsWith('/applications'),
                         isCollapsed: isCollapsed,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.settings_input_component_rounded,
+                        label: 'Installations',
+                        route: '/installations',
+                        isActive: currentLocation == '/installations',
+                        isCollapsed: isCollapsed,
+                      ),
+                      const SizedBox(height: 4),
+                      _buildNavItem(
+                        context,
+                        icon: Icons.receipt_long_rounded,
+                        label: 'Payments',
+                        route: '/payments',
+                        isActive: currentLocation == '/payments',
+                        isCollapsed: isCollapsed,
+                      ),
+                      const SizedBox(height: 4),
                       if (canManageUsers) ...[
                         _buildNavItem(
                           context,
-                          icon: Icons.pending_actions_rounded,
-                          label: 'Pending Approvals',
+                          icon: Icons.verified_user_rounded,
+                          label: 'Approvals',
                           route: '/pending-approvals',
                           isActive: currentLocation == '/pending-approvals',
                           isCollapsed: isCollapsed,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         _buildNavItem(
                           context,
-                          icon: Icons.people_rounded,
+                          icon: Icons.group_rounded,
                           label: 'Users',
                           route: '/users',
                           isActive: currentLocation == '/users',
                           isCollapsed: isCollapsed,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                       ],
                       if (canManageInstallations) ...[
                         _buildNavItem(
@@ -193,18 +220,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           isActive: currentLocation == '/inventory',
                           isCollapsed: isCollapsed,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                       ],
                       if (canViewDashboard) ...[
                         _buildNavItem(
                           context,
-                          icon: Icons.bar_chart_rounded,
+                          icon: Icons.analytics_rounded,
                           label: 'Reports',
                           route: '/reports',
                           isActive: currentLocation == '/reports',
                           isCollapsed: isCollapsed,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                       ],
                       if (isAdmin) ...[
                         _buildNavItem(
@@ -222,125 +249,68 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               },
             ),
           ),
-          if (MediaQuery.of(context).size.width > 900)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _isCollapsed = !_isCollapsed;
-                  });
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _isCollapsed
-                            ? Icons.chevron_right_rounded
-                            : Icons.chevron_left_rounded,
-                        color: Colors.white.withOpacity(0.8),
-                      ),
-                      if (!isCollapsed) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          'Collapse',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: Colors.white.withOpacity(0.8),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(
-              horizontal: isCollapsed ? 12 : 16,
-              vertical: 8,
-            ),
-            child: Text(
-              isCollapsed
-                  ? 'v${AppConstants.appVersion}'
-                  : 'Version ${AppConstants.appVersion}',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: isCollapsed ? TextAlign.center : TextAlign.left,
-            ),
-          ),
           Consumer(
             builder: (context, ref, child) {
-              final currentUserAsync = ref.watch(currentUserProvider);
-              final currentUser = currentUserAsync.when(
-                data: (user) => user,
-                loading: () => null,
-                error: (_, __) => null,
-              );
-
-              return Container(
-                padding: EdgeInsets.all(isCollapsed ? 12 : 16),
-                margin: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: isCollapsed ? 18 : 20,
-                      backgroundColor: _getRoleColor(currentUser?.role),
-                      child: Text(
-                        currentUser?.displayName[0].toUpperCase() ?? 'U',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+              final currentUser = ref.watch(currentUserProvider).value;
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: InkWell(
+                  onTap: () => _handleLogout(context),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    if (!isCollapsed) ...[
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              currentUser?.displayName ?? 'User',
-                              style: AppTextStyles.bodySmall.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                    child: Row(
+                      mainAxisAlignment: isCollapsed
+                          ? MainAxisAlignment.center
+                          : MainAxisAlignment.start,
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: AppTheme.primaryColor,
+                          child: Text(
+                            currentUser?.displayName.substring(0, 1).toUpperCase() ?? 'U',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
                             ),
-                            Text(
-                              currentUser?.roleDisplayName ?? 'Loading...',
-                              style: AppTextStyles.caption.copyWith(
-                                color: Colors.white.withOpacity(0.7),
-                              ),
+                          ),
+                        ),
+                        if (!isCollapsed) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  currentUser?.displayName ?? 'User',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  currentUser?.roleDisplayName ?? 'Role',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.logout_rounded,
-                          color: Colors.white.withOpacity(0.8),
-                          size: 20,
-                        ),
-                        onPressed: () => _handleLogout(context),
-                      ),
-                    ],
-                  ],
+                          ),
+                          const Icon(Icons.logout_rounded, size: 16, color: AppTheme.textSecondary),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -348,17 +318,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
     );
-  }
-
-  Color _getRoleColor(UserRole? role) {
-    switch (role) {
-      case UserRole.admin:
-        return AppTheme.errorColor;
-      case UserRole.staff:
-        return AppTheme.successColor;
-      case null:
-        return AppTheme.primaryColor;
-    }
   }
 
   Widget _buildNavItem(
@@ -376,49 +335,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           if (!isActive) {
             context.go(route);
           }
-          if (MediaQuery.of(context).size.width < 900) {
-            Navigator.of(context).pop();
-          }
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(
-            horizontal: isCollapsed ? 16 : 16,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color:
-                isActive ? Colors.white.withOpacity(0.2) : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border:
-                isActive
-                    ? Border.all(color: Colors.white.withOpacity(0.3))
-                    : null,
+            color: isActive ? AppTheme.primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
-            mainAxisAlignment:
-                isCollapsed
-                    ? MainAxisAlignment.center
-                    : MainAxisAlignment.start,
+            mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
             children: [
               Icon(
                 icon,
-                color: isActive ? Colors.white : Colors.white.withOpacity(0.7),
-                size: 22,
+                color: isActive ? Colors.white : AppTheme.textSecondary,
+                size: 20,
               ),
               if (!isCollapsed) ...[
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color:
-                          isActive
-                              ? Colors.white
-                              : Colors.white.withOpacity(0.8),
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                    ),
+                const SizedBox(width: 12),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isActive ? Colors.white : AppTheme.textSecondary,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    fontSize: 14,
                   ),
                 ),
               ],
@@ -436,7 +386,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (currentLocation.startsWith('/applications')) {
       title = 'Applications';
     } else if (currentLocation == '/inventory') {
-      title = 'Solar Panel Inventory';
+      title = 'Inventory & Factory Management';
     } else if (currentLocation == '/reports') {
       title = 'Reports';
     } else if (currentLocation == '/settings') {
@@ -448,56 +398,50 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     return Container(
-      height: 70,
+      height: 80,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      color: AppTheme.backgroundColor,
       child: Row(
         children: [
           if (!isDesktop)
             IconButton(
               icon: const Icon(Icons.menu_rounded),
-              onPressed: () {
-                Scaffold.of(context).openDrawer();
-              },
+              onPressed: () => Scaffold.of(context).openDrawer(),
             ),
-          if (!isMobile)
-            Text(
-              title,
-              style: AppTextStyles.heading3.copyWith(
-                color: AppTheme.textPrimary,
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: -0.5,
+                ),
               ),
-            ),
+            ],
+          ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.search_rounded),
+            icon: const Icon(Icons.search_rounded, size: 20),
             color: AppTheme.textSecondary,
-            onPressed: () {
-            },
+            onPressed: () {},
           ),
-          const SizedBox(width: 8),
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined),
+                icon: const Icon(Icons.notifications_outlined, size: 22),
                 color: AppTheme.textSecondary,
-                onPressed: () {
-                },
+                onPressed: () {},
               ),
               Positioned(
-                right: 8,
-                top: 8,
+                right: 12,
+                top: 12,
                 child: Container(
-                  width: 8,
-                  height: 8,
+                  width: 6,
+                  height: 6,
                   decoration: const BoxDecoration(
                     color: AppTheme.errorColor,
                     shape: BoxShape.circle,
@@ -506,35 +450,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
-          if (!isMobile) ...[
-            const SizedBox(width: 16),
-            Container(width: 1, height: 32, color: AppTheme.borderColor),
-            const SizedBox(width: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.business_rounded,
-                    size: 16,
-                    color: AppTheme.primaryColor,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    AppConstants.companyName,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor),
             ),
-          ],
+            child: Row(
+              children: [
+                const Icon(Icons.business_rounded, size: 16, color: AppTheme.textSecondary),
+                const SizedBox(width: 8),
+                Text(
+                  AppConstants.companyName,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -582,366 +520,336 @@ class DashboardOverviewContent extends ConsumerWidget {
     final stats = applicationsState.stats;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppTheme.primaryColor, AppTheme.primaryLight],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dashboard',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                      letterSpacing: -1.0,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Welcome back! Here is what is happening today.',
+                    style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primaryColor.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome back! 👋',
-                        style: AppTextStyles.heading2.copyWith(
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Here\'s an overview of your solar installation applications.',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () => context.go('/applications/add'),
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('New Application'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.solar_power_rounded,
-                    size: 64,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/applications/add'),
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: const Text('New Application'),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
+          
           LayoutBuilder(
             builder: (context, constraints) {
-              final crossAxisCount =
-                  constraints.maxWidth > 900
-                      ? 4
-                      : constraints.maxWidth > 600
-                      ? 2
-                      : 1;
-
+              final crossAxisCount = constraints.maxWidth > 1100 ? 5 : (constraints.maxWidth > 800 ? 3 : 2);
               return GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: crossAxisCount,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 1.5,
+                mainAxisSpacing: 20,
+                crossAxisSpacing: 20,
+                childAspectRatio: 1.6,
                 children: [
-                  _buildStatCard(
-                    'Total Applications',
-                    '${stats['total'] ?? 0}',
-                    Icons.description_rounded,
-                    AppTheme.primaryColor,
-                    '+12% this month',
-                  ),
-                  _buildStatCard(
-                    'In Progress',
-                    '${stats['inProgress'] ?? 0}',
-                    Icons.pending_actions_rounded,
-                    AppTheme.statusInProgress,
-                    'Active applications',
-                  ),
-                  _buildStatCard(
-                    'Completed',
-                    '${stats['completed'] ?? 0}',
-                    Icons.check_circle_rounded,
-                    AppTheme.statusCompleted,
-                    'Successfully installed',
-                  ),
-                  _buildStatCard(
-                    'Pending',
-                    '${stats['pending'] ?? 0}',
-                    Icons.hourglass_empty_rounded,
-                    AppTheme.warningColor,
-                    'Awaiting action',
-                  ),
+                  _buildStatCard('Total Projects', '${stats['total'] ?? 0}', Icons.folder_open_rounded, Colors.blue),
+                  _buildStatCard('Active Clients', '${stats['pending'] ?? 0}', Icons.people_outline_rounded, Colors.teal),
+                  _buildStatCard('Installations', '${stats['completedInstallations'] ?? 0}', Icons.done_all_rounded, Colors.indigo),
+                  _buildStatCard('Monthly Target', '72%', Icons.track_changes_rounded, Colors.orange),
+                  _buildStatCard('Revenue (L)', '2', Icons.monetization_on_outlined, Colors.purple),
                 ],
               );
             },
           ),
-          const SizedBox(height: 24),
+          
+          const SizedBox(height: 32),
+          
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Recent Applications', style: AppTextStyles.heading3),
-              TextButton.icon(
-                onPressed: () => context.go('/applications'),
-                icon: const Text('View All'),
-                label: const Icon(Icons.arrow_forward_rounded, size: 18),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (applicationsState.isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(48),
+              Expanded(
+                flex: 2,
                 child: Column(
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Loading from Supabase...'),
+                    _buildRecentSection(context, applicationsState),
                   ],
                 ),
               ),
-            )
-          else if (applicationsState.error != null)
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.red.shade200),
+              const SizedBox(width: 24),
+              Expanded(
+                flex: 1,
+                child: Column(
+                  children: [
+                    _buildPerformanceCard(),
+                    const SizedBox(height: 24),
+                    _buildPendingTasksCard(stats),
+                  ],
+                ),
               ),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.cloud_off_rounded,
-                    size: 56,
-                    color: Colors.red,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '🔴 Supabase Server Offline',
-                    style: AppTextStyles.heading4.copyWith(
-                      color: Colors.red.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Your Supabase project is paused or unreachable.\nGo to supabase.com/dashboard and click "Restore project".',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: Colors.red.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed:
-                        () =>
-                            ref
-                                .read(applicationsProvider.notifier)
-                                .loadApplications(),
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Retry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade600,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else if (applicationsState.applications.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(48),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.folder_open_rounded,
-                    size: 64,
-                    color: AppTheme.textLight.withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No applications yet',
-                    style: AppTextStyles.heading4.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Create your first application to get started',
-                    style: AppTextStyles.bodySmall,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () => context.go('/applications/add'),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Create Application'),
-                  ),
-                ],
-              ),
-            )
-          else
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: applicationsState.applications.take(5).length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final app = applicationsState.applications[index];
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    leading: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.description_rounded,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                    title: Text(
-                      app.applicationNumber,
-                      style: AppTextStyles.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${app.fullName} • ${app.district}',
-                      style: AppTextStyles.bodySmall,
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(
-                          app.currentStatus,
-                        ).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        app.statusDisplayName,
-                        style: AppTextStyles.caption.copyWith(
-                          color: _getStatusColor(app.currentStatus),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    onTap: () => context.go('/applications/${app.id}'),
-                  );
-                },
-              ),
-            ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-    String subtitle,
-  ) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
         border: Border.all(color: AppTheme.borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppTheme.textSecondary),
+              const SizedBox(width: 8),
+              Text(title, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
+            ],
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  '+2.4% ↑',
+                  style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentSection(BuildContext context, ApplicationsState state) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              Icon(
-                Icons.trending_up_rounded,
-                color: AppTheme.textLight,
-                size: 16,
-              ),
+              const Text('Active Projects', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              TextButton(onPressed: () => context.go('/applications'), child: const Text('View all →')),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: AppTextStyles.heading2.copyWith(
-              color: AppTheme.textPrimary,
-              fontSize: 28,
+          const SizedBox(height: 16),
+          if (state.isLoading)
+            const Center(child: CircularProgressIndicator())
+          else
+            Table(
+              columnWidths: const {
+                0: FlexColumnWidth(2),
+                1: FlexColumnWidth(2),
+                2: FlexColumnWidth(1.5),
+                3: FlexColumnWidth(1),
+              },
+              children: [
+                _buildTableHeader(),
+                ...state.applications.take(5).map((app) => _buildTableRow(context, app)),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  TableRow _buildTableHeader() {
+    return const TableRow(
+      children: [
+        Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Client', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
+        Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Capacity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
+        Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Location', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
+        Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Status', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
+      ],
+    );
+  }
+
+  TableRow _buildTableRow(BuildContext context, ApplicationModel app) {
+    return TableRow(
+      children: [
+        InkWell(
+          onTap: () => context.go('/applications/${app.id}'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Row(
+              children: [
+                CircleAvatar(radius: 14, backgroundColor: AppTheme.primaryColor.withOpacity(0.1), child: Text(app.fullName[0], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                const SizedBox(width: 12),
+                Expanded(child: Text(app.fullName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+              ],
             ),
           ),
-          const SizedBox(height: 2),
-          Flexible(
+        ),
+        Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('${app.proposedCapacity} kW', style: const TextStyle(fontSize: 13))),
+        Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text(app.district, style: const TextStyle(fontSize: 13))),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getStatusColor(app.currentStatus).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
             child: Text(
-              title,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
+              app.currentStatus.name.split('.').last.replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m[0]}').trim().toUpperCase(),
+              style: TextStyle(fontSize: 10, color: _getStatusColor(app.currentStatus), fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPerformanceCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Target Achieved', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.more_horiz, size: 16)),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Center(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 150,
+                  height: 150,
+                  child: CircularProgressIndicator(value: 0.88, strokeWidth: 12, backgroundColor: AppTheme.backgroundColor, color: AppTheme.primaryColor, strokeCap: StrokeCap.round),
+                ),
+                const Column(
+                  children: [
+                    Text('88%', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
+                    Text('Success Rate', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          _buildPerformanceItem('Installations Done', '24/30', Colors.green),
+          _buildPerformanceItem('Customer Reviews', '4.8/5.0', Colors.orange),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPerformanceItem(String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            ],
+          ),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingTasksCard(Map<String, dynamic> stats) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Critical Tasks', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              TextButton(onPressed: () {}, child: const Text('View all')),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildTaskItem('Verify Documents', '3 Pending', Colors.red),
+          _buildTaskItem('Site Surveys', '8 Schedule', Colors.orange),
+          _buildTaskItem('Pending Payments', 'Rs. 4.5L', Colors.blue),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaskItem(String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.assignment_turned_in_rounded, size: 18, color: color),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(value, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+              ],
             ),
           ),
         ],
@@ -949,7 +857,16 @@ class DashboardOverviewContent extends ConsumerWidget {
     );
   }
 
-  Color _getStatusColor(dynamic status) {
-    return AppTheme.statusInProgress;
+  Color _getStatusColor(ApplicationStatus status) {
+    switch (status) {
+      case ApplicationStatus.applicationReceived:
+        return AppTheme.textLight;
+      case ApplicationStatus.subsidyProcess:
+        return Colors.blue;
+      case ApplicationStatus.installationCompleted:
+        return Colors.green;
+      default:
+        return AppTheme.primaryColor;
+    }
   }
 }

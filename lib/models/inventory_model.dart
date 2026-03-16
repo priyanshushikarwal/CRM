@@ -1,149 +1,254 @@
 import 'package:flutter/foundation.dart';
 
-@immutable
-class SolarInventoryItem {
-  final String id;
-  final String
-  companyName; // Solar panel company name (e.g., Adani Solar, Tata Power Solar)
-  final String panelModel; // Panel model name
-  final double capacityKw; // Capacity in kW (e.g., 1.0, 2.0, 3.0, 5.0)
-  final int totalQuantity; // Total panels in stock
-  final int usedQuantity; // Panels assigned to applications
-  final bool isDcr; // Domestic Content Requirement true/false
-  final String? invoiceNumber; // Invoice number for this inventory entry
-  final String? description; // Optional notes
-  final DateTime createdAt;
-  final DateTime updatedAt;
+enum InventoryItemType { panel, inverter, meter, battery, other }
 
-  const SolarInventoryItem({
+@immutable
+class InventoryInvoice {
+  final String id;
+  final String invoiceNumber;
+  final DateTime invoiceDate;
+  final String partyName;
+  final double? price;
+  final String? receivedBy;
+  final InventoryItemType itemType;
+  final DateTime createdAt;
+
+  const InventoryInvoice({
     required this.id,
-    required this.companyName,
-    required this.panelModel,
-    required this.capacityKw,
-    required this.totalQuantity,
-    this.usedQuantity = 0,
-    this.isDcr = true,
-    this.invoiceNumber,
-    this.description,
+    required this.invoiceNumber,
+    required this.invoiceDate,
+    required this.partyName,
+    this.price,
+    this.receivedBy,
+    required this.itemType,
     required this.createdAt,
-    required this.updatedAt,
   });
 
-  int get availableQuantity => totalQuantity - usedQuantity;
-
-  bool get isAvailable => availableQuantity > 0;
-
-  String get dcrType => isDcr ? 'DCR' : 'Non-DCR';
-
-  String get displayName =>
-      '$companyName - $panelModel (${capacityKw}kW) $dcrType';
-
-  factory SolarInventoryItem.fromJson(Map<String, dynamic> json) {
-    return SolarInventoryItem(
+  factory InventoryInvoice.fromJson(Map<String, dynamic> json) {
+    return InventoryInvoice(
       id: json['id'] as String,
-      companyName: json['company_name'] as String,
-      panelModel: json['panel_model'] as String,
-      capacityKw: (json['capacity_kw'] as num).toDouble(),
-      totalQuantity: json['total_quantity'] as int,
-      usedQuantity: json['used_quantity'] as int? ?? 0,
-      isDcr: json['is_dcr'] as bool? ?? true,
-      invoiceNumber: json['invoice_number'] as String?,
-      description: json['description'] as String?,
+      invoiceNumber: json['invoice_number'] as String,
+      invoiceDate: DateTime.parse(json['invoice_date'] as String),
+      partyName: json['party_name'] as String,
+      price: json['price'] != null ? (json['price'] as num).toDouble() : null,
+      receivedBy: json['received_by'] as String?,
+      itemType: InventoryItemType.values.firstWhere(
+        (e) => e.toString().split('.').last == json['item_type'],
+      ),
       createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'company_name': companyName,
-      'panel_model': panelModel,
-      'capacity_kw': capacityKw,
-      'total_quantity': totalQuantity,
-      'used_quantity': usedQuantity,
-      'is_dcr': isDcr,
       'invoice_number': invoiceNumber,
-      'description': description,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'invoice_date': invoiceDate.toIso8601String().split('T')[0],
+      'party_name': partyName,
+      'price': price,
+      'received_by': receivedBy,
+      'item_type': itemType.toString().split('.').last,
     };
-  }
-
-  SolarInventoryItem copyWith({
-    String? id,
-    String? companyName,
-    String? panelModel,
-    double? capacityKw,
-    int? totalQuantity,
-    int? usedQuantity,
-    bool? isDcr,
-    String? invoiceNumber,
-    String? description,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return SolarInventoryItem(
-      id: id ?? this.id,
-      companyName: companyName ?? this.companyName,
-      panelModel: panelModel ?? this.panelModel,
-      capacityKw: capacityKw ?? this.capacityKw,
-      totalQuantity: totalQuantity ?? this.totalQuantity,
-      usedQuantity: usedQuantity ?? this.usedQuantity,
-      isDcr: isDcr ?? this.isDcr,
-      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
-      description: description ?? this.description,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
   }
 }
 
 @immutable
-class SolarAssignment {
+class PanelItem {
   final String id;
-  final String inventoryItemId;
-  final String applicationId;
-  final String applicationNumber;
-  final String consumerName;
-  final int quantityAssigned;
-  final DateTime assignedAt;
-  final String? notes;
+  final String? invoiceId;
+  final String serialNumber;
+  final String brand;
+  final int wattCapacity;
+  final String panelType; // DCR or NDCR
+  final String status; // available or allotted
+  final DateTime createdAt;
 
-  const SolarAssignment({
+  const PanelItem({
     required this.id,
-    required this.inventoryItemId,
-    required this.applicationId,
-    required this.applicationNumber,
-    required this.consumerName,
-    required this.quantityAssigned,
-    required this.assignedAt,
-    this.notes,
+    this.invoiceId,
+    required this.serialNumber,
+    required this.brand,
+    required this.wattCapacity,
+    required this.panelType,
+    required this.status,
+    required this.createdAt,
   });
 
-  factory SolarAssignment.fromJson(Map<String, dynamic> json) {
-    return SolarAssignment(
+  factory PanelItem.fromJson(Map<String, dynamic> json) {
+    return PanelItem(
       id: json['id'] as String,
-      inventoryItemId: json['inventory_item_id'] as String,
-      applicationId: json['application_id'] as String,
-      applicationNumber: json['application_number'] as String,
-      consumerName: json['consumer_name'] as String,
-      quantityAssigned: json['quantity_assigned'] as int,
-      assignedAt: DateTime.parse(json['assigned_at'] as String),
-      notes: json['notes'] as String?,
+      invoiceId: json['invoice_id'] as String?,
+      serialNumber: json['serial_number'] as String,
+      brand: json['brand'] as String,
+      wattCapacity: json['watt_capacity'] as int,
+      panelType: json['panel_type'] as String,
+      status: json['status'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'inventory_item_id': inventoryItemId,
+      'invoice_id': invoiceId,
+      'serial_number': serialNumber,
+      'brand': brand,
+      'watt_capacity': wattCapacity,
+      'panel_type': panelType,
+      'status': status,
+    };
+  }
+}
+
+@immutable
+class InverterItem {
+  final String id;
+  final String? invoiceId;
+  final String serialNumber;
+  final String brand;
+  final double capacityKw;
+  final String inverterType; // On Grid, Hybrid, Off Grid
+  final String status;
+  final DateTime createdAt;
+
+  const InverterItem({
+    required this.id,
+    this.invoiceId,
+    required this.serialNumber,
+    required this.brand,
+    required this.capacityKw,
+    required this.inverterType,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory InverterItem.fromJson(Map<String, dynamic> json) {
+    return InverterItem(
+      id: json['id'] as String,
+      invoiceId: json['invoice_id'] as String?,
+      serialNumber: json['serial_number'] as String,
+      brand: json['brand'] as String,
+      capacityKw: (json['capacity_kw'] as num).toDouble(),
+      inverterType: json['inverter_type'] as String,
+      status: json['status'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'invoice_id': invoiceId,
+      'serial_number': serialNumber,
+      'brand': brand,
+      'capacity_kw': capacityKw,
+      'inverter_type': inverterType,
+      'status': status,
+    };
+  }
+}
+
+@immutable
+class MeterItem {
+  final String id;
+  final String? invoiceId;
+  final String serialNumber;
+  final String brand;
+  final String meterCategory; // Net Meter, Solar Meter
+  final String meterType; // Normal, LTCT, HTCT
+  final String meterPhase; // Single Phase, Three Phase
+  final String status;
+  final DateTime createdAt;
+
+  const MeterItem({
+    required this.id,
+    this.invoiceId,
+    required this.serialNumber,
+    required this.brand,
+    required this.meterCategory,
+    required this.meterType,
+    required this.meterPhase,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory MeterItem.fromJson(Map<String, dynamic> json) {
+    return MeterItem(
+      id: json['id'] as String,
+      invoiceId: json['invoice_id'] as String?,
+      serialNumber: json['serial_number'] as String,
+      brand: json['brand'] as String,
+      meterCategory: json['meter_category'] as String,
+      meterType: json['meter_type'] as String,
+      meterPhase: json['meter_phase'] as String,
+      status: json['status'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'invoice_id': invoiceId,
+      'serial_number': serialNumber,
+      'brand': brand,
+      'meter_category': meterCategory,
+      'meter_type': meterType,
+      'meter_phase': meterPhase,
+      'status': status,
+    };
+  }
+}
+
+@immutable
+class InventoryAllotment {
+  final String id;
+  final String itemId;
+  final InventoryItemType itemType;
+  final String customerName;
+  final String? customerAddress;
+  final String? customerMobile;
+  final String? applicationId;
+  final String? handoverBy;
+  final DateTime handoverDate;
+  final DateTime createdAt;
+
+  const InventoryAllotment({
+    required this.id,
+    required this.itemId,
+    required this.itemType,
+    required this.customerName,
+    this.customerAddress,
+    this.customerMobile,
+    this.applicationId,
+    this.handoverBy,
+    required this.handoverDate,
+    required this.createdAt,
+  });
+
+  factory InventoryAllotment.fromJson(Map<String, dynamic> json) {
+    return InventoryAllotment(
+      id: json['id'] as String,
+      itemId: json['item_id'] as String,
+      itemType: InventoryItemType.values.firstWhere(
+        (e) => e.toString().split('.').last == json['item_type'],
+      ),
+      customerName: json['customer_name'] as String,
+      customerAddress: json['customer_address'] as String?,
+      customerMobile: json['customer_mobile'] as String?,
+      applicationId: json['application_id'] as String?,
+      handoverBy: json['handover_by'] as String?,
+      handoverDate: DateTime.parse(json['handover_date'] as String),
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'item_id': itemId,
+      'item_type': itemType.toString().split('.').last,
+      'customer_name': customerName,
+      'customer_address': customerAddress,
+      'customer_mobile': customerMobile,
       'application_id': applicationId,
-      'application_number': applicationNumber,
-      'consumer_name': consumerName,
-      'quantity_assigned': quantityAssigned,
-      'assigned_at': assignedAt.toIso8601String(),
-      'notes': notes,
+      'handover_by': handoverBy,
+      'handover_date': handoverDate.toIso8601String(),
     };
   }
 }

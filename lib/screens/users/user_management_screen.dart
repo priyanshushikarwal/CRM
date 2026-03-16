@@ -228,7 +228,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -265,7 +265,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
             Icon(
               Icons.people_outline_rounded,
               size: 64,
-              color: AppTheme.textLight.withOpacity(0.5),
+              color: AppTheme.textLight.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(

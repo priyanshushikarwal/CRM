@@ -11,6 +11,9 @@ import '../../screens/applications/pending_approvals_screen.dart';
 import '../../screens/users/user_management_screen.dart';
 import '../../screens/inventory/inventory_screen.dart';
 import '../../screens/settings/settings_screen.dart';
+import '../../screens/installations/installations_list_screen.dart';
+import '../../screens/reports/reports_screen.dart';
+import '../../screens/reports/payments_list_screen.dart';
 import '../../services/supabase_service.dart';
 
 class DemoSession {
@@ -122,13 +125,8 @@ final appRouter = GoRouter(
           path: '/reports',
           name: 'reports',
           pageBuilder:
-              (context, state) => NoTransitionPage(
-                child: Center(
-                  child: Text(
-                    'Reports Coming Soon',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ),
+              (context, state) => const NoTransitionPage(
+                child: ReportsScreen(),
               ),
         ),
         GoRoute(
@@ -137,6 +135,20 @@ final appRouter = GoRouter(
           pageBuilder:
               (context, state) =>
                   const NoTransitionPage(child: SettingsScreen()),
+        ),
+        GoRoute(
+          path: '/installations',
+          name: 'installations',
+          pageBuilder:
+              (context, state) =>
+                  const NoTransitionPage(child: InstallationsListScreen()),
+        ),
+        GoRoute(
+          path: '/payments',
+          name: 'payments',
+          pageBuilder:
+              (context, state) =>
+                  const NoTransitionPage(child: PaymentsListScreen()),
         ),
       ],
     ),

@@ -54,7 +54,7 @@ class _ApplicationsListScreenState
     final isMobile = size.width < 600;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -64,25 +64,22 @@ class _ApplicationsListScreenState
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('My Applications', style: AppTextStyles.heading2),
+                  const Text(
+                    'My Applications',
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppTheme.textPrimary, letterSpacing: -1.0),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           'Total Applications: ${applicationsState.stats['total'] ?? 0}',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -94,29 +91,20 @@ class _ApplicationsListScreenState
                   if (!isMobile) ...[
                     OutlinedButton.icon(
                       onPressed: () {
-                        final apps =
-                            ref.read(applicationsProvider).applications;
+                        final apps = ref.read(applicationsProvider).applications;
                         _exportToCSV(apps);
                       },
                       icon: const Icon(Icons.download_rounded, size: 18),
                       label: const Text('Export'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.accentColor,
-                        side: const BorderSide(color: AppTheme.accentColor),
-                      ),
                     ),
                     const SizedBox(width: 12),
                     OutlinedButton.icon(
                       onPressed: () {
-                        final apps =
-                            ref.read(applicationsProvider).applications;
+                        final apps = ref.read(applicationsProvider).applications;
                         _exportToPDF(apps);
                       },
                       icon: const Icon(Icons.table_chart_rounded, size: 18),
                       label: const Text('MIS Export'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.primaryColor,
-                      ),
                     ),
                     const SizedBox(width: 12),
                   ],
@@ -124,144 +112,99 @@ class _ApplicationsListScreenState
                     ElevatedButton.icon(
                       onPressed: () => context.go('/applications/add'),
                       icon: const Icon(Icons.add_rounded, size: 20),
-                      label: Text(isMobile ? 'Add' : 'Add Application'),
+                      label: Text(isMobile ? 'Add' : 'New Application'),
                     ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
+          
+          // Filters
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
               border: Border.all(color: AppTheme.borderColor),
             ),
-            child: Column(
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText:
-                              'Search by application number, name, mobile...',
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          suffixIcon:
-                              _searchController.text.isNotEmpty
-                                  ? IconButton(
-                                    icon: const Icon(Icons.clear_rounded),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      ref
-                                          .read(applicationsProvider.notifier)
-                                          .setSearchQuery('');
-                                    },
-                                  )
-                                  : null,
-                        ),
-                        onChanged: (value) {
-                          ref
-                              .read(applicationsProvider.notifier)
-                              .setSearchQuery(value);
-                        },
-                      ),
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search by number, name, mobile...',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      filled: true,
+                      fillColor: AppTheme.backgroundColor.withOpacity(0.5),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
-                    const SizedBox(width: 16),
-                    if (!isMobile) ...[
-                      Expanded(
-                        flex: 2,
-                        child: DropdownButtonFormField<ApplicationStatus?>(
-                          value: _selectedStatus,
-                          decoration: const InputDecoration(
-                            labelText: 'Status',
-                            prefixIcon: Icon(Icons.filter_list_rounded),
-                          ),
-                          items: [
-                            const DropdownMenuItem(
-                              value: null,
-                              child: Text('All Statuses'),
-                            ),
-                            ...ApplicationStatus.values.map((status) {
-                              return DropdownMenuItem(
-                                value: status,
-                                child: Text(_getStatusDisplayName(status)),
-                              );
-                            }),
-                          ],
-                          onChanged: (value) {
-                            setState(() => _selectedStatus = value);
-                            ref
-                                .read(applicationsProvider.notifier)
-                                .setStatusFilter(value);
-                          },
-                        ),
+                    onChanged: (value) => ref.read(applicationsProvider.notifier).setSearchQuery(value),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                if (!isMobile) ...[
+                  Expanded(
+                    flex: 2,
+                    child: DropdownButtonFormField<ApplicationStatus?>(
+                      value: _selectedStatus,
+                      decoration: InputDecoration(
+                        labelText: 'Status',
+                        prefixIcon: const Icon(Icons.filter_list_rounded, size: 20),
+                        filled: true,
+                        fillColor: AppTheme.backgroundColor.withOpacity(0.5),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 2,
-                        child: DropdownButtonFormField<String?>(
-                          value: _selectedState,
-                          decoration: const InputDecoration(
-                            labelText: 'State',
-                            prefixIcon: Icon(Icons.location_on_outlined),
-                          ),
-                          items: [
-                            const DropdownMenuItem(
-                              value: null,
-                              child: Text('All States'),
-                            ),
-                            ...AppConstants.indianStates.map((state) {
-                              return DropdownMenuItem(
-                                value: state,
-                                child: Text(state),
-                              );
-                            }),
-                          ],
-                          onChanged: (value) {
-                            setState(() => _selectedState = value);
-                            ref
-                                .read(applicationsProvider.notifier)
-                                .setStateFilter(value);
-                          },
-                        ),
-                      ),
-                    ],
-                    const SizedBox(width: 16),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        _showFilterDialog(context);
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('All Statuses')),
+                        ...ApplicationStatus.values.map((status) => DropdownMenuItem(value: status, child: Text(_getStatusDisplayName(status)))),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedStatus = value);
+                        ref.read(applicationsProvider.notifier).setStatusFilter(value);
                       },
-                      icon: const Icon(Icons.tune_rounded, size: 18),
-                      label: const Text('Filter'),
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                OutlinedButton.icon(
+                  onPressed: () => _showFilterDialog(context),
+                  icon: const Icon(Icons.tune_rounded, size: 18),
+                  label: const Text('More Filters'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          
+          const SizedBox(height: 32),
+          
           Expanded(
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                 border: Border.all(color: AppTheme.borderColor),
               ),
-              child:
-                  applicationsState.isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : applicationsState.applications.isEmpty
+              clipBehavior: Clip.antiAlias,
+              child: applicationsState.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : applicationsState.applications.isEmpty
                       ? _buildEmptyState()
                       : _buildApplicationsTable(
-                        applicationsState.applications,
-                        isMobile,
-                        canEdit,
-                        canDelete,
-                      ),
+                          applicationsState.applications,
+                          isMobile,
+                          canEdit,
+                          canDelete,
+                        ),
             ),
           ),
         ],
@@ -276,25 +219,11 @@ class _ApplicationsListScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.folder_open_rounded,
-              size: 80,
-              color: AppTheme.textLight.withOpacity(0.4),
-            ),
+            Icon(Icons.folder_open_rounded, size: 80, color: AppTheme.textSecondary.withOpacity(0.2)),
             const SizedBox(height: 24),
-            Text(
-              'No applications found',
-              style: AppTextStyles.heading3.copyWith(
-                color: AppTheme.textSecondary,
-              ),
-            ),
+            const Text('No applications found', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
             const SizedBox(height: 8),
-            Text(
-              'Try adjusting your search or filters',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppTheme.textLight,
-              ),
-            ),
+            const Text('Try adjusting your search or filters', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () => context.go('/applications/add'),
@@ -316,73 +245,31 @@ class _ApplicationsListScreenState
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.05),
-            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            color: AppTheme.backgroundColor.withOpacity(0.4),
+            border: const Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
           child: Row(
             children: [
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Application Number',
-                  style: AppTextStyles.labelLarge.copyWith(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+              const Expanded(flex: 2, child: Text('CLIENT & ACCOUNT', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
               if (!isMobile) ...[
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Consumer Name',
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Mobile',
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Capacity (kWp)',
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+                const Expanded(flex: 1, child: Text('PHONE NUMBER', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
+                const Expanded(flex: 1, child: Text('CAPACITY', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
+                const Expanded(flex: 1, child: Text('LOCATION', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
               ],
-              Expanded(
-                child: Text(
-                  'Status',
-                  style: AppTextStyles.labelLarge.copyWith(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 110, child: Text('Action')),
+              const Expanded(child: Text('STATUS', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
+              const SizedBox(width: 80, child: Text('ACTION', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700), textAlign: TextAlign.center)),
             ],
           ),
         ),
         Expanded(
           child: ListView.separated(
+            padding: EdgeInsets.zero,
             itemCount: applications.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.borderColor),
             itemBuilder: (context, index) {
-              final app = applications[index];
-              return _buildApplicationRow(app, isMobile, canEdit, canDelete);
+              return _buildApplicationRow(applications[index], isMobile, canEdit, canDelete);
             },
           ),
         ),
@@ -399,171 +286,54 @@ class _ApplicationsListScreenState
     return InkWell(
       onTap: () => context.go('/applications/${app.id}'),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
         child: Row(
           children: [
             Expanded(
               flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    app.applicationNumber,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryColor,
+                  CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withOpacity(0.1), child: Text(app.fullName[0], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor))),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(app.fullName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text(app.applicationNumber, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, letterSpacing: 0.5)),
+                      ],
                     ),
                   ),
-                  if (isMobile) ...[
-                    const SizedBox(height: 4),
-                    Text(app.fullName, style: AppTextStyles.bodySmall),
-                  ],
                 ],
               ),
             ),
             if (!isMobile) ...[
-              Expanded(
-                flex: 2,
-                child: Text(
-                  app.fullName,
-                  style: AppTextStyles.bodyMedium,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Expanded(
-                child: Text(app.mobile, style: AppTextStyles.bodyMedium),
-              ),
-              Expanded(
-                child: Text(
-                  app.proposedCapacity.toStringAsFixed(3),
-                  style: AppTextStyles.bodyMedium,
-                ),
-              ),
+              Expanded(child: Text(app.mobile, style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary))),
+              Expanded(child: Text('${app.proposedCapacity} kW', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))),
+              Expanded(child: Text(app.district, style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary), overflow: TextOverflow.ellipsis)),
             ],
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(app.currentStatus).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: _getStatusColor(app.currentStatus).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                 child: Text(
-                  app.statusDisplayName,
-                  style: AppTextStyles.caption.copyWith(
-                    color: _getStatusColor(app.currentStatus),
-                    fontWeight: FontWeight.w600,
-                  ),
+                  app.statusDisplayName.toUpperCase(),
+                  style: TextStyle(fontSize: 10, color: _getStatusColor(app.currentStatus), fontWeight: FontWeight.w800),
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
             SizedBox(
-              width: 110,
+              width: 80,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Tooltip(
-                    message: 'View Progress',
-                    child: InkWell(
-                      onTap: () => _showTrackingDialog(context, app),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppTheme.primaryColor.withOpacity(0.25),
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.timeline_rounded,
-                          size: 16,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded),
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'view':
-                          context.go('/applications/${app.id}');
-                          break;
-                        case 'edit':
-                          context.go('/applications/${app.id}/edit');
-                          break;
-                        case 'track':
-                          _showTrackingDialog(context, app);
-                          break;
-                        case 'delete':
-                          _confirmDelete(context, app);
-                          break;
-                      }
-                    },
-                    itemBuilder:
-                        (context) => [
-                          const PopupMenuItem(
-                            value: 'view',
-                            child: Row(
-                              children: [
-                                Icon(Icons.visibility_rounded, size: 18),
-                                SizedBox(width: 12),
-                                Text('View Application'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'track',
-                            child: Row(
-                              children: [
-                                Icon(Icons.track_changes_rounded, size: 18),
-                                SizedBox(width: 12),
-                                Text('Track Application'),
-                              ],
-                            ),
-                          ),
-                          if (canEdit)
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.edit_rounded, size: 18),
-                                  SizedBox(width: 12),
-                                  Text('Edit'),
-                                ],
-                              ),
-                            ),
-                          if (canDelete) ...[
-                            const PopupMenuDivider(),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.delete_rounded,
-                                    size: 18,
-                                    color: AppTheme.errorColor,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    'Delete',
-                                    style: TextStyle(
-                                      color: AppTheme.errorColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                    onPressed: () => context.go('/applications/${app.id}'),
+                    color: AppTheme.primaryColor,
                   ),
                 ],
               ),
@@ -753,24 +523,24 @@ class _ApplicationsListScreenState
         applications
             .where(
               (a) =>
-                  a.currentStatus == ApplicationStatus.consumerRegistration ||
-                  a.currentStatus == ApplicationStatus.consumerApplication,
+                  a.currentStatus == ApplicationStatus.applicationReceived ||
+                  a.currentStatus == ApplicationStatus.documentsVerified,
             )
             .length;
     final inProgress =
         applications
             .where(
               (a) =>
-                  a.currentStatus != ApplicationStatus.consumerRegistration &&
-                  a.currentStatus != ApplicationStatus.consumerApplication &&
-                  a.currentStatus != ApplicationStatus.consumerSubsidyRequest,
+                  a.currentStatus != ApplicationStatus.applicationReceived &&
+                  a.currentStatus != ApplicationStatus.documentsVerified &&
+                  a.currentStatus != ApplicationStatus.subsidyProcess,
             )
             .length;
     final completed =
         applications
             .where(
               (a) =>
-                  a.currentStatus == ApplicationStatus.consumerSubsidyRequest,
+                  a.currentStatus == ApplicationStatus.subsidyProcess,
             )
             .length;
     final totalKWp = applications.fold<double>(
@@ -1345,41 +1115,44 @@ class _ApplicationsListScreenState
 
   String _getStatusDisplayName(ApplicationStatus status) {
     switch (status) {
-      case ApplicationStatus.consumerRegistration:
-        return 'Consumer Registration';
-      case ApplicationStatus.consumerApplication:
-        return 'Consumer Application';
-      case ApplicationStatus.discomFeasibility:
-        return 'Discom Feasibility';
-      case ApplicationStatus.consumerVendorSelection:
-        return 'Vendor Selection';
-      case ApplicationStatus.vendorUploadAgreement:
-        return 'Upload Agreement';
-      case ApplicationStatus.vendorInstallation:
-        return 'Installation';
-      case ApplicationStatus.discomInspection:
-        return 'Inspection';
-      case ApplicationStatus.projectCommissioning:
-        return 'Project Commissioning';
-      case ApplicationStatus.consumerSubsidyRequest:
-        return 'Subsidy Request';
+      case ApplicationStatus.applicationReceived:
+        return 'Application Received';
+      case ApplicationStatus.documentsVerified:
+        return 'Documents Verified';
+      case ApplicationStatus.siteSurveyPending:
+        return 'Site Survey Pending';
+      case ApplicationStatus.siteSurveyCompleted:
+        return 'Site Survey Completed';
+      case ApplicationStatus.solarDemandPending:
+        return 'Solar Demand Pending';
+      case ApplicationStatus.solarDemandDeposit:
+        return 'Solar Demand Deposit';
+      case ApplicationStatus.meterTested:
+        return 'Meter Tested';
+      case ApplicationStatus.installationScheduled:
+        return 'Installation Scheduled';
+      case ApplicationStatus.installationCompleted:
+        return 'Installation Completed';
+      case ApplicationStatus.subsidyProcess:
+        return 'Subsidy Process';
     }
   }
 
   Color _getStatusColor(ApplicationStatus status) {
     switch (status) {
-      case ApplicationStatus.consumerRegistration:
-      case ApplicationStatus.consumerApplication:
+      case ApplicationStatus.applicationReceived:
+      case ApplicationStatus.documentsVerified:
         return AppTheme.statusPending;
-      case ApplicationStatus.discomFeasibility:
-      case ApplicationStatus.consumerVendorSelection:
-      case ApplicationStatus.vendorUploadAgreement:
+      case ApplicationStatus.siteSurveyPending:
+      case ApplicationStatus.siteSurveyCompleted:
+      case ApplicationStatus.solarDemandPending:
+      case ApplicationStatus.solarDemandDeposit:
         return AppTheme.statusInProgress;
-      case ApplicationStatus.vendorInstallation:
-      case ApplicationStatus.discomInspection:
-      case ApplicationStatus.projectCommissioning:
+      case ApplicationStatus.meterTested:
+      case ApplicationStatus.installationScheduled:
+      case ApplicationStatus.installationCompleted:
         return AppTheme.warningColor;
-      case ApplicationStatus.consumerSubsidyRequest:
+      case ApplicationStatus.subsidyProcess:
         return AppTheme.statusCompleted;
     }
   }

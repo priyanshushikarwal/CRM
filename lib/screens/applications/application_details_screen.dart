@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
@@ -10,7 +11,11 @@ import '../../models/application_model.dart';
 import '../../models/document_model.dart';
 import '../../providers/app_providers.dart';
 import '../../services/application_service.dart';
-import '../inventory/inventory_screen.dart';
+import '../../services/installation_service.dart';
+import '../../services/payment_service.dart';
+import '../../models/payment_model.dart';
+import '../../models/inventory_model.dart';
+import '../../providers/inventory_providers.dart';
 
 class ApplicationDetailsScreen extends ConsumerStatefulWidget {
   final String applicationId;
@@ -105,30 +110,25 @@ class _ApplicationDetailsScreenState
         }
 
         return Scaffold(
-          body: Row(
+          backgroundColor: Colors.white,
+          body: Column(
             children: [
+              _buildHeader(context, application),
               Expanded(
-                child: Column(
+                child: Row(
                   children: [
-                    _buildHeader(context, application),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Expanded(child: _buildDetailsContent(application)),
-                          if (isDesktop && _showTrackingPanel)
-                            Container(
-                              width: 350,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border(
-                                  left: BorderSide(color: AppTheme.borderColor),
-                                ),
-                              ),
-                              child: _buildTrackingPanel(application),
-                            ),
-                        ],
+                    Expanded(child: _buildDetailsContent(application)),
+                    if (isDesktop && _showTrackingPanel)
+                      Container(
+                        width: 380,
+                        margin: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                          border: Border.all(color: AppTheme.borderColor),
+                        ),
+                        child: _buildTrackingPanel(application),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -141,8 +141,8 @@ class _ApplicationDetailsScreenState
 
   Widget _buildHeader(BuildContext context, ApplicationModel app) {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
@@ -151,133 +151,85 @@ class _ApplicationDetailsScreenState
           IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () => context.go('/applications'),
+            style: IconButton.styleFrom(
+              backgroundColor: AppTheme.backgroundColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 24),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Application Number: ${app.applicationNumber}',
-                  style: AppTextStyles.heading3,
+                Row(
+                  children: [
+                    Text(
+                      app.applicationNumber,
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textPrimary, letterSpacing: -0.5),
+                    ),
+                    const SizedBox(width: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: _getStatusColor(app.currentStatus).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      child: Text(
+                        app.statusDisplayName.toUpperCase(),
+                        style: TextStyle(fontSize: 10, color: _getStatusColor(app.currentStatus), fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(
-                          app.currentStatus,
-                        ).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        app.statusDisplayName,
-                        style: AppTextStyles.caption.copyWith(
-                          color: _getStatusColor(app.currentStatus),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getApprovalStatusColor(
-                          app.approvalStatus,
-                        ).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _getApprovalStatusIcon(app.approvalStatus),
-                            size: 14,
-                            color: _getApprovalStatusColor(app.approvalStatus),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            app.approvalStatusDisplayName,
-                            style: AppTextStyles.caption.copyWith(
-                              color: _getApprovalStatusColor(
-                                app.approvalStatus,
-                              ),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Submitted: ${DateFormat('dd MMM yyyy').format(app.applicationSubmissionDate)}',
-                      style: AppTextStyles.bodySmall,
-                    ),
+                    const Icon(Icons.person_outline_rounded, size: 14, color: AppTheme.textSecondary),
+                    const SizedBox(width: 4),
+                    Text(app.fullName, style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+                    const SizedBox(width: 16),
+                    const Icon(Icons.calendar_today_rounded, size: 14, color: AppTheme.textSecondary),
+                    const SizedBox(width: 4),
+                    Text('Submitted: ${DateFormat('dd MMM yyyy').format(app.applicationSubmissionDate)}', style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
                   ],
                 ),
               ],
             ),
           ),
           OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _showTrackingPanel = !_showTrackingPanel;
-              });
-            },
-            icon: const Icon(Icons.track_changes_rounded, size: 18),
-            label: const Text('Track'),
+            onPressed: () => setState(() => _showTrackingPanel = !_showTrackingPanel),
+            icon: Icon(_showTrackingPanel ? Icons.visibility_off_rounded : Icons.track_changes_rounded, size: 18),
+            label: Text(_showTrackingPanel ? 'Hide Timeline' : 'Timeline'),
+            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => _showInventoryAllotmentDialog(app),
+            icon: const Icon(Icons.solar_power_rounded, size: 18),
+            label: const Text('Allot Solar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
           ),
           const SizedBox(width: 12),
           OutlinedButton.icon(
             onPressed: () => context.go('/applications/${app.id}/edit'),
             icon: const Icon(Icons.edit_rounded, size: 18),
             label: const Text('Edit'),
+            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           ),
           const SizedBox(width: 12),
           Consumer(
             builder: (context, ref, child) {
               final currentUser = ref.watch(currentUserProvider).value;
               final canApprove = currentUser?.canManageUsers ?? false;
-
-              if (!canApprove || app.approvalStatus != ApprovalStatus.pending) {
-                return const SizedBox.shrink();
-              }
-
+              if (!canApprove || app.approvalStatus != ApprovalStatus.pending) return const SizedBox.shrink();
               return Row(
                 children: [
                   ElevatedButton.icon(
                     onPressed: () => _handleApproval(app, 'approve'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.successColor,
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                     icon: const Icon(Icons.check_rounded, size: 18),
                     label: const Text('Approve'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _handleApproval(app, 'changes'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.warningColor,
-                    ),
-                    icon: const Icon(Icons.edit_note_rounded, size: 18),
-                    label: const Text('Request Changes'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _handleApproval(app, 'reject'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.errorColor,
-                    ),
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                    label: const Text('Reject'),
                   ),
                   const SizedBox(width: 12),
                 ],
@@ -285,28 +237,10 @@ class _ApplicationDetailsScreenState
             },
           ),
           PopupMenuButton<String>(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Text('Action', style: TextStyle(color: Colors.white)),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.expand_more_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
-            onSelected: (value) async {
-              await _handleActionSelection(value, app);
-            },
+            icon: const Icon(Icons.more_horiz_rounded),
+            onSelected: (value) async => await _handleActionSelection(value, app),
             itemBuilder: (context) => _buildActionMenuItems(app),
+            style: IconButton.styleFrom(backgroundColor: AppTheme.backgroundColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           ),
         ],
       ),
@@ -315,12 +249,12 @@ class _ApplicationDetailsScreenState
 
   Widget _buildDetailsContent(ApplicationModel app) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildProgressTracker(app),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -329,205 +263,71 @@ class _ApplicationDetailsScreenState
                   children: [
                     _buildSectionCard(
                       'Application Details',
-                      Icons.description_rounded,
+                      Icons.description_outlined,
                       [
-                        _buildDetailRow('State', app.state),
-                        _buildDetailRow('Name of Discom', app.discomName),
-                        _buildDetailRow('Full Name', app.fullName),
-                        _buildDetailRow('Gender', app.gender),
-                        _buildDetailRow('Address', app.address),
-                        _buildDetailRow('Pincode', app.pincode),
-                        _buildDetailRow(
-                          'Consumer Account Number',
-                          app.consumerAccountNumber,
-                        ),
-                        _buildDetailRow('Mobile', app.mobile),
-                        _buildDetailRow('Email', app.email ?? '-'),
-                        _buildDetailRow('District', app.district),
-                        _buildDetailRow(
-                          'Application Submission Date',
-                          DateFormat(
-                            'dd/MM/yyyy',
-                          ).format(app.applicationSubmissionDate),
-                        ),
+                        _buildDetailRow('Client Name', app.fullName, highlight: true),
+                        _buildDetailRow('Phone Number', app.mobile),
+                        _buildDetailRow('Email Address', app.email ?? '-'),
+                        _buildDetailRow('Account No.', app.consumerAccountNumber),
+                        _buildDetailRow('Full Address', app.address),
+                        _buildDetailRow('District / State', '${app.district} / ${app.state}'),
+                        _buildDetailRow('Discom', app.discomName),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     _buildSectionCard(
-                      'Bank Details',
-                      Icons.account_balance_rounded,
+                      'Bank & Settlement',
+                      Icons.account_balance_outlined,
                       [
-                        _buildDetailRow(
-                          'Scheme Name',
-                          app.schemeName,
-                          highlight: true,
-                        ),
+                        _buildDetailRow('Scheme', app.schemeName, highlight: true),
                         _buildDetailRow('Bank Name', app.bankName ?? '-'),
                         _buildDetailRow('IFSC Code', app.ifscCode ?? '-'),
-                        _buildDetailRow(
-                          'Account Holder Name',
-                          app.accountHolderName ?? '-',
-                        ),
-                        _buildDetailRow(
-                          'Account Number',
-                          app.accountNumber ?? '-',
-                        ),
-                        _buildDetailRow('Bank Remarks', app.bankRemarks ?? '-'),
-                        _buildDetailRow(
-                          'Give Up Subsidy',
-                          app.giveUpSubsidy ? 'Yes' : 'No',
-                        ),
+                        _buildDetailRow('Account Holder', app.accountHolderName ?? '-'),
+                        _buildDetailRow('Account No.', app.accountNumber ?? '-'),
+                        _buildDetailRow('Subsidy Opt-out', app.giveUpSubsidy ? 'Yes' : 'No'),
                       ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 24),
               Expanded(
                 child: Column(
                   children: [
                     _buildSectionCard(
-                      'Solar Rooftop Details',
-                      Icons.solar_power_rounded,
+                      'Technical Specifications',
+                      Icons.solar_power_outlined,
                       [
-                        _buildDetailRow(
-                          'Sanctioned Load (kW)',
-                          app.sanctionedLoad.toString(),
-                        ),
-                        _buildDetailRow(
-                          'Proposed Capacity (kWp)',
-                          app.proposedCapacity.toString(),
-                        ),
-                        _buildDetailRow(
-                          'Latitude',
-                          app.latitude?.toString() ?? '-',
-                        ),
-                        _buildDetailRow(
-                          'Longitude',
-                          app.longitude?.toString() ?? '-',
-                        ),
-                        _buildDetailRow('Category Name', app.categoryName),
-                        _buildDetailRow(
-                          'Existing Installed Capacity (kWp)',
-                          app.existingInstalledCapacity.toString(),
-                        ),
-                        _buildDetailRow(
-                          'Net Eligible Capacity (kWp)',
-                          app.netEligibleCapacity.toString(),
-                        ),
-                        _buildDetailRow(
-                          'Name of Vendor',
-                          app.vendorName,
-                          highlight: true,
-                        ),
+                        _buildDetailRow('Proposed Capacity', '${app.proposedCapacity} kWp', highlight: true),
+                        _buildDetailRow('Sanctioned Load', '${app.sanctionedLoad} kW'),
+                        _buildDetailRow('Category', app.categoryName),
+                        _buildDetailRow('Coordinates', '${app.latitude ?? '-'}, ${app.longitude ?? '-'}'),
+                        _buildDetailRow('Existing System', '${app.existingInstalledCapacity} kWp'),
+                        _buildDetailRow('Net Capacity', '${app.netEligibleCapacity} kWp'),
+                        _buildDetailRow('Vendor', app.vendorName, highlight: true),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppTheme.borderColor),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.05),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(16),
-                                topRight: Radius.circular(16),
-                              ),
-                              border: Border(
-                                bottom: BorderSide(color: AppTheme.borderColor),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.inventory_2_rounded,
-                                  color: AppTheme.primaryColor,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Assigned Solar Panels',
-                                  style: AppTextStyles.heading4.copyWith(
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: SolarPanelPickerWidget(
-                              applicationId: app.id,
-                              applicationNumber: app.applicationNumber,
-                              consumerName: app.fullName,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildSectionCard('Loan Details', Icons.payments_rounded, [
-                      _buildDetailRow(
-                        'Current Status of Loan',
-                        app.loanStatus,
-                        highlight: true,
-                      ),
-                      _buildDetailRow(
-                        'Loan Application Number',
-                        app.loanApplicationNumber ?? '-',
-                      ),
-                      _buildDetailRow(
-                        'Sanction Date',
-                        app.sanctionDate != null
-                            ? DateFormat('dd/MM/yyyy').format(app.sanctionDate!)
-                            : 'Not Available',
-                      ),
-                      _buildDetailRow(
-                        'Sanction Amount (Rs.)',
-                        app.sanctionAmount?.toString() ?? '-',
-                        highlight: true,
-                      ),
-                      _buildDetailRow(
-                        'Processing Fees (Rs.)',
-                        app.processingFees?.toString() ?? '-',
-                        highlight: true,
-                      ),
-                    ]),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     _buildSectionCard(
-                      'Feasibility Details',
-                      Icons.check_circle_outline_rounded,
+                      'Financial & Loan',
+                      Icons.payments_outlined,
                       [
-                        _buildDetailRow(
-                          'Feasibility Date',
-                          app.feasibilityDate != null
-                              ? DateFormat(
-                                'dd/MM/yyyy',
-                              ).format(app.feasibilityDate!)
-                              : '-',
-                        ),
-                        _buildDetailRow(
-                          'Feasibility Person',
-                          app.feasibilityPerson ?? '-',
-                          highlight: true,
-                        ),
-                        _buildDetailRow('Status', app.feasibilityStatus),
-                        _buildDetailRow(
-                          'Approved Capacity (kWp)',
-                          app.approvedCapacity?.toString() ?? '-',
-                          highlight: true,
-                        ),
-                        _buildDetailRow('Remarks', app.remarks ?? '-'),
+                        _buildDetailRow('Loan Status', app.loanStatus, highlight: true),
+                        _buildDetailRow('Loan App #', app.loanApplicationNumber ?? '-'),
+                        _buildDetailRow('Sanction Date', app.sanctionDate != null ? DateFormat('dd MMM yyyy').format(app.sanctionDate!) : '-'),
+                        _buildDetailRow('Sanction Amount', '₹${NumberFormat('#,##,###', 'en_IN').format(app.sanctionAmount ?? 0)}', highlight: true),
+                        _buildDetailRow('Processing Fees', '₹${NumberFormat('#,##,###', 'en_IN').format(app.processingFees ?? 0)}'),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSectionCard(
+                      'Feasibility Report',
+                      Icons.fact_check_outlined,
+                      [
+                        _buildDetailRow('Status', app.feasibilityStatus, highlight: true),
+                        _buildDetailRow('Inspector', app.feasibilityPerson ?? '-'),
+                        _buildDetailRow('Approved Capacity', '${app.approvedCapacity ?? '-'} kWp'),
+                        _buildDetailRow('Inspection Date', app.feasibilityDate != null ? DateFormat('dd MMM yyyy').format(app.feasibilityDate!) : '-'),
                       ],
                     ),
                   ],
@@ -535,8 +335,113 @@ class _ApplicationDetailsScreenState
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
+          _buildPaymentSection(app),
+          const SizedBox(height: 32),
+          _buildInventoryAllotmentSection(app),
+          const SizedBox(height: 32),
           _buildDocumentsSection(app),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInventoryAllotmentSection(ApplicationModel app) {
+    final inventoryState = ref.watch(inventoryProvider);
+    final appAllotments = inventoryState.allotments.where((a) => a.applicationId == app.id).toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: const BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(AppTheme.cardRadius), topRight: Radius.circular(AppTheme.cardRadius)),
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.inventory_2_outlined, color: AppTheme.primaryColor, size: 18),
+                    const SizedBox(width: 12),
+                    Text('Inventory Allotment', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _showInventoryAllotmentDialog(app),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.add_task_rounded, size: 16),
+                  label: const Text('Allot Item', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: appAllotments.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text('No inventory items allotted to this application', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: appAllotments.length,
+                    separatorBuilder: (context, index) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final allotment = appAllotments[index];
+                      String serial = 'N/A';
+                      String details = '';
+                      try {
+                        if (allotment.itemType == InventoryItemType.panel) {
+                          final p = inventoryState.panels.firstWhere((p) => p.id == allotment.itemId);
+                          serial = p.serialNumber;
+                          details = '${p.brand} - ${p.wattCapacity}W (${p.panelType})';
+                        } else if (allotment.itemType == InventoryItemType.inverter) {
+                          final i = inventoryState.inverters.firstWhere((i) => i.id == allotment.itemId);
+                          serial = i.serialNumber;
+                          details = '${i.brand} - ${i.capacityKw}kW (${i.inverterType})';
+                        } else {
+                          final m = inventoryState.meters.firstWhere((m) => m.id == allotment.itemId);
+                          serial = m.serialNumber;
+                          details = '${m.brand} - ${m.meterCategory} (${m.meterPhase})';
+                        }
+                      } catch (_) { serial = 'ID: ${allotment.itemId}'; }
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                          child: Icon(
+                            allotment.itemType == InventoryItemType.panel ? Icons.solar_power_outlined :
+                            allotment.itemType == InventoryItemType.inverter ? Icons.electrical_services_outlined : Icons.speed_outlined,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text('S/N: $serial', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(details),
+                        trailing: Text(DateFormat('dd MMM yyyy').format(allotment.handoverDate), style: AppTextStyles.caption),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );
@@ -544,10 +449,10 @@ class _ApplicationDetailsScreenState
 
   Widget _buildProgressTracker(ApplicationModel app) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
         border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
@@ -556,36 +461,46 @@ class _ApplicationDetailsScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Application Progress', style: AppTextStyles.heading4),
-              Text(
-                '${(app.progressPercentage).toStringAsFixed(0)}% Complete',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.w600,
-                ),
+              const Text('Application Progress', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: Text('${(app.progressPercentage).toStringAsFixed(0)}% Complete', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.primaryColor)),
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(value: app.progressPercentage / 100, minHeight: 8, backgroundColor: AppTheme.backgroundColor, valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor)),
+          ),
+          const SizedBox(height: 32),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children:
-                  ApplicationStatus.values.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final status = entry.value;
-                    final isCompleted = app.statusIndex > index;
-                    final isCurrent = app.statusIndex == index;
-                    final isLast = index == ApplicationStatus.values.length - 1;
+              children: ApplicationStatus.values.asMap().entries.map((entry) {
+                final index = entry.key;
+                final status = entry.value;
+                final isCompleted = app.statusIndex > index;
+                final isCurrent = app.statusIndex == index;
+                final isLast = index == ApplicationStatus.values.length - 1;
 
-                    return _buildProgressStep(
-                      _getStatusDisplayName(status),
-                      _getResponsibleParty(status),
-                      isCompleted: isCompleted,
-                      isCurrent: isCurrent,
-                      isLast: isLast,
-                    );
-                  }).toList(),
+                final historyItems = app.statusHistory.where((h) => h.status == status).toList();
+                DateTime? statusDate;
+                if (historyItems.isNotEmpty) {
+                  statusDate = historyItems.last.timestamp;
+                } else if (status == ApplicationStatus.applicationReceived) {
+                  statusDate = app.applicationSubmissionDate;
+                }
+
+                return _buildProgressStep(
+                  _getStatusDisplayName(status),
+                  isCompleted: isCompleted,
+                  isCurrent: isCurrent,
+                  isLast: isLast,
+                  date: statusDate,
+                );
+              }).toList(),
             ),
           ),
         ],
@@ -594,11 +509,11 @@ class _ApplicationDetailsScreenState
   }
 
   Widget _buildProgressStep(
-    String title,
-    String subtitle, {
+    String title, {
     required bool isCompleted,
     required bool isCurrent,
     required bool isLast,
+    DateTime? date,
   }) {
     return Row(
       children: [
@@ -608,96 +523,41 @@ class _ApplicationDetailsScreenState
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color:
-                    isCompleted
-                        ? AppTheme.successColor
-                        : isCurrent
-                        ? AppTheme.statusInProgress
-                        : AppTheme.borderColor,
+                color: isCompleted ? Colors.green : (isCurrent ? AppTheme.primaryColor : AppTheme.backgroundColor),
                 shape: BoxShape.circle,
-                border:
-                    isCurrent
-                        ? Border.all(
-                          color: AppTheme.statusInProgress.withOpacity(0.3),
-                          width: 3,
-                        )
-                        : null,
+                border: isCurrent ? Border.all(color: AppTheme.primaryColor.withOpacity(0.2), width: 4) : null,
               ),
-              child:
-                  isCompleted
-                      ? const Icon(
-                        Icons.check_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      )
-                      : isCurrent
-                      ? const Icon(
-                        Icons.more_horiz_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      )
-                      : Icon(Icons.circle, color: AppTheme.textLight, size: 12),
+              child: isCompleted
+                  ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+                  : (isCurrent ? const Icon(Icons.more_horiz_rounded, color: Colors.white, size: 20) : null),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             SizedBox(
-              width: 100,
-              child: Column(
-                children: [
-                  Text(
-                    title,
-                    style: AppTextStyles.caption.copyWith(
-                      fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w500,
-                      color:
-                          isCompleted || isCurrent
-                              ? AppTheme.textPrimary
-                              : AppTheme.textLight,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isCompleted
-                              ? AppTheme.successColor.withOpacity(0.1)
-                              : isCurrent
-                              ? AppTheme.statusInProgress.withOpacity(0.1)
-                              : AppTheme.backgroundColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      isCompleted
-                          ? 'Completed'
-                          : isCurrent
-                          ? 'In Progress'
-                          : 'Pending',
-                      style: AppTextStyles.caption.copyWith(
-                        fontSize: 10,
-                        color:
-                            isCompleted
-                                ? AppTheme.successColor
-                                : isCurrent
-                                ? AppTheme.statusInProgress
-                                : AppTheme.textLight,
-                      ),
-                    ),
-                  ),
-                ],
+              width: 120,
+              child: Text(
+                title,
+                style: TextStyle(fontSize: 11, fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w500, color: isCurrent ? AppTheme.textPrimary : AppTheme.textSecondary),
+                textAlign: TextAlign.center,
+                maxLines: 2,
               ),
             ),
+            if (date != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  DateFormat('dd/MM/yyyy').format(date),
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isCompleted ? Colors.green : AppTheme.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              ),
           ],
         ),
         if (!isLast)
           Container(
-            width: 40,
+            width: 60,
             height: 2,
-            margin: const EdgeInsets.only(bottom: 50),
-            color: isCompleted ? AppTheme.successColor : AppTheme.borderColor,
+            margin: const EdgeInsets.only(bottom: 60),
+            color: isCompleted ? Colors.green : AppTheme.borderColor,
           ),
       ],
     );
@@ -707,37 +567,29 @@ class _ApplicationDetailsScreenState
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
         border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.05),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: const BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(AppTheme.cardRadius), topRight: Radius.circular(AppTheme.cardRadius)),
               border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: Row(
               children: [
-                Icon(icon, color: AppTheme.primaryColor, size: 20),
+                Icon(icon, color: AppTheme.primaryColor, size: 18),
                 const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: AppTextStyles.heading4.copyWith(
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
+                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(24),
             child: Column(children: children),
           ),
         ],
@@ -747,26 +599,25 @@ class _ApplicationDetailsScreenState
 
   Widget _buildDetailRow(String label, String value, {bool highlight = false}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             flex: 2,
             child: Text(
-              '$label:',
-              style: AppTextStyles.bodySmall.copyWith(
-                color:
-                    highlight ? AppTheme.primaryColor : AppTheme.textSecondary,
-              ),
+              label,
+              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
             ),
           ),
           Expanded(
             flex: 3,
             child: Text(
               value,
-              style: AppTextStyles.bodyMedium.copyWith(
-                fontWeight: highlight ? FontWeight.w600 : FontWeight.w500,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: highlight ? FontWeight.w700 : FontWeight.w600,
+                color: highlight ? AppTheme.primaryColor : AppTheme.textPrimary,
               ),
             ),
           ),
@@ -781,90 +632,61 @@ class _ApplicationDetailsScreenState
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
         border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.05),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: const BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(AppTheme.cardRadius), topRight: Radius.circular(AppTheme.cardRadius)),
               border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(
-                      Icons.folder_rounded,
-                      color: AppTheme.primaryColor,
-                      size: 20,
-                    ),
+                    Icon(Icons.folder_outlined, color: AppTheme.primaryColor, size: 18),
                     const SizedBox(width: 12),
-                    Text(
-                      'Documents',
-                      style: AppTextStyles.heading4.copyWith(
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
+                    Text('Documentation', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
                   ],
                 ),
                 ElevatedButton.icon(
                   onPressed: () => _showUploadDocumentDialog(context, app),
-                  icon: const Icon(Icons.upload_rounded, size: 18),
-                  label: const Text('Upload'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.upload_rounded, size: 16),
+                  label: const Text('Upload File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
           ),
           documentsAsync.when(
-            loading:
-                () => const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-            error:
-                (error, stack) => Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Center(
-                    child: Text(
-                      'Failed to load documents',
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                  ),
-                ),
+            loading: () => const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator())),
+            error: (error, stack) => const Padding(padding: EdgeInsets.all(48), child: Center(child: Text('Failed to load documents'))),
             data: (documents) {
               if (documents.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Center(
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(48),
                     child: Column(
                       children: [
-                        Icon(
-                          Icons.folder_open_rounded,
-                          size: 48,
-                          color: AppTheme.textLight.withOpacity(0.5),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No documents uploaded yet',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
+                        Icon(Icons.folder_open_outlined, size: 48, color: AppTheme.textSecondary.withOpacity(0.3)),
+                        const SizedBox(height: 16),
+                        const Text('No documents uploaded yet', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ),
                 );
               }
-
               return _buildDocumentsTable(documents);
             },
           ),
@@ -1180,18 +1002,19 @@ class _ApplicationDetailsScreenState
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: const BoxDecoration(
             color: AppTheme.backgroundColor,
             border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
-          child: Row(
-            children: const [
-              SizedBox(width: 48, child: Text('Sr.No.')),
-              Expanded(flex: 2, child: Text('Document Type')),
-              Expanded(flex: 3, child: Text('File Name')),
-              Expanded(child: Text('Uploaded On')),
-              SizedBox(width: 80, child: Text('Action')),
+          child: const Row(
+            children: [
+              SizedBox(width: 48, child: Text('SR.', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+              Expanded(flex: 2, child: Text('TYPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+              Expanded(flex: 3, child: Text('FILE NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+              Expanded(child: Text('UPLOADED', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+              Expanded(child: Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+              SizedBox(width: 120, child: Text('ACTIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary), textAlign: TextAlign.right)),
             ],
           ),
         ),
@@ -1199,94 +1022,47 @@ class _ApplicationDetailsScreenState
           final index = entry.key;
           final doc = entry.value;
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.borderColor))),
             child: Row(
               children: [
-                SizedBox(width: 48, child: Text('${index + 1}')),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    doc.documentType,
-                    style: AppTextStyles.bodyMedium,
-                  ),
-                ),
+                SizedBox(width: 48, child: Text('${index + 1}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
+                Expanded(flex: 2, child: Text(doc.documentType, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary))),
                 Expanded(
                   flex: 3,
                   child: Row(
                     children: [
-                      Icon(
-                        doc.isPdf
-                            ? Icons.picture_as_pdf_rounded
-                            : Icons.image_rounded,
-                        size: 18,
-                        color: doc.isPdf ? Colors.red : Colors.blue,
-                      ),
+                      Icon(doc.isPdf ? Icons.picture_as_pdf_outlined : Icons.image_outlined, size: 16, color: doc.isPdf ? Colors.red : AppTheme.primaryColor),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          doc.fileName,
-                          style: AppTextStyles.bodyMedium,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Expanded(child: Text(doc.fileName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                ),
+                Expanded(child: Text(DateFormat('dd MMM yyyy').format(doc.uploadedOn), style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: _getDocStatusColor(doc.verificationStatus).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                        child: Text(doc.verificationStatus.toUpperCase(), style: TextStyle(fontSize: 10, color: _getDocStatusColor(doc.verificationStatus), fontWeight: FontWeight.w800)),
                       ),
                     ],
                   ),
                 ),
-                Expanded(
-                  child: Text(
-                    DateFormat('dd-MM-yyyy').format(doc.uploadedOn),
-                    style: AppTextStyles.bodySmall,
-                  ),
-                ),
                 SizedBox(
-                  width: 80,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final url = doc.fileUrl;
-                      if (url != null && url.isNotEmpty) {
-                        final uri = Uri.parse(url);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(
-                            uri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        } else {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Could not open document'),
-                              ),
-                            );
-                          }
-                        }
-                      } else {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Document URL not available'),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentColor,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.visibility_rounded, size: 14),
-                        SizedBox(width: 4),
-                        Text('View', style: TextStyle(fontSize: 12)),
+                  width: 120,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(icon: const Icon(Icons.visibility_outlined, size: 18), onPressed: () => _viewDocument(doc), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                      const SizedBox(width: 16),
+                      IconButton(icon: const Icon(Icons.download_outlined, size: 18), onPressed: () => _viewDocument(doc), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                      if (doc.verificationStatus == 'pending') ...[
+                        const SizedBox(width: 16),
+                        IconButton(icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: Colors.green), onPressed: () => _updateDocumentStatus(doc.id, 'verified'), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -1295,6 +1071,61 @@ class _ApplicationDetailsScreenState
         }).toList(),
       ],
     );
+  }
+
+  Color _getDocStatusColor(String status) {
+    switch (status) {
+      case 'verified':
+        return AppTheme.successColor;
+      case 'rejected':
+        return AppTheme.errorColor;
+      default:
+        return AppTheme.warningColor;
+    }
+  }
+
+
+  Future<void> _viewDocument(DocumentModel doc) async {
+    final url = doc.fileUrl;
+    if (url != null && url.isNotEmpty) {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open document')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _updateDocumentStatus(String documentId, String status) async {
+    try {
+      await DocumentService.verifyDocument(
+        documentId: documentId,
+        status: status,
+      );
+      
+      // Update the whole list or just the specific app
+      ref.invalidate(documentsProvider(widget.applicationId));
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Document ${status == 'verified' ? 'verified' : 'rejected'}'),
+            backgroundColor: status == 'verified' ? AppTheme.successColor : AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.errorColor),
+        );
+      }
+    }
   }
 
   Widget _buildTrackingPanel(ApplicationModel app) {
@@ -1369,32 +1200,36 @@ class _ApplicationDetailsScreenState
       children: [
         Column(
           children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color:
+            InkWell(
+              onTap: () => _updateStatus(status),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color:
+                      isCompleted
+                          ? AppTheme.successColor
+                          : isCurrent
+                          ? AppTheme.statusInProgress
+                          : AppTheme.borderColor,
+                  shape: BoxShape.circle,
+                ),
+                child:
                     isCompleted
-                        ? AppTheme.successColor
+                        ? const Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        )
                         : isCurrent
-                        ? AppTheme.statusInProgress
-                        : AppTheme.borderColor,
-                shape: BoxShape.circle,
+                        ? const Icon(
+                          Icons.more_horiz_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        )
+                        : null,
               ),
-              child:
-                  isCompleted
-                      ? const Icon(
-                        Icons.check_rounded,
-                        size: 16,
-                        color: Colors.white,
-                      )
-                      : isCurrent
-                      ? const Icon(
-                        Icons.more_horiz_rounded,
-                        size: 16,
-                        color: Colors.white,
-                      )
-                      : null,
             ),
             if (!isLast)
               Container(
@@ -1470,58 +1305,60 @@ class _ApplicationDetailsScreenState
 
   String _getStatusDisplayName(ApplicationStatus status) {
     switch (status) {
-      case ApplicationStatus.consumerRegistration:
-        return 'Registration';
-      case ApplicationStatus.consumerApplication:
-        return 'Application';
-      case ApplicationStatus.discomFeasibility:
-        return 'Feasibility';
-      case ApplicationStatus.consumerVendorSelection:
-        return 'Vendor Selection';
-      case ApplicationStatus.vendorUploadAgreement:
-        return 'Upload Agreement';
-      case ApplicationStatus.vendorInstallation:
-        return 'Installation';
-      case ApplicationStatus.discomInspection:
-        return 'Inspection';
-      case ApplicationStatus.projectCommissioning:
-        return 'Project Commissioning';
-      case ApplicationStatus.consumerSubsidyRequest:
-        return 'Subsidy Request';
+      case ApplicationStatus.applicationReceived:
+        return 'Application Received';
+      case ApplicationStatus.documentsVerified:
+        return 'Documents Verified';
+      case ApplicationStatus.siteSurveyPending:
+        return 'Site Survey Pending';
+      case ApplicationStatus.siteSurveyCompleted:
+        return 'Site Survey Completed';
+      case ApplicationStatus.solarDemandPending:
+        return 'Solar Demand Pending';
+      case ApplicationStatus.solarDemandDeposit:
+        return 'Solar Demand Deposit';
+      case ApplicationStatus.meterTested:
+        return 'Meter Tested';
+      case ApplicationStatus.installationScheduled:
+        return 'Installation Scheduled';
+      case ApplicationStatus.installationCompleted:
+        return 'Installation Completed';
+      case ApplicationStatus.subsidyProcess:
+        return 'Subsidy Process';
     }
   }
 
   String _getResponsibleParty(ApplicationStatus status) {
     switch (status) {
-      case ApplicationStatus.consumerRegistration:
-      case ApplicationStatus.consumerApplication:
-      case ApplicationStatus.consumerVendorSelection:
-      case ApplicationStatus.consumerSubsidyRequest:
-        return 'Consumer';
-      case ApplicationStatus.discomFeasibility:
-      case ApplicationStatus.discomInspection:
-      case ApplicationStatus.projectCommissioning:
-        return 'Discom';
-      case ApplicationStatus.vendorUploadAgreement:
-      case ApplicationStatus.vendorInstallation:
-        return 'Vendor';
+      case ApplicationStatus.applicationReceived:
+      case ApplicationStatus.documentsVerified:
+      case ApplicationStatus.siteSurveyPending:
+      case ApplicationStatus.siteSurveyCompleted:
+      case ApplicationStatus.solarDemandPending:
+      case ApplicationStatus.solarDemandDeposit:
+      case ApplicationStatus.meterTested:
+      case ApplicationStatus.installationScheduled:
+      case ApplicationStatus.installationCompleted:
+      case ApplicationStatus.subsidyProcess:
+        return 'Admin/Staff';
     }
   }
 
   Color _getStatusColor(ApplicationStatus status) {
     switch (status) {
-      case ApplicationStatus.consumerRegistration:
-      case ApplicationStatus.consumerApplication:
+      case ApplicationStatus.applicationReceived:
+      case ApplicationStatus.documentsVerified:
         return AppTheme.statusPending;
-      case ApplicationStatus.discomFeasibility:
-      case ApplicationStatus.consumerVendorSelection:
-      case ApplicationStatus.vendorUploadAgreement:
+      case ApplicationStatus.siteSurveyPending:
+      case ApplicationStatus.siteSurveyCompleted:
+      case ApplicationStatus.solarDemandPending:
+      case ApplicationStatus.solarDemandDeposit:
         return AppTheme.statusInProgress;
-      case ApplicationStatus.vendorInstallation:
-      case ApplicationStatus.discomInspection:
-      case ApplicationStatus.projectCommissioning:
+      case ApplicationStatus.meterTested:
+      case ApplicationStatus.installationScheduled:
+      case ApplicationStatus.installationCompleted:
         return AppTheme.warningColor;
-      case ApplicationStatus.consumerSubsidyRequest:
+      case ApplicationStatus.subsidyProcess:
         return AppTheme.statusCompleted;
     }
   }
@@ -1554,143 +1391,16 @@ class _ApplicationDetailsScreenState
     }
 
     switch (app.currentStatus) {
-      case ApplicationStatus.consumerRegistration:
-        items.add(
-          const PopupMenuItem(
-            value: 'complete_registration',
-            child: Row(
-              children: [
-                Icon(Icons.check_circle_outline_rounded, size: 18),
-                SizedBox(width: 12),
-                Text('Complete Registration'),
-              ],
-            ),
-          ),
-        );
-        break;
-      case ApplicationStatus.consumerApplication:
-        items.add(
-          const PopupMenuItem(
-            value: 'submit_application',
-            child: Row(
-              children: [
-                Icon(Icons.send_rounded, size: 18),
-                SizedBox(width: 12),
-                Text('Submit Application'),
-              ],
-            ),
-          ),
-        );
-        break;
-      case ApplicationStatus.discomFeasibility:
-        items.add(
-          const PopupMenuItem(
-            value: 'approve_feasibility',
-            child: Row(
-              children: [
-                Icon(
-                  Icons.verified_rounded,
-                  size: 18,
-                  color: AppTheme.successColor,
-                ),
-                SizedBox(width: 12),
-                Text('Approve Feasibility'),
-              ],
-            ),
-          ),
-        );
-        break;
-      case ApplicationStatus.consumerVendorSelection:
-        items.add(
-          const PopupMenuItem(
-            value: 'confirm_vendor',
-            child: Row(
-              children: [
-                Icon(Icons.business_rounded, size: 18),
-                SizedBox(width: 12),
-                Text('Confirm Vendor Selection'),
-              ],
-            ),
-          ),
-        );
-        break;
-      case ApplicationStatus.vendorUploadAgreement:
-        items.add(
-          const PopupMenuItem(
-            value: 'upload_agreement',
-            child: Row(
-              children: [
-                Icon(Icons.upload_file_rounded, size: 18),
-                SizedBox(width: 12),
-                Text('Upload Agreement'),
-              ],
-            ),
-          ),
-        );
-        break;
-      case ApplicationStatus.vendorInstallation:
-        items.add(
-          const PopupMenuItem(
-            value: 'submit_installation',
-            child: Row(
-              children: [
-                Icon(Icons.construction_rounded, size: 18),
-                SizedBox(width: 12),
-                Text('Submit Installation'),
-              ],
-            ),
-          ),
-        );
-        break;
-      case ApplicationStatus.discomInspection:
-        items.add(
-          const PopupMenuItem(
-            value: 'approve_inspection',
-            child: Row(
-              children: [
-                Icon(
-                  Icons.fact_check_rounded,
-                  size: 18,
-                  color: AppTheme.successColor,
-                ),
-                SizedBox(width: 12),
-                Text('Approve Inspection'),
-              ],
-            ),
-          ),
-        );
-        break;
-      case ApplicationStatus.projectCommissioning:
-        items.add(
-          const PopupMenuItem(
-            value: 'complete_commissioning',
-            child: Row(
-              children: [
-                Icon(Icons.engineering_rounded, size: 18),
-                SizedBox(width: 12),
-                Text('Complete Commissioning'),
-              ],
-            ),
-          ),
-        );
-        break;
-      case ApplicationStatus.consumerSubsidyRequest:
-        items.add(
-          const PopupMenuItem(
-            value: 'process_subsidy',
-            child: Row(
-              children: [
-                Icon(
-                  Icons.payments_rounded,
-                  size: 18,
-                  color: AppTheme.successColor,
-                ),
-                SizedBox(width: 12),
-                Text('Process Subsidy Request'),
-              ],
-            ),
-          ),
-        );
+      case ApplicationStatus.applicationReceived:
+      case ApplicationStatus.documentsVerified:
+      case ApplicationStatus.siteSurveyPending:
+      case ApplicationStatus.siteSurveyCompleted:
+      case ApplicationStatus.solarDemandPending:
+      case ApplicationStatus.solarDemandDeposit:
+      case ApplicationStatus.meterTested:
+      case ApplicationStatus.installationScheduled:
+      case ApplicationStatus.installationCompleted:
+      case ApplicationStatus.subsidyProcess:
         break;
     }
 
@@ -1719,6 +1429,34 @@ class _ApplicationDetailsScreenState
         ),
       ),
     );
+    
+    items.add(
+      const PopupMenuItem(
+        value: 'allot_solar',
+        child: Row(
+          children: [
+            Icon(Icons.solar_power_rounded, size: 18),
+            SizedBox(width: 12),
+            Text('Allot Solar / Inventory'),
+          ],
+        ),
+      ),
+    );
+    
+    if (app.statusIndex >= ApplicationStatus.installationScheduled.index) {
+      items.add(
+        const PopupMenuItem(
+          value: 'view_installation',
+          child: Row(
+            children: [
+              Icon(Icons.plumbing_rounded, size: 18),
+              SizedBox(width: 12),
+              Text('View Installation'),
+            ],
+          ),
+        ),
+      );
+    }
 
     return items;
   }
@@ -1738,53 +1476,17 @@ class _ApplicationDetailsScreenState
           actionRemarks = 'Advanced to ${_getStatusDisplayName(newStatus)}';
         }
         break;
-      case 'complete_registration':
-        newStatus = ApplicationStatus.consumerApplication;
-        actionRemarks = 'Registration completed';
-        break;
-      case 'submit_application':
-        newStatus = ApplicationStatus.discomFeasibility;
-        actionRemarks = 'Application submitted for feasibility';
-        break;
-      case 'approve_feasibility':
-        newStatus = ApplicationStatus.consumerVendorSelection;
-        actionRemarks = 'Feasibility approved';
-        break;
-      case 'confirm_vendor':
-        newStatus = ApplicationStatus.vendorUploadAgreement;
-        actionRemarks = 'Vendor selection confirmed';
-        break;
-      case 'upload_agreement':
-        newStatus = ApplicationStatus.vendorInstallation;
-        actionRemarks = 'Agreement uploaded';
-        break;
-      case 'submit_installation':
-        newStatus = ApplicationStatus.discomInspection;
-        actionRemarks = 'Installation submitted for inspection';
-        break;
-      case 'approve_inspection':
-        newStatus = ApplicationStatus.projectCommissioning;
-        actionRemarks = 'Inspection approved';
-        break;
-      case 'complete_commissioning':
-        newStatus = ApplicationStatus.consumerSubsidyRequest;
-        actionRemarks = 'Project commissioned successfully';
-        break;
-      case 'process_subsidy':
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Application is already at the final stage!'),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
-        }
-        return;
       case 'update_status':
-        await _showUpdateStatusDialog(app);
+        await _updateStatus();
         return;
       case 'view_history':
         await _showStatusHistoryDialog(app);
+        return;
+      case 'view_installation':
+        context.go('/installations');
+        return;
+      case 'allot_solar':
+        _showInventoryAllotmentDialog(app);
         return;
       default:
         return;
@@ -1822,6 +1524,14 @@ class _ApplicationDetailsScreenState
     );
 
     try {
+      if (newStatus == ApplicationStatus.installationScheduled) {
+        await InstallationService.initializeInstallation(
+          applicationId: app.id,
+          applicationNumber: app.applicationNumber,
+          consumerName: app.fullName,
+        );
+      }
+
       final result = await ref
           .read(applicationsProvider.notifier)
           .updateApplicationStatus(
@@ -1874,8 +1584,12 @@ class _ApplicationDetailsScreenState
     }
   }
 
-  Future<void> _showUpdateStatusDialog(ApplicationModel app) async {
-    ApplicationStatus? selectedStatus = app.currentStatus;
+  Future<void> _updateStatus([ApplicationStatus? preSelectedStatus]) async {
+    final applicationAsync = ref.read(applicationProvider(widget.applicationId));
+    final app = applicationAsync.value;
+    if (app == null) return;
+
+    ApplicationStatus? selectedStatus = preSelectedStatus ?? app.currentStatus;
     final remarksController = TextEditingController();
 
     final result = await showDialog<bool>(
@@ -2131,36 +1845,6 @@ class _ApplicationDetailsScreenState
     );
   }
 
-  Color _getApprovalStatusColor(ApprovalStatus status) {
-    switch (status) {
-      case ApprovalStatus.draft:
-        return AppTheme.textSecondary;
-      case ApprovalStatus.pending:
-        return AppTheme.warningColor;
-      case ApprovalStatus.approved:
-        return AppTheme.successColor;
-      case ApprovalStatus.rejected:
-        return AppTheme.errorColor;
-      case ApprovalStatus.changesRequested:
-        return Colors.orange;
-    }
-  }
-
-  IconData _getApprovalStatusIcon(ApprovalStatus status) {
-    switch (status) {
-      case ApprovalStatus.draft:
-        return Icons.edit_note_rounded;
-      case ApprovalStatus.pending:
-        return Icons.pending_rounded;
-      case ApprovalStatus.approved:
-        return Icons.check_circle_rounded;
-      case ApprovalStatus.rejected:
-        return Icons.cancel_rounded;
-      case ApprovalStatus.changesRequested:
-        return Icons.refresh_rounded;
-    }
-  }
-
   Future<void> _handleApproval(ApplicationModel app, String action) async {
     final remarksController = TextEditingController();
     String title;
@@ -2338,5 +2022,421 @@ class _ApplicationDetailsScreenState
         );
       }
     }
+  }
+
+  Widget _buildPaymentSection(ApplicationModel app) {
+    final paymentStatsAsync = ref.watch(paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)));
+    final paymentsAsync = ref.watch(paymentsProvider(app.id));
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: const BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(AppTheme.cardRadius), topRight: Radius.circular(AppTheme.cardRadius)),
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.payments_outlined, color: AppTheme.primaryColor, size: 18),
+                    const SizedBox(width: 12),
+                    Text('Payment Summary', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _showAddPaymentDialog(app),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('New Payment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                paymentStatsAsync.when(
+                  data: (stats) => Row(
+                    children: [
+                      _buildStatItem('Total Amount', stats['totalAmount']!, Icons.account_balance_wallet_outlined, Colors.blue),
+                      const SizedBox(width: 16),
+                      _buildStatItem('Paid Amount', stats['advancePaid']!, Icons.check_circle_outline_rounded, Colors.green),
+                      const SizedBox(width: 16),
+                      _buildStatItem('Remaining', stats['remainingAmount']!, Icons.pending_actions_rounded, Colors.orange),
+                    ],
+                  ),
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('Error loading stats: $e'),
+                ),
+                const SizedBox(height: 32),
+                const Text('Transaction History', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                const SizedBox(height: 16),
+                paymentsAsync.when(
+                  data: (payments) => payments.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Text('No payments recorded yet', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                          ),
+                        )
+                      : Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppTheme.borderColor),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: DataTable(
+                              headingRowHeight: 48,
+                              dataRowMinHeight: 48,
+                              dataRowMaxHeight: 60,
+                              headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
+                              horizontalMargin: 24,
+                              columns: const [
+                                DataColumn(label: Text('DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+                                DataColumn(label: Text('TYPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+                                DataColumn(label: Text('MODE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+                                DataColumn(label: Text('TRANSACTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+                                DataColumn(label: Text('AMOUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+                              ],
+                              rows: payments.map((p) => DataRow(cells: [
+                                DataCell(Text(DateFormat('dd MMM yyyy').format(p.paymentDate), style: const TextStyle(fontSize: 13))),
+                                DataCell(Text(p.paymentType.name.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                DataCell(Text(p.paymentMode.name.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                DataCell(Text(p.transactionNumber ?? '-', style: const TextStyle(fontSize: 13))),
+                                DataCell(Text(
+                                  '₹${NumberFormat('#,##,###', 'en_IN').format(p.amount)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.green, fontSize: 13),
+                                )),
+                              ])).toList(),
+                            ),
+                          ),
+                        ),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Text('Error loading payments: $e'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, double value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.1)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                const SizedBox(height: 4),
+                Text(
+                  '₹${NumberFormat('#,##,###', 'en_IN').format(value)}',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddPaymentDialog(ApplicationModel app) {
+    final amountController = TextEditingController();
+    final transactionController = TextEditingController();
+    final remarksController = TextEditingController();
+    PaymentMode selectedMode = PaymentMode.cash;
+    PaymentType selectedType = PaymentType.partial;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Payment'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(labelText: 'Amount (Rs.)', prefixText: 'Rs. '),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<PaymentType>(
+                  value: selectedType,
+                  decoration: const InputDecoration(labelText: 'Payment Type'),
+                  items: PaymentType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.name.toUpperCase()))).toList(),
+                  onChanged: (v) => setDialogState(() => selectedType = v!),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<PaymentMode>(
+                  value: selectedMode,
+                  decoration: const InputDecoration(labelText: 'Payment Mode'),
+                  items: PaymentMode.values.map((m) => DropdownMenuItem(value: m, child: Text(m.name.toUpperCase()))).toList(),
+                  onChanged: (v) => setDialogState(() => selectedMode = v!),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: transactionController,
+                  decoration: const InputDecoration(labelText: 'Transaction Number / Reference'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: remarksController,
+                  decoration: const InputDecoration(labelText: 'Remarks (Optional)'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(amountController.text);
+                if (amount == null || amount <= 0) return;
+
+                final now = DateTime.now();
+                final payment = PaymentModel(
+                  id: const Uuid().v4(),
+                  applicationId: app.id,
+                  amount: amount,
+                  paymentMode: selectedMode,
+                  paymentType: selectedType,
+                  transactionNumber: transactionController.text,
+                  paymentDate: now,
+                  remarks: remarksController.text,
+                  collectedBy: ref.read(currentUserProvider).value?.email,
+                  createdAt: now,
+                );
+
+                await PaymentService.addPayment(payment);
+                ref.invalidate(paymentsProvider(app.id));
+                ref.invalidate(allPaymentsProvider);
+                ref.invalidate(paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)));
+                
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Save Payment'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showInventoryAllotmentDialog(ApplicationModel app) {
+    int currentStep = 0;
+    InventoryItemType selectedType = InventoryItemType.panel;
+    String? selectedBrand;
+    String? selectedCategory;
+    List<String> selectedItemIds = [];
+
+    // Ensure inventory is loaded
+    final currentInventory = ref.read(inventoryProvider);
+    if (currentInventory.panels.isEmpty && !currentInventory.isLoading) {
+      ref.read(inventoryProvider.notifier).loadAll();
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => Consumer(
+        builder: (context, ref, child) {
+          final inventoryState = ref.watch(inventoryProvider);
+          
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              
+              List<String> getAvailableBrands() {
+                if (selectedType == InventoryItemType.panel) {
+                  return inventoryState.panels.where((p) => p.status == 'available').map((p) => p.brand).toSet().toList();
+                } else if (selectedType == InventoryItemType.inverter) {
+                  return inventoryState.inverters.where((i) => i.status == 'available').map((i) => i.brand).toSet().toList();
+                } else {
+                  return inventoryState.meters.where((m) => m.status == 'available').map((m) => m.brand).toSet().toList();
+                }
+              }
+
+              List<String> getAvailableCategories(String brand) {
+                if (selectedType == InventoryItemType.panel) {
+                  return inventoryState.panels.where((p) => p.status == 'available' && p.brand == brand).map((p) => p.panelType).toSet().toList();
+                } else if (selectedType == InventoryItemType.inverter) {
+                  return inventoryState.inverters.where((i) => i.status == 'available' && i.brand == brand).map((i) => i.inverterType).toSet().toList();
+                } else {
+                  return inventoryState.meters.where((m) => m.status == 'available' && m.brand == brand).map((m) => m.meterCategory).toSet().toList();
+                }
+              }
+
+              List<dynamic> getFilteredItems() {
+                if (selectedType == InventoryItemType.panel) {
+                  return inventoryState.panels.where((p) => p.status == 'available' && p.brand == selectedBrand && p.panelType == selectedCategory).toList();
+                } else if (selectedType == InventoryItemType.inverter) {
+                  return inventoryState.inverters.where((i) => i.status == 'available' && i.brand == selectedBrand && i.inverterType == selectedCategory).toList();
+                } else {
+                  return inventoryState.meters.where((m) => m.status == 'available' && m.brand == selectedBrand && m.meterCategory == selectedCategory).toList();
+                }
+              }
+
+              return AlertDialog(
+                title: Text(currentStep == 0 ? 'Allot: Select Item & Brand' : currentStep == 1 ? 'Select Category' : 'Choose Serial Numbers'),
+                content: SizedBox(
+                  width: 450,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (inventoryState.isLoading)
+                          const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                        else if (currentStep == 0) ...[
+                          DropdownButtonFormField<InventoryItemType>(
+                            value: selectedType,
+                            decoration: const InputDecoration(labelText: 'Item Type'),
+                            items: InventoryItemType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.name.toUpperCase()))).toList(),
+                            onChanged: (v) => setDialogState(() {
+                              selectedType = v!;
+                              selectedBrand = null;
+                            }),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text('Select Brand:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 12),
+                          if (getAvailableBrands().isEmpty)
+                            const Text('No stock available for this type.', style: TextStyle(color: Colors.red, fontSize: 12))
+                          else
+                            Wrap(
+                              spacing: 8,
+                              children: getAvailableBrands().map((brand) => ChoiceChip(
+                                label: Text(brand),
+                                selected: selectedBrand == brand,
+                                onSelected: (s) {
+                                  if (s) {
+                                    setDialogState(() {
+                                      selectedBrand = brand;
+                                      selectedCategory = null;
+                                      currentStep = 1;
+                                    });
+                                  }
+                                },
+                              )).toList(),
+                            ),
+                        ]
+                        else if (currentStep == 1) ...[
+                          Text('Brand: $selectedBrand', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 16),
+                          const Text('Select Category:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            children: getAvailableCategories(selectedBrand!).map((cat) => ChoiceChip(
+                              label: Text(cat),
+                              selected: selectedCategory == cat,
+                              onSelected: (s) {
+                                if (s) {
+                                  setDialogState(() {
+                                    selectedCategory = cat;
+                                    selectedItemIds = [];
+                                    currentStep = 2;
+                                  });
+                                }
+                              },
+                            )).toList(),
+                          ),
+                        ]
+                        else if (currentStep == 2) ...[
+                          Text('$selectedBrand - $selectedCategory', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          Text('Available stock: ${getFilteredItems().length}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                          const Divider(),
+                          const SizedBox(height: 8),
+                          ...getFilteredItems().map((item) {
+                            String sn = '';
+                            String id = '';
+                            String sub = '';
+                            if (item is PanelItem) { sn = item.serialNumber; id = item.id; sub = '${item.wattCapacity}W'; }
+                            else if (item is InverterItem) { sn = item.serialNumber; id = item.id; sub = '${item.capacityKw}kW'; }
+                            else if (item is MeterItem) { sn = item.serialNumber; id = item.id; sub = item.meterPhase; }
+
+                            return CheckboxListTile(
+                              title: Text(sn),
+                              subtitle: Text(sub, style: const TextStyle(fontSize: 10)),
+                              value: selectedItemIds.contains(id),
+                              onChanged: (v) {
+                                setDialogState(() {
+                                  if (v!) selectedItemIds.add(id);
+                                  else selectedItemIds.remove(id);
+                                });
+                              },
+                              dense: true,
+                            );
+                          }).toList(),
+                          if (getFilteredItems().isEmpty)
+                            const Text('No items found.', style: TextStyle(color: Colors.red)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                  if (currentStep > 0)
+                    TextButton(onPressed: () => setDialogState(() => currentStep--), child: const Text('Back')),
+                  if (currentStep == 2)
+                    ElevatedButton(
+                      onPressed: selectedItemIds.isEmpty ? null : () async {
+                        final user = ref.read(currentUserProvider).value;
+                        await ref.read(inventoryProvider.notifier).allotMultipleItems(
+                          itemIds: selectedItemIds,
+                          itemType: selectedType,
+                          customerName: app.fullName,
+                          applicationId: app.id,
+                          handoverBy: user?.fullName ?? 'System',
+                          handoverDate: DateTime.now(),
+                        );
+                        if (mounted) Navigator.pop(context);
+                      },
+                      child: const Text('Allot Selected'),
+                    ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
   }
 }

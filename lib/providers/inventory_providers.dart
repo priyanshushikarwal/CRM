@@ -1,51 +1,44 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 import '../models/inventory_model.dart';
 import '../services/inventory_service.dart';
 
-
 class InventoryState {
-  final List<SolarInventoryItem> items;
+  final List<PanelItem> panels;
+  final List<InverterItem> inverters;
+  final List<MeterItem> meters;
+  final List<InventoryInvoice> invoices;
+  final List<InventoryAllotment> allotments;
   final bool isLoading;
   final String? error;
   final String searchQuery;
 
   const InventoryState({
-    this.items = const [],
+    this.panels = const [],
+    this.inverters = const [],
+    this.meters = const [],
+    this.invoices = const [],
+    this.allotments = const [],
     this.isLoading = false,
     this.error,
     this.searchQuery = '',
   });
 
-  List<SolarInventoryItem> get filteredItems {
-    if (searchQuery.isEmpty) return items;
-    final q = searchQuery.toLowerCase();
-    return items.where((item) {
-      return item.companyName.toLowerCase().contains(q) ||
-          item.panelModel.toLowerCase().contains(q) ||
-          item.capacityKw.toString().contains(q);
-    }).toList();
-  }
-
-  int get totalPanels => items.fold(0, (sum, item) => sum + item.totalQuantity);
-  int get usedPanels => items.fold(0, (sum, item) => sum + item.usedQuantity);
-  int get availablePanels =>
-      items.fold(0, (sum, item) => sum + item.availableQuantity);
-  int get totalDcrPanels => items
-      .where((i) => i.isDcr)
-      .fold(0, (sum, item) => sum + item.availableQuantity);
-  int get totalNonDcrPanels => items
-      .where((i) => !i.isDcr)
-      .fold(0, (sum, item) => sum + item.availableQuantity);
-
   InventoryState copyWith({
-    List<SolarInventoryItem>? items,
+    List<PanelItem>? panels,
+    List<InverterItem>? inverters,
+    List<MeterItem>? meters,
+    List<InventoryInvoice>? invoices,
+    List<InventoryAllotment>? allotments,
     bool? isLoading,
     String? error,
     String? searchQuery,
   }) {
     return InventoryState(
-      items: items ?? this.items,
+      panels: panels ?? this.panels,
+      inverters: inverters ?? this.inverters,
+      meters: meters ?? this.meters,
+      invoices: invoices ?? this.invoices,
+      allotments: allotments ?? this.allotments,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -53,187 +46,225 @@ class InventoryState {
   }
 }
 
-
 class InventoryNotifier extends Notifier<InventoryState> {
   @override
   InventoryState build() => const InventoryState();
 
-  Future<void> loadInventory() async {
+  Future<void> loadAll() async {
+    print('Inventory: Starting loadAll...');
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final items = await InventoryService.fetchAllInventory();
-      state = state.copyWith(items: items, isLoading: false);
-    } catch (e) {
+      final panels = await InventoryService.fetchPanels();
+      final inverters = await InventoryService.fetchInverters();
+      final meters = await InventoryService.fetchMeters();
+      final allotments = await InventoryService.fetchAllotments();
+      
+      // Load all invoices to show details
+      final pInvoices = await InventoryService.fetchInvoices(InventoryItemType.panel);
+      final iInvoices = await InventoryService.fetchInvoices(InventoryItemType.inverter);
+      final mInvoices = await InventoryService.fetchInvoices(InventoryItemType.meter);
+      
+      state = state.copyWith(
+        panels: panels,
+        inverters: inverters,
+        meters: meters,
+        allotments: allotments,
+        invoices: [...pInvoices, ...iInvoices, ...mInvoices],
+        isLoading: false,
+      );
+    } catch (e, stack) {
+      print('Inventory Error: $e');
+      print(stack);
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query);
+  Future<void> addPanels({
+    required InventoryInvoice invoice,
+    required String brand,
+    required List<Map<String, dynamic>> panelEntries, // [{serial, capacity, type}]
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final savedInvoice = await InventoryService.createInvoice(
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+        partyName: invoice.partyName,
+        price: invoice.price,
+        receivedBy: invoice.receivedBy,
+        itemType: InventoryItemType.panel,
+      );
+
+      final items = panelEntries.map((e) => PanelItem(
+        id: '',
+        invoiceId: savedInvoice.id,
+        serialNumber: e['serial'] as String,
+        brand: brand,
+        wattCapacity: e['capacity'] as int,
+        panelType: e['type'] as String,
+        status: 'available',
+        createdAt: DateTime.now(),
+      )).toList();
+
+      await InventoryService.addPanelItems(items);
+      await loadAll();
+    } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.contains('23505')) {
+        errorMessage = 'Duplicate Serial Number: One or more panels already exist in inventory.';
+      }
+      state = state.copyWith(isLoading: false, error: errorMessage);
+    }
   }
 
-  Future<void> addItem({
-    required String companyName,
-    required String panelModel,
+  Future<void> addInverters({
+    required InventoryInvoice invoice,
+    required List<String> serialNumbers,
+    required String brand,
     required double capacityKw,
-    required int quantity,
-    bool isDcr = true,
-    String? invoiceNumber,
-    String? description,
+    required String inverterType,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
     try {
-      final now = DateTime.now();
-      final item = SolarInventoryItem(
-        id: const Uuid().v4(),
-        companyName: companyName.trim(),
-        panelModel: panelModel.trim(),
+      final savedInvoice = await InventoryService.createInvoice(
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+        partyName: invoice.partyName,
+        price: invoice.price,
+        receivedBy: invoice.receivedBy,
+        itemType: InventoryItemType.inverter,
+      );
+
+      final items = serialNumbers.map((sn) => InverterItem(
+        id: '',
+        invoiceId: savedInvoice.id,
+        serialNumber: sn,
+        brand: brand,
         capacityKw: capacityKw,
-        totalQuantity: quantity,
-        usedQuantity: 0,
-        isDcr: isDcr,
-        invoiceNumber: invoiceNumber?.trim(),
-        description: description?.trim(),
-        createdAt: now,
-        updatedAt: now,
+        inverterType: inverterType,
+        status: 'available',
+        createdAt: DateTime.now(),
+      )).toList();
+
+      await InventoryService.addInverterItems(items);
+      await loadAll();
+    } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.contains('23505')) {
+        errorMessage = 'Duplicate Serial Number: One or more inverters already exist in inventory.';
+      }
+      state = state.copyWith(isLoading: false, error: errorMessage);
+    }
+  }
+
+  Future<void> addMeters({
+    required InventoryInvoice invoice,
+    required List<String> serialNumbers,
+    required String brand,
+    required String category,
+    required String type,
+    required String phase,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final savedInvoice = await InventoryService.createInvoice(
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+        partyName: invoice.partyName,
+        price: invoice.price,
+        receivedBy: invoice.receivedBy,
+        itemType: InventoryItemType.meter,
       );
-      await InventoryService.addMultipleInventoryItems([item]);
-      await loadInventory();
+
+      final items = serialNumbers.map((sn) => MeterItem(
+        id: '',
+        invoiceId: savedInvoice.id,
+        serialNumber: sn,
+        brand: brand,
+        meterCategory: category,
+        meterType: type,
+        meterPhase: phase,
+        status: 'available',
+        createdAt: DateTime.now(),
+      )).toList();
+
+      await InventoryService.addMeterItems(items);
+      await loadAll();
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow;
+      String errorMessage = e.toString();
+      if (errorMessage.contains('23505')) {
+        errorMessage = 'Duplicate Serial Number: One or more meters already exist in inventory.';
+      }
+      state = state.copyWith(isLoading: false, error: errorMessage);
     }
   }
 
-  Future<void> addMultipleItems({
-    required String companyName,
-    required List<Map<String, dynamic>> dcrModels,
-    required List<Map<String, dynamic>> nonDcrModels,
-    String? invoiceNumber,
-    String? description,
+  Future<void> allotItem({
+    required String itemId,
+    required InventoryItemType itemType,
+    required String customerName,
+    String? customerAddress,
+    String? customerMobile,
+    String? applicationId,
+    String? handoverBy,
+    required DateTime handoverDate,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
     try {
-      final now = DateTime.now();
-      final newItems = <SolarInventoryItem>[];
-
-      for (final model in dcrModels) {
-        newItems.add(
-          SolarInventoryItem(
-            id: const Uuid().v4(),
-            companyName: companyName.trim(),
-            panelModel: model['name'].toString().trim(),
-            capacityKw: model['capacityKw'] as double,
-            totalQuantity: model['quantity'] as int,
-            usedQuantity: 0,
-            isDcr: true,
-            invoiceNumber: invoiceNumber?.trim(),
-            description: description?.trim(),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-      }
-
-      for (final model in nonDcrModels) {
-        newItems.add(
-          SolarInventoryItem(
-            id: const Uuid().v4(),
-            companyName: companyName.trim(),
-            panelModel: model['name'].toString().trim(),
-            capacityKw: model['capacityKw'] as double,
-            totalQuantity: model['quantity'] as int,
-            usedQuantity: 0,
-            isDcr: false,
-            invoiceNumber: invoiceNumber?.trim(),
-            description: description?.trim(),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-      }
-
-      if (newItems.isNotEmpty) {
-        await InventoryService.addMultipleInventoryItems(newItems);
-        await loadInventory();
-      } else {
-        state = state.copyWith(isLoading: false);
-      }
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow;
-    }
-  }
-
-  Future<void> updateItem(SolarInventoryItem item) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      await InventoryService.updateInventoryItem(item);
-      await loadInventory();
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow;
-    }
-  }
-
-  Future<void> deleteItem(String itemId) async {
-    try {
-      await InventoryService.deleteInventoryItem(itemId);
-      await loadInventory();
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
-      rethrow;
-    }
-  }
-
-  Future<void> assignToApplication({
-    required String inventoryItemId,
-    required String applicationId,
-    required String applicationNumber,
-    required String consumerName,
-    required int quantity,
-    String? notes,
-  }) async {
-    try {
-      await InventoryService.assignToApplication(
-        inventoryItemId: inventoryItemId,
+      final allotment = InventoryAllotment(
+        id: '',
+        itemId: itemId,
+        itemType: itemType,
+        customerName: customerName,
+        customerAddress: customerAddress,
+        customerMobile: customerMobile,
         applicationId: applicationId,
-        applicationNumber: applicationNumber,
-        consumerName: consumerName,
-        quantity: quantity,
-        notes: notes,
+        handoverBy: handoverBy,
+        handoverDate: handoverDate,
+        createdAt: DateTime.now(),
       );
-      await loadInventory();
+
+      await InventoryService.createAllotment(allotment);
+      await loadAll();
     } catch (e) {
-      state = state.copyWith(error: e.toString());
-      rethrow;
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> allotMultipleItems({
+    required List<String> itemIds,
+    required InventoryItemType itemType,
+    required String customerName,
+    String? customerAddress,
+    String? customerMobile,
+    String? applicationId,
+    String? handoverBy,
+    required DateTime handoverDate,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final allotments = itemIds.map((id) => InventoryAllotment(
+        id: '',
+        itemId: id,
+        itemType: itemType,
+        customerName: customerName,
+        customerAddress: customerAddress,
+        customerMobile: customerMobile,
+        applicationId: applicationId,
+        handoverBy: handoverBy,
+        handoverDate: handoverDate,
+        createdAt: DateTime.now(),
+      )).toList();
+
+      await InventoryService.createMultipleAllotments(allotments);
+      await loadAll();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 }
 
-final inventoryProvider = NotifierProvider<InventoryNotifier, InventoryState>(
-  () {
-    return InventoryNotifier();
-  },
-);
-
-final itemAssignmentsProvider =
-    FutureProvider.family<List<SolarAssignment>, String>((
-      ref,
-      inventoryItemId,
-    ) async {
-      return await InventoryService.fetchAssignmentsForItem(inventoryItemId);
-    });
-
-final applicationInventoryProvider = FutureProvider.family<
-  List<SolarAssignment>,
-  String
->((ref, applicationId) async {
-  return await InventoryService.fetchAssignmentsForApplication(applicationId);
-});
-
-final availableInventoryProvider = FutureProvider<List<SolarInventoryItem>>((
-  ref,
-) async {
-  return await InventoryService.fetchAvailableInventory();
+final inventoryProvider = NotifierProvider<InventoryNotifier, InventoryState>(() => InventoryNotifier());
+final inventoryInvoicesProvider = FutureProvider.family<List<InventoryInvoice>, InventoryItemType>((ref, type) async {
+  return await InventoryService.fetchInvoices(type);
 });

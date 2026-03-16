@@ -1,8 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../models/application_model.dart';
 import '../models/document_model.dart';
 import '../models/user_model.dart';
+import '../models/installation_model.dart';
+import '../models/payment_model.dart';
 import '../services/application_service.dart';
+import '../services/installation_service.dart';
+import '../services/payment_service.dart';
 import '../services/supabase_service.dart';
 import '../core/constants/app_constants.dart';
 
@@ -61,7 +66,7 @@ class ApplicationsState {
   final String searchQuery;
   final ApplicationStatus? statusFilter;
   final String? stateFilter;
-  final Map<String, int> stats;
+  final Map<String, dynamic> stats;
 
   const ApplicationsState({
     this.applications = const [],
@@ -80,7 +85,7 @@ class ApplicationsState {
     String? searchQuery,
     ApplicationStatus? statusFilter,
     String? stateFilter,
-    Map<String, int>? stats,
+    Map<String, dynamic>? stats,
   }) {
     return ApplicationsState(
       applications: applications ?? this.applications,
@@ -221,4 +226,112 @@ final applicationProvider = FutureProvider.family<ApplicationModel?, String>((
   id,
 ) async {
   return await ApplicationService.fetchApplication(id);
+});
+
+class InstallationsState {
+  final List<InstallationModel> installations;
+  final bool isLoading;
+  final String? error;
+
+  const InstallationsState({
+    this.installations = const [],
+    this.isLoading = false,
+    this.error,
+  });
+
+  InstallationsState copyWith({
+    List<InstallationModel>? installations,
+    bool? isLoading,
+    String? error,
+  }) {
+    return InstallationsState(
+      installations: installations ?? this.installations,
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+    );
+  }
+}
+
+class InstallationsNotifier extends Notifier<InstallationsState> {
+  @override
+  InstallationsState build() {
+    return const InstallationsState();
+  }
+
+  Future<void> loadInstallations() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final installations = await InstallationService.fetchAllInstallations();
+      state = state.copyWith(installations: installations, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> updateInstallation(InstallationModel installation) async {
+    try {
+      await InstallationService.updateInstallation(installation);
+      await loadInstallations();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+}
+
+final installationsProvider =
+    NotifierProvider<InstallationsNotifier, InstallationsState>(() {
+  return InstallationsNotifier();
+});
+
+final installationByAppProvider = FutureProvider.family<InstallationModel?, String>((
+  ref,
+  applicationId,
+) async {
+  return await InstallationService.fetchInstallationByApplicationId(applicationId);
+});
+
+final paymentsProvider = FutureProvider.family<List<PaymentModel>, String>((
+  ref,
+  applicationId,
+) async {
+  return await PaymentService.fetchPayments(applicationId);
+});
+
+final paymentStatsProvider = FutureProvider.family<Map<String, double>, ({String id, double total})>((
+  ref,
+  arg,
+) async {
+  return await PaymentService.getPaymentStats(arg.id, arg.total);
+});
+
+final allPaymentsProvider = FutureProvider<List<PaymentModel>>((ref) async {
+  return await PaymentService.fetchAllPayments();
+});
+
+final revenueReportProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final payments = await ref.watch(allPaymentsProvider.future);
+  final now = DateTime.now();
+  
+  double totalRevenue = 0;
+  double monthlyRevenue = 0;
+  Map<String, double> monthlyData = {};
+  
+  for (final payment in payments) {
+    totalRevenue += payment.amount;
+    
+    if (payment.paymentDate.year == now.year && payment.paymentDate.month == now.month) {
+      monthlyRevenue += payment.amount;
+    }
+    
+    // Group by Month-Year for chart
+    final monthKey = DateFormat('MMM yyyy').format(payment.paymentDate);
+    monthlyData[monthKey] = (monthlyData[monthKey] ?? 0) + payment.amount;
+  }
+  
+  return {
+    'totalRevenue': totalRevenue,
+    'monthlyRevenue': monthlyRevenue,
+    'monthlyData': monthlyData,
+    'recentPayments': payments.take(10).toList(),
+  };
 });

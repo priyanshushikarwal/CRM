@@ -12,6 +12,8 @@ class DocumentModel {
   final DateTime uploadedOn;
   final String? uploadedBy;
   final String? remarks;
+  final String verificationStatus;
+  final String? verifiedBy;
 
   const DocumentModel({
     required this.id,
@@ -24,6 +26,8 @@ class DocumentModel {
     required this.uploadedOn,
     this.uploadedBy,
     this.remarks,
+    this.verificationStatus = 'pending',
+    this.verifiedBy,
   });
 
   factory DocumentModel.fromJson(Map<String, dynamic> json) {
@@ -38,6 +42,8 @@ class DocumentModel {
       uploadedOn: DateTime.parse(json['uploaded_on'] as String),
       uploadedBy: json['uploaded_by'] as String?,
       remarks: json['remarks'] as String?,
+      verificationStatus: json['verification_status'] as String? ?? 'pending',
+      verifiedBy: json['verified_by'] as String?,
     );
   }
 
@@ -53,6 +59,8 @@ class DocumentModel {
       'uploaded_on': uploadedOn.toIso8601String(),
       'uploaded_by': uploadedBy,
       'remarks': remarks,
+      'verification_status': verificationStatus,
+      'verified_by': verifiedBy,
     };
   }
 
@@ -67,6 +75,8 @@ class DocumentModel {
     DateTime? uploadedOn,
     String? uploadedBy,
     String? remarks,
+    String? verificationStatus,
+    String? verifiedBy,
   }) {
     return DocumentModel(
       id: id ?? this.id,
@@ -79,14 +89,17 @@ class DocumentModel {
       uploadedOn: uploadedOn ?? this.uploadedOn,
       uploadedBy: uploadedBy ?? this.uploadedBy,
       remarks: remarks ?? this.remarks,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      verifiedBy: verifiedBy ?? this.verifiedBy,
     );
   }
 
   String get fileSizeFormatted {
     if (fileSize == null) return '-';
     if (fileSize! < 1024) return '$fileSize B';
-    if (fileSize! < 1024 * 1024)
+    if (fileSize! < 1024 * 1024) {
       return '${(fileSize! / 1024).toStringAsFixed(1)} KB';
+    }
     return '${(fileSize! / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 

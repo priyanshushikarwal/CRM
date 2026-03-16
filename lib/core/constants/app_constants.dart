@@ -13,33 +13,36 @@ class AppConstants {
   static const String statusHistoryTable = 'status_history';
   static const String inventoryTable = 'solar_inventory';
   static const String inventoryAssignmentsTable = 'solar_inventory_assignments';
+  
+  // New Inventory v2 Tables
+  static const String inventoryInvoicesTable = 'inventory_invoices';
+  static const String panelItemsTable = 'panel_items';
+  static const String inverterItemsTable = 'inverter_items';
+  static const String meterItemsTable = 'meter_items';
+  static const String inventoryAllotmentsTable = 'inventory_allotments';
 
   static const String documentsBucket = 'documents';
 
   static const List<String> applicationStatuses = [
-    'Consumer Registration',
-    'Consumer Application',
-    'Discom Feasibility',
-    'Consumer Vendor Selection',
-    'Vendor Upload Agreement',
-    'Vendor Installation',
-    'Discom Inspection',
-    'Project Commissioning',
-    'Consumer Subsidy Request',
+    'Application Received',
+    'Documents Verified',
+    'Site Survey Pending',
+    'Site Survey Completed',
+    'Solar Demand Pending',
+    'Solar Demand Deposit',
+    'Meter Tested',
+    'Installation Scheduled',
+    'Installation Completed',
+    'Subsidy Process',
   ];
 
   static const List<String> documentTypes = [
-    'Application Acknowledgement',
-    'EToken',
-    'Feasibility Document',
-    'Net Metering Agreement',
+    'Aadhar Card',
     'Electricity Bill',
-    'ID Proof',
-    'Address Proof',
-    'Bank Statement',
-    'Installation Photo',
-    'Meter Photo',
-    'Other',
+    'Property Proof',
+    'Cancel Cheque',
+    'Final Amount Receipt',
+    'Final Solar Project File',
   ];
 
   static const List<String> indianStates = [
@@ -74,10 +77,8 @@ class AppConstants {
   ];
 
   static const List<String> categoryTypes = [
-    'Residential',
+    'Domestic',
     'Commercial',
-    'Industrial',
-    'Institutional',
   ];
 
   static const List<String> genderOptions = ['Male', 'Female', 'Other'];

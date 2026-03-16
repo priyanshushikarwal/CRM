@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/inventory_model.dart';
 import '../../providers/inventory_providers.dart';
-import '../../services/inventory_service.dart';
+import '../../providers/app_providers.dart';
+import 'widgets/brand_details_dialog.dart';
+import 'widgets/inverter_details_dialog.dart';
+
 
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
@@ -13,19 +15,22 @@ class InventoryScreen extends ConsumerStatefulWidget {
   ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends ConsumerState<InventoryScreen> {
+class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   final _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(inventoryProvider.notifier).loadInventory();
+      ref.read(inventoryProvider.notifier).loadAll();
     });
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -35,653 +40,63 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final inventoryState = ref.watch(inventoryProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: Column(
-        children: [
-          _buildHeader(context, inventoryState),
-          Expanded(
-            child:
-                inventoryState.isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : inventoryState.error != null
-                    ? _buildErrorState(inventoryState.error!)
-                    : inventoryState.filteredItems.isEmpty
-                    ? _buildEmptyState()
-                    : _buildInventoryList(inventoryState),
-          ),
-        ],
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: Text('Factory Inventory', style: AppTextStyles.heading2),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: AppTheme.primaryColor,
+          unselectedLabelColor: AppTheme.textSecondary,
+          indicatorColor: AppTheme.primaryColor,
+          isScrollable: true,
+          tabs: const [
+            Tab(text: 'Dashboard'),
+            Tab(text: 'Solar Panels'),
+            Tab(text: 'Inverters'),
+            Tab(text: 'Meters'),
+          ],
+        ),
       ),
+      body: inventoryState.isLoading && inventoryState.panels.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : inventoryState.error != null
+              ? _buildErrorState(inventoryState.error!, ref)
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildDashboard(inventoryState),
+                    _buildPanelInventory(inventoryState),
+                    _buildInverterInventory(inventoryState),
+                    _buildMeterInventory(inventoryState),
+                  ],
+                ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddInventoryDialog(context),
         backgroundColor: AppTheme.primaryColor,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text(
-          'Add Solar Panel',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        ),
+        label: const Text('Add Stock', style: TextStyle(color: Colors.white)),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, InventoryState state) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
+  Widget _buildErrorState(String error, WidgetRef ref) {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Solar Panel Inventory',
-                      style: AppTextStyles.heading3.copyWith(
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      'Manage your solar panel stock and assignments',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _buildQuickStat(
-                    'Total',
-                    '${state.totalPanels}',
-                    Icons.inventory_2_rounded,
-                    AppTheme.primaryColor,
-                  ),
-                  _buildQuickStat(
-                    'Available',
-                    '${state.availablePanels}',
-                    Icons.check_circle_outline_rounded,
-                    AppTheme.successColor,
-                  ),
-                  _buildQuickStat(
-                    'Used',
-                    '${state.usedPanels}',
-                    Icons.assignment_turned_in_rounded,
-                    AppTheme.warningColor,
-                  ),
-                  _buildQuickStat(
-                    'DCR',
-                    '${state.totalDcrPanels}',
-                    Icons.solar_power_rounded,
-                    Colors.blue,
-                  ),
-                  _buildQuickStat(
-                    'Non-DCR',
-                    '${state.totalNonDcrPanels}',
-                    Icons.solar_power_outlined,
-                    Colors.purple,
-                  ),
-                ],
-              ),
-            ],
-          ),
+          const Icon(Icons.error_outline_rounded, color: AppTheme.errorColor, size: 48),
           const SizedBox(height: 16),
-          TextField(
-            controller: _searchController,
-            onChanged: (value) {
-              ref.read(inventoryProvider.notifier).setSearchQuery(value);
-            },
-            decoration: InputDecoration(
-              hintText: 'Search by company, model, or capacity...',
-              prefixIcon: const Icon(Icons.search_rounded, size: 20),
-              suffixIcon:
-                  _searchController.text.isNotEmpty
-                      ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 20),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref
-                              .read(inventoryProvider.notifier)
-                              .setSearchQuery('');
-                        },
-                      )
-                      : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppTheme.borderColor),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppTheme.borderColor),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppTheme.primaryColor,
-                  width: 2,
-                ),
-              ),
-              filled: true,
-              fillColor: AppTheme.backgroundColor,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickStat(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: AppTextStyles.heading4.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(label, style: AppTextStyles.caption.copyWith(color: color)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInventoryList(InventoryState state) {
-    final items = state.filteredItems;
-
-    final Map<String, List<SolarInventoryItem>> groupedItems = {};
-    for (var item in items) {
-      if (!groupedItems.containsKey(item.companyName)) {
-        groupedItems[item.companyName] = [];
-      }
-      groupedItems[item.companyName]!.add(item);
-    }
-    final companies = groupedItems.keys.toList();
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final cardWidth =
-            constraints.maxWidth > 900
-                ? (constraints.maxWidth - 48 - 32) / 3
-                : constraints.maxWidth > 600
-                ? (constraints.maxWidth - 48 - 16) / 2
-                : constraints.maxWidth - 48;
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children:
-                companies.map((companyName) {
-                  return SizedBox(
-                    width: cardWidth,
-                    child: _buildCompanyCard(
-                      companyName,
-                      groupedItems[companyName]!,
-                    ),
-                  );
-                }).toList(),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildCompanyCard(String companyName, List<SolarInventoryItem> items) {
-    int totalPanels = 0;
-    int availablePanels = 0;
-    int usedPanels = 0;
-    int dcrTotal = 0;
-    int nonDcrTotal = 0;
-
-    for (var item in items) {
-      totalPanels += item.totalQuantity;
-      availablePanels += item.availableQuantity;
-      usedPanels += item.usedQuantity;
-      if (item.isDcr) {
-        dcrTotal += item.availableQuantity;
-      } else {
-        nonDcrTotal += item.availableQuantity;
-      }
-    }
-
-    final availabilityPercent =
-        totalPanels > 0 ? availablePanels / totalPanels : 0.0;
-
-    Color statusColor;
-    String statusLabel;
-    if (availabilityPercent > 0.5) {
-      statusColor = AppTheme.successColor;
-      statusLabel = 'In Stock';
-    } else if (availabilityPercent > 0) {
-      statusColor = AppTheme.warningColor;
-      statusLabel = 'Low Stock';
-    } else {
-      statusColor = AppTheme.errorColor;
-      statusLabel = 'Out of Stock';
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppTheme.primaryColor.withOpacity(0.08),
-                  AppTheme.primaryLight.withOpacity(0.05),
-                ],
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons
-                        .business_rounded, // Changed to business icon for company
-                    color: AppTheme.primaryColor,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        companyName,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'DCR: $dcrTotal',
-                              style: AppTextStyles.caption.copyWith(
-                                fontSize: 10,
-                                color: Colors.blue,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.purple.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Non-DCR: $nonDcrTotal',
-                              style: AppTextStyles.caption.copyWith(
-                                fontSize: 10,
-                                color: Colors.purple,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: AppTextStyles.caption.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: items.length,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            separatorBuilder: (context, index) => const Divider(height: 16),
-            itemBuilder: (context, index) {
-              return _buildModelListItem(items[index]);
-            },
-          ),
+          Text('Error Loading Inventory', style: AppTextStyles.heading3),
+          const SizedBox(height: 8),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildStockInfo(
-                    'Total',
-                    '$totalPanels',
-                    Icons.inventory_2_outlined,
-                    AppTheme.primaryColor,
-                  ),
-                ),
-                Expanded(
-                  child: _buildStockInfo(
-                    'Avail',
-                    '$availablePanels',
-                    Icons.check_circle_outline,
-                    AppTheme.successColor,
-                  ),
-                ),
-                Expanded(
-                  child: _buildStockInfo(
-                    'Used',
-                    '$usedPanels',
-                    Icons.assignment_turned_in_outlined,
-                    AppTheme.warningColor,
-                  ),
-                ),
-              ],
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(error, textAlign: TextAlign.center, style: AppTextStyles.bodySmall),
           ),
-          ClipRRect(
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(16),
-              bottomRight: Radius.circular(16),
-            ),
-            child: LinearProgressIndicator(
-              value: totalPanels > 0 ? usedPanels / totalPanels : 0,
-              backgroundColor: AppTheme.borderColor,
-              valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-              minHeight: 6,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModelListItem(SolarInventoryItem item) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          item.panelModel,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              item.isDcr
-                                  ? Colors.blue.withOpacity(0.1)
-                                  : Colors.purple.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          item.isDcr ? 'DCR' : 'Non-DCR',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: item.isDcr ? Colors.blue : Colors.purple,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (item.invoiceNumber != null &&
-                          item.invoiceNumber!.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: Colors.orange.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Text(
-                            'INV: ${item.invoiceNumber}',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: Colors.orange.shade800,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${item.capacityKw} kW • In stock: ${item.availableQuantity}/${item.totalQuantity}',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  onPressed: () => _showAssignmentsDialog(item),
-                  icon: const Icon(Icons.list_alt_rounded, size: 18),
-                  tooltip: 'Assignments',
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(),
-                  color: AppTheme.textSecondary,
-                ),
-                IconButton(
-                  onPressed: () => _showEditInventoryDialog(item),
-                  icon: const Icon(Icons.edit_rounded, size: 18),
-                  tooltip: 'Edit',
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(),
-                  color: AppTheme.primaryColor,
-                ),
-                IconButton(
-                  onPressed: () => _confirmDelete(item),
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  tooltip: 'Delete',
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(),
-                  color: AppTheme.errorColor,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStockInfo(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Column(
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: AppTextStyles.bodyMedium.copyWith(
-            fontWeight: FontWeight.w700,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: AppTextStyles.caption.copyWith(color: AppTheme.textSecondary),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.solar_power_rounded,
-              size: 64,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'No Solar Panels in Inventory',
-            style: AppTextStyles.heading3.copyWith(color: AppTheme.textPrimary),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add solar panels to track stock and assignments',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () => _showAddInventoryDialog(context),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Add First Solar Panel'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState(String error) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: AppTheme.errorColor),
-          const SizedBox(height: 16),
-          Text('Error loading inventory', style: AppTextStyles.heading4),
-          const SizedBox(height: 8),
-          Text(error, style: AppTextStyles.bodySmall),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed:
-                () => ref.read(inventoryProvider.notifier).loadInventory(),
+            onPressed: () => ref.read(inventoryProvider.notifier).loadAll(),
             child: const Text('Retry'),
           ),
         ],
@@ -689,1582 +104,961 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     );
   }
 
-
-  void _showAddInventoryDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => _AddEditInventoryDialog(
-            onSaveMultiple: (
-              company,
-              dcrModels,
-              nonDcrModels,
-              invoice,
-              desc,
-            ) async {
-              await ref
-                  .read(inventoryProvider.notifier)
-                  .addMultipleItems(
-                    companyName: company,
-                    dcrModels: dcrModels,
-                    nonDcrModels: nonDcrModels,
-                    invoiceNumber: invoice,
-                    description: desc,
-                  );
-            },
+  Widget _buildDashboard(InventoryState state) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Stock Overview', style: AppTextStyles.heading3),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              _buildStatCard('Total Panels', state.panels.length.toString(), Icons.solar_power_rounded, Colors.blue),
+              const SizedBox(width: 16),
+              _buildStatCard('Total Inverters', state.inverters.length.toString(), Icons.settings_input_component_rounded, Colors.teal),
+              const SizedBox(width: 16),
+              _buildStatCard('Total Meters', state.meters.length.toString(), Icons.speed_rounded, Colors.orange),
+            ],
           ),
+          const SizedBox(height: 32),
+          Text('Solar Panel Stock', style: AppTextStyles.heading3),
+          const SizedBox(height: 16),
+          _buildBrandSummary(state),
+          const SizedBox(height: 32),
+          Text('Recent Allotments', style: AppTextStyles.heading3),
+          const SizedBox(height: 16),
+          _buildRecentAllotmentsTable(state),
+        ],
+      ),
     );
   }
 
-  void _showEditInventoryDialog(SolarInventoryItem item) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => _AddEditInventoryDialog(
-            existingItem: item,
-            onSaveSingle: (
-              company,
-              model,
-              capacity,
-              qty,
-              isDcr,
-              invoice,
-              desc,
-            ) async {
-              final updated = item.copyWith(
-                companyName: company,
-                panelModel: model,
-                capacityKw: capacity,
-                totalQuantity: qty,
-                isDcr: isDcr,
-                invoiceNumber: invoice,
-                description: desc,
-              );
-              await ref.read(inventoryProvider.notifier).updateItem(updated);
-            },
+  Widget _buildBrandSummary(InventoryState state) {
+    final Map<String, List<PanelItem>> groupedByBrand = {};
+    for (var p in state.panels) {
+      groupedByBrand.putIfAbsent(p.brand, () => []);
+      groupedByBrand[p.brand]!.add(p);
+    }
+
+    if (groupedByBrand.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderColor),
+        ),
+        child: const Center(child: Text('No panels in stock.', style: TextStyle(color: AppTheme.textSecondary))),
+      );
+    }
+
+    return Wrap(
+      spacing: 24,
+      runSpacing: 24,
+      children: groupedByBrand.entries.map((brandEntry) {
+        final brand = brandEntry.key;
+        final panels = brandEntry.value;
+        
+        // Group by type and watt
+        final Map<String, int> typeWattCounts = {};
+        for (var p in panels) {
+          if (p.status == 'available') {
+            final key = '${p.panelType} (${p.wattCapacity} Watt)';
+            typeWattCounts[key] = (typeWattCounts[key] ?? 0) + 1;
+          }
+        }
+
+        return InkWell(
+          onTap: () => showDialog(
+            context: context,
+            builder: (context) => BrandDetailsDialog(brandName: brand, panels: panels),
           ),
-    );
-  }
-
-  void _showAssignmentsDialog(SolarInventoryItem item) {
-    showDialog(
-      context: context,
-      builder: (context) => _AssignmentsDialog(item: item),
-    );
-  }
-
-  Future<void> _confirmDelete(SolarInventoryItem item) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Delete Inventory Item'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            width: 320,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppTheme.borderColor),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+            ),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Are you sure you want to delete this solar panel?',
-                  style: AppTextStyles.bodyMedium,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(brand.toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textLight),
+                  ],
                 ),
+                const Divider(height: 32),
+                ...typeWattCounts.entries.map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                      const Text(' = ', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.bold)),
+                      Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 14)),
+                      const SizedBox(width: 4),
+                      const Text('Panels', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                    ],
+                  ),
+                )).toList(),
+                if (typeWattCounts.isNotEmpty) ...[
+                  const Divider(height: 16),
+                  const Center(
+                    child: Text('IN STOCK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.green, letterSpacing: 1.2)),
+                  ),
+                ] else
+                  const Text('No available stock', style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic, fontSize: 12)),
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.errorColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${item.companyName} - ${item.panelModel}\n${item.usedQuantity} panels currently assigned',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppTheme.errorColor,
-                    ),
-                  ),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Click to view details', style: TextStyle(fontSize: 10, color: AppTheme.textLight, fontWeight: FontWeight.w500)),
+                    SizedBox(width: 4),
+                    Icon(Icons.open_in_new_rounded, size: 10, color: AppTheme.textLight),
+                  ],
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.errorColor,
-                ),
-                child: const Text('Delete'),
-              ),
-            ],
           ),
+        );
+      }).toList(),
     );
-
-    if (confirm == true) {
-      try {
-        await ref.read(inventoryProvider.notifier).deleteItem(item.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Inventory item deleted successfully'),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error deleting item: $e'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
-        }
-      }
-    }
-  }
-}
-
-
-class _AddEditInventoryDialog extends StatefulWidget {
-  final SolarInventoryItem? existingItem;
-  final Future<void> Function(
-    String company,
-    String model,
-    double capacity,
-    int quantity,
-    bool isDcr,
-    String? invoiceNumber,
-    String? description,
-  )?
-  onSaveSingle;
-  final Future<void> Function(
-    String company,
-    List<Map<String, dynamic>> dcrModels,
-    List<Map<String, dynamic>> nonDcrModels,
-    String? invoiceNumber,
-    String? description,
-  )?
-  onSaveMultiple;
-
-  const _AddEditInventoryDialog({
-    this.existingItem,
-    this.onSaveSingle,
-    this.onSaveMultiple,
-  });
-
-  @override
-  State<_AddEditInventoryDialog> createState() =>
-      _AddEditInventoryDialogState();
-}
-
-class _AddEditInventoryDialogState extends State<_AddEditInventoryDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _companyController = TextEditingController();
-  final _capacityController = TextEditingController();
-  final _quantityController = TextEditingController();
-  final _invoiceController = TextEditingController();
-  final _descriptionController = TextEditingController();
-
-  final _modelController = TextEditingController();
-  bool _isDcrEdit = true;
-
-  final _dcrInputController = TextEditingController();
-  final _dcrCapacityController = TextEditingController();
-  final _dcrQuantityController = TextEditingController();
-  final _nonDcrInputController = TextEditingController();
-  final _nonDcrCapacityController = TextEditingController();
-  final _nonDcrQuantityController = TextEditingController();
-  final List<Map<String, dynamic>> _dcrModels = [];
-  final List<Map<String, dynamic>> _nonDcrModels = [];
-
-  bool _isLoading = false;
-
-  static const List<String> _commonCompanies = [
-    'Adani Solar',
-    'Tata Power Solar',
-    'Waaree Energies',
-    'Vikram Solar',
-    'Goldi Solar',
-    'Renewsys',
-    'Premier Energies',
-    'Jupiter Solar',
-    'Loom Solar',
-    'Jakson Solar',
-    'Other',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.existingItem != null) {
-      _companyController.text = widget.existingItem!.companyName;
-      _modelController.text = widget.existingItem!.panelModel;
-      _capacityController.text = widget.existingItem!.capacityKw.toString();
-      _quantityController.text = widget.existingItem!.totalQuantity.toString();
-      _invoiceController.text = widget.existingItem!.invoiceNumber ?? '';
-      _descriptionController.text = widget.existingItem!.description ?? '';
-      _isDcrEdit = widget.existingItem!.isDcr;
-    }
   }
 
-  @override
-  void dispose() {
-    _companyController.dispose();
-    _modelController.dispose();
-    _capacityController.dispose();
-    _quantityController.dispose();
-    _invoiceController.dispose();
-    _descriptionController.dispose();
-    _dcrInputController.dispose();
-    _dcrCapacityController.dispose();
-    _dcrQuantityController.dispose();
-    _nonDcrInputController.dispose();
-    _nonDcrCapacityController.dispose();
-    _nonDcrQuantityController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isEdit = widget.existingItem != null;
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Expanded(
       child: Container(
-        width: 600,
-        height: 650,
-        padding: const EdgeInsets.all(28),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.solar_power_rounded,
-                      color: AppTheme.primaryColor,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isEdit ? 'Edit Solar Panel' : 'Add Solar Panel',
-                          style: AppTextStyles.heading4.copyWith(
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          isEdit
-                              ? 'Update inventory details'
-                              : 'Add multiple DCR and Non-DCR panels',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded),
-                    color: AppTheme.textSecondary,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 16),
-
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Solar Panel Company *',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _companyController,
-                        decoration: _inputDecoration(
-                          'e.g., Adani Solar, Waaree',
-                        ),
-                        validator:
-                            (v) =>
-                                v == null || v.isEmpty
-                                    ? 'Company name required'
-                                    : null,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children:
-                            _commonCompanies.take(6).map((company) {
-                              return ActionChip(
-                                label: Text(
-                                  company,
-                                  style: AppTextStyles.caption.copyWith(
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                                onPressed: () {
-                                  if (company != 'Other')
-                                    _companyController.text = company;
-                                },
-                                backgroundColor: AppTheme.primaryColor
-                                    .withOpacity(0.08),
-                                side: BorderSide(
-                                  color: AppTheme.primaryColor.withOpacity(0.3),
-                                ),
-                                padding: EdgeInsets.zero,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              );
-                            }).toList(),
-                      ),
-                      const SizedBox(height: 16),
-
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (isEdit) ...[
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Capacity (kW) *',
-                                    style: AppTextStyles.bodySmall.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _capacityController,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.allow(
-                                        RegExp(r'^\d*\.?\d*'),
-                                      ),
-                                    ],
-                                    decoration: _inputDecoration('e.g., 3.0'),
-                                    validator: (v) {
-                                      if (v == null || v.isEmpty)
-                                        return 'Capacity required';
-                                      if (double.tryParse(v) == null ||
-                                          double.parse(v) <= 0)
-                                        return 'Invalid capacity';
-                                      return null;
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Quantity *',
-                                    style: AppTextStyles.bodySmall.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: _quantityController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                    decoration: _inputDecoration(
-                                      'Total No. of panels',
-                                    ),
-                                    validator: (v) {
-                                      if (v == null || v.isEmpty)
-                                        return 'Quantity required';
-                                      if (int.tryParse(v) == null ||
-                                          int.parse(v) < 0)
-                                        return 'Invalid quantity';
-                                      return null;
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      if (isEdit) ...[
-                        Text(
-                          'Panel Model / Series *',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _modelController,
-                          decoration: _inputDecoration('e.g., ADANI-540M'),
-                          validator:
-                              (v) =>
-                                  v == null || v.isEmpty
-                                      ? 'Model required'
-                                      : null,
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Checkbox(
-                              value: _isDcrEdit,
-                              onChanged:
-                                  (val) =>
-                                      setState(() => _isDcrEdit = val ?? true),
-                              activeColor: AppTheme.primaryColor,
-                            ),
-                            Text(
-                              'Is this a DCR Panel?',
-                              style: AppTextStyles.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        Text(
-                          'DCR Panel Models (Type and press Enter)',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blue,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _dcrInputController,
-                                decoration: _inputDecoration('Model Name'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 1,
-                              child: TextFormField(
-                                controller: _dcrCapacityController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                decoration: _inputDecoration('Capacity (kW)'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 1,
-                              child: TextFormField(
-                                controller: _dcrQuantityController,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: _inputDecoration('Qty'),
-                                onFieldSubmitted:
-                                    (_) => _addModel(
-                                      _dcrInputController,
-                                      _dcrCapacityController,
-                                      _dcrQuantityController,
-                                      _dcrModels,
-                                    ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.add_circle,
-                                color: Colors.blue,
-                              ),
-                              onPressed:
-                                  () => _addModel(
-                                    _dcrInputController,
-                                    _dcrCapacityController,
-                                    _dcrQuantityController,
-                                    _dcrModels,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        if (_dcrModels.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children:
-                                _dcrModels
-                                    .map(
-                                      (m) => Chip(
-                                        label: Text(
-                                          '${m["name"]} (${m["capacityKw"]} kW, ${m["quantity"]} Qty)',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                        deleteIconColor: Colors.red,
-                                        onDeleted:
-                                            () => setState(
-                                              () => _dcrModels.remove(m),
-                                            ),
-                                        backgroundColor: Colors.blue
-                                            .withOpacity(0.1),
-                                        side: BorderSide(
-                                          color: Colors.blue.withOpacity(0.3),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                          ),
-                        ],
-                        const SizedBox(height: 20),
-
-                        Text(
-                          'Non-DCR Panel Models (Type and press Enter)',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.purple,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _nonDcrInputController,
-                                decoration: _inputDecoration('Model Name'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 1,
-                              child: TextFormField(
-                                controller: _nonDcrCapacityController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                decoration: _inputDecoration('Capacity (kW)'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 1,
-                              child: TextFormField(
-                                controller: _nonDcrQuantityController,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: _inputDecoration('Qty'),
-                                onFieldSubmitted:
-                                    (_) => _addModel(
-                                      _nonDcrInputController,
-                                      _nonDcrCapacityController,
-                                      _nonDcrQuantityController,
-                                      _nonDcrModels,
-                                    ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.add_circle,
-                                color: Colors.purple,
-                              ),
-                              onPressed:
-                                  () => _addModel(
-                                    _nonDcrInputController,
-                                    _nonDcrCapacityController,
-                                    _nonDcrQuantityController,
-                                    _nonDcrModels,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        if (_nonDcrModels.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children:
-                                _nonDcrModels
-                                    .map(
-                                      (m) => Chip(
-                                        label: Text(
-                                          '${m["name"]} (${m["capacityKw"]} kW, ${m["quantity"]} Qty)',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                        deleteIconColor: Colors.red,
-                                        onDeleted:
-                                            () => setState(
-                                              () => _nonDcrModels.remove(m),
-                                            ),
-                                        backgroundColor: Colors.purple
-                                            .withOpacity(0.1),
-                                        side: BorderSide(
-                                          color: Colors.purple.withOpacity(0.3),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                          ),
-                        ],
-                      ],
-
-                      const SizedBox(height: 16),
-                      Text(
-                        'Invoice Number (Optional)',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _invoiceController,
-                        decoration: _inputDecoration(
-                          'e.g., INV-2026-001',
-                        ).copyWith(
-                          prefixIcon: const Icon(
-                            Icons.receipt_long_rounded,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Notes / Description (Optional)',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _descriptionController,
-                        maxLines: 2,
-                        decoration: _inputDecoration(
-                          'e.g., Mono PERC technology...',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                ),
-              ),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _isLoading ? null : () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _handleSave,
-                    icon:
-                        _isLoading
-                            ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                            : Icon(
-                              isEdit ? Icons.save_rounded : Icons.add_rounded,
-                            ),
-                    label: Text(isEdit ? 'Save Changes' : 'Add to Inventory'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _addModel(
-    TextEditingController modelCtrl,
-    TextEditingController capCtrl,
-    TextEditingController qtyCtrl,
-    List<Map<String, dynamic>> list,
-  ) {
-    final text = modelCtrl.text.trim();
-    final capText = capCtrl.text.trim();
-    final qtyText = qtyCtrl.text.trim();
-
-    final cap = double.tryParse(capText);
-    final qty = int.tryParse(qtyText);
-
-    if (text.isNotEmpty && cap != null && cap > 0 && qty != null && qty > 0) {
-      if (!list.any((m) => m['name'] == text)) {
-        setState(
-          () => list.add({'name': text, 'capacityKw': cap, 'quantity': qty}),
-        );
-      }
-      modelCtrl.clear();
-      capCtrl.clear();
-      qtyCtrl.clear();
-
-      FocusScope.of(context).previousFocus();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please enter a valid model name, capacity (kW), and quantity (numeric)',
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: AppTheme.textLight, fontSize: 13),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: AppTheme.borderColor),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: AppTheme.borderColor),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    );
-  }
-
-  Future<void> _handleSave() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    if (widget.existingItem == null &&
-        _dcrModels.isEmpty &&
-        _nonDcrModels.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add at least one DCR or Non-DCR model'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final desc =
-          _descriptionController.text.trim().isEmpty
-              ? null
-              : _descriptionController.text.trim();
-      final invoice =
-          _invoiceController.text.trim().isEmpty
-              ? null
-              : _invoiceController.text.trim();
-
-      if (widget.existingItem != null && widget.onSaveSingle != null) {
-        await widget.onSaveSingle!(
-          _companyController.text.trim(),
-          _modelController.text.trim(),
-          double.parse(_capacityController.text.trim()),
-          int.parse(_quantityController.text.trim()),
-          _isDcrEdit,
-          invoice,
-          desc,
-        );
-      } else if (widget.onSaveMultiple != null) {
-        await widget.onSaveMultiple!(
-          _companyController.text.trim(),
-          _dcrModels,
-          _nonDcrModels,
-          invoice,
-          desc,
-        );
-      }
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.existingItem != null
-                  ? 'Inventory updated successfully!'
-                  : 'Inventory added successfully!',
-            ),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
-    }
-  }
-}
-
-
-class _AssignmentsDialog extends StatelessWidget {
-  final SolarInventoryItem item;
-
-  const _AssignmentsDialog({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        width: 600,
-        constraints: const BoxConstraints(maxHeight: 560),
         padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.assignment_rounded,
-                    color: AppTheme.primaryColor,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Panel Assignments',
-                        style: AppTextStyles.heading4.copyWith(
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        '${item.companyName} - ${item.panelModel} (${item.capacityKw}kW) ${item.isDcr ? "DCR" : "Non-DCR"}',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-
+            Icon(icon, color: color, size: 32),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                _summaryChip(
-                  'Total: ${item.totalQuantity}',
-                  AppTheme.primaryColor,
-                ),
-                const SizedBox(width: 8),
-                _summaryChip(
-                  'Used: ${item.usedQuantity}',
-                  AppTheme.warningColor,
-                ),
-                const SizedBox(width: 8),
-                _summaryChip(
-                  'Available: ${item.availableQuantity}',
-                  AppTheme.successColor,
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
-
-            Text(
-              'Assigned to Applications',
-              style: AppTextStyles.bodyMedium.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            Expanded(child: _AssignmentsList(inventoryItemId: item.id)),
+            Text(value, style: AppTextStyles.heading1.copyWith(color: color)),
+            Text(title, style: AppTextStyles.bodySmall),
           ],
         ),
       ),
     );
   }
 
-  Widget _summaryChip(String label, Color color) {
+  Widget _buildRecentAllotmentsTable(InventoryState state) {
+    if (state.allotments.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderColor),
+        ),
+        child: const Center(child: Text('No allotments found.', style: TextStyle(color: AppTheme.textSecondary))),
+      );
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderColor),
       ),
-      child: Text(
-        label,
-        style: AppTextStyles.caption.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
+          columns: const [
+            DataColumn(label: Text('Customer')),
+            DataColumn(label: Text('Ref')),
+            DataColumn(label: Text('Item Type')),
+            DataColumn(label: Text('Serial No.')),
+            DataColumn(label: Text('Date')),
+          ],
+          rows: state.allotments.take(10).map((allotment) {
+            String serial = 'N/A';
+            try {
+              if (allotment.itemType == InventoryItemType.panel) {
+                serial = state.panels.firstWhere((p) => p.id == allotment.itemId).serialNumber;
+              } else if (allotment.itemType == InventoryItemType.inverter) {
+                serial = state.inverters.firstWhere((i) => i.id == allotment.itemId).serialNumber;
+              } else {
+                serial = state.meters.firstWhere((m) => m.id == allotment.itemId).serialNumber;
+              }
+            } catch (_) {}
+
+            return DataRow(cells: [
+              DataCell(Text(allotment.customerName, style: const TextStyle(fontWeight: FontWeight.w500))),
+              DataCell(Text(allotment.applicationId != null ? 'APP-${allotment.applicationId!.length > 5 ? allotment.applicationId!.substring(0, 5) : allotment.applicationId}...' : 'Manual')),
+              DataCell(Text(allotment.itemType.name.toUpperCase())),
+              DataCell(Text(serial)),
+              DataCell(Text('${allotment.handoverDate.day}/${allotment.handoverDate.month}/${allotment.handoverDate.year}')),
+            ]);
+          }).toList(),
         ),
       ),
     );
   }
-}
 
-class _AssignmentsList extends ConsumerWidget {
-  final String inventoryItemId;
-
-  const _AssignmentsList({required this.inventoryItemId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final assignmentsAsync = ref.watch(
-      itemAssignmentsProvider(inventoryItemId),
-    );
-
-    return assignmentsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (e, _) => Center(
-            child: Text(
-              'Error loading assignments: $e',
-              style: const TextStyle(color: AppTheme.errorColor),
-            ),
-          ),
-      data: (assignments) {
-        if (assignments.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.assignment_outlined,
-                  size: 48,
-                  color: AppTheme.textLight.withOpacity(0.5),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'No applications assigned yet',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return ListView.separated(
-          itemCount: assignments.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final assignment = assignments[index];
-            return ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 4,
-                vertical: 4,
-              ),
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.description_outlined,
-                  color: AppTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              title: Text(
-                assignment.applicationNumber,
-                style: AppTextStyles.bodySmall.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: Text(
-                assignment.consumerName,
-                style: AppTextStyles.caption.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.warningColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Qty: ${assignment.quantityAssigned}',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppTheme.warningColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatDate(assignment.assignedAt),
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppTheme.textLight,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
-}
-
-
-class SolarPanelPickerWidget extends ConsumerStatefulWidget {
-  final String? initialInventoryItemId;
-  final String applicationId;
-  final String applicationNumber;
-  final String consumerName;
-  final void Function(SolarInventoryItem? item)? onChanged;
-
-  const SolarPanelPickerWidget({
-    super.key,
-    this.initialInventoryItemId,
-    required this.applicationId,
-    required this.applicationNumber,
-    required this.consumerName,
-    this.onChanged,
-  });
-
-  @override
-  ConsumerState<SolarPanelPickerWidget> createState() =>
-      _SolarPanelPickerWidgetState();
-}
-
-class _SolarPanelPickerWidgetState
-    extends ConsumerState<SolarPanelPickerWidget> {
-  SolarInventoryItem? _selectedItem;
-
-  @override
-  Widget build(BuildContext context) {
-    final availableInventoryAsync = ref.watch(availableInventoryProvider);
-    final appAssignmentsAsync = ref.watch(
-      applicationInventoryProvider(widget.applicationId),
-    );
-
+  Widget _buildPanelInventory(InventoryState state) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
       children: [
-        appAssignmentsAsync.when(
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
-          data: (assignments) {
-            if (assignments.isEmpty) return const SizedBox.shrink();
-            return Column(
+        _buildSearchBar(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Currently Assigned',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...assignments.map(
-                  (a) => _AssignedPanelCard(
-                    assignment: a,
-                    applicationId: widget.applicationId,
-                  ),
-                ),
+                const Text('STOCK SUMMARY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.textSecondary, letterSpacing: 1.2)),
                 const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 12),
+                _buildBrandSummary(state),
               ],
-            );
-          },
-        ),
-        Text(
-          'Assign Panel from Inventory',
-          style: AppTextStyles.bodySmall.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        availableInventoryAsync.when(
-          loading: () => const LinearProgressIndicator(),
-          error:
-              (e, _) => Text(
-                'Error loading inventory: ',
-                style: const TextStyle(color: AppTheme.errorColor),
-              ),
-          data: (items) {
-            if (items.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.warningColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppTheme.warningColor.withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      color: AppTheme.warningColor,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'No panels available. Add panels from the Inventory section.',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppTheme.warningColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<SolarInventoryItem>(
-                  value: _selectedItem,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    hintText: 'Select solar panel from inventory',
-                    prefixIcon: const Icon(Icons.solar_power_rounded, size: 20),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppTheme.borderColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: AppTheme.borderColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(
-                        color: AppTheme.primaryColor,
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                  ),
-                  items:
-                      items.map((item) {
-                        return DropdownMenuItem<SolarInventoryItem>(
-                          value: item,
-                          child: Text(
-                            '${item.companyName} - ${item.panelModel} (${item.capacityKw}kW) ${item.isDcr ? "DCR" : "Non-DCR"} | ${item.availableQuantity} left',
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.bodySmall,
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (item) {
-                    setState(() => _selectedItem = item);
-                    widget.onChanged?.call(item);
-                  },
-                ),
-                if (_selectedItem != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: AppTheme.primaryColor.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.solar_power_rounded,
-                          color: AppTheme.primaryColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _selectedItem!.displayName,
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                              Text(
-                                'Available: ${_selectedItem!.availableQuantity} | Total: ${_selectedItem!.totalQuantity}',
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _showAssignDialog(context),
-                          icon: const Icon(Icons.assignment_add, size: 16),
-                          label: const Text('Assign'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            );
-          },
         ),
       ],
     );
   }
 
-  void _showAssignDialog(BuildContext context) {
-    if (_selectedItem == null) return;
-
-    final quantityController = TextEditingController(text: '1');
-    final notesController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text(
-              'Assign Panel to Application',
-              style: AppTextStyles.heading4,
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+  Widget _buildInverterInventory(InventoryState state) {
+    return Column(
+      children: [
+        _buildSearchBar(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const Text('STOCK SUMMARY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.textSecondary, letterSpacing: 1.2)),
+                const SizedBox(height: 16),
+                _buildInverterSummary(state),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInverterSummary(InventoryState state) {
+    final Map<String, List<InverterItem>> groupedByBrand = {};
+    for (var i in state.inverters) {
+      groupedByBrand.putIfAbsent(i.brand, () => []);
+      groupedByBrand[i.brand]!.add(i);
+    }
+
+    if (groupedByBrand.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderColor),
+        ),
+        child: const Center(child: Text('No inverters in stock.', style: TextStyle(color: AppTheme.textSecondary))),
+      );
+    }
+
+    return Wrap(
+      spacing: 24,
+      runSpacing: 24,
+      children: groupedByBrand.entries.map((brandEntry) {
+        final brand = brandEntry.key;
+        final inverters = brandEntry.value;
+        
+        final Map<String, int> typeCapCounts = {};
+        for (var i in inverters) {
+          if (i.status == 'available') {
+            final key = '${i.inverterType} (${i.capacityKw} kW)';
+            typeCapCounts[key] = (typeCapCounts[key] ?? 0) + 1;
+          }
+        }
+
+        return InkWell(
+          onTap: () => showDialog(
+            context: context,
+            builder: (context) => InverterDetailsDialog(brandName: brand, inverters: inverters),
+          ),
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            width: 320,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppTheme.borderColor),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(brand.toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textLight),
+                  ],
+                ),
+                const Divider(height: 32),
+                ...typeCapCounts.entries.map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
                     children: [
-                      Text(
-                        _selectedItem!.displayName,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                      Text(
-                        'Available: ${_selectedItem!.availableQuantity} panels',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
+                      Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                      const Text(' = ', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.bold)),
+                      Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 14)),
+                      const SizedBox(width: 4),
+                      const Text('Units', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Quantity to Assign',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w600,
+                )).toList(),
+                if (typeCapCounts.isNotEmpty) ...[
+                  const Divider(height: 16),
+                  const Center(
+                    child: Text('STOCK AVAILABLE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppTheme.primaryColor, letterSpacing: 1.2)),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: quantityController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(
-                    hintText: 'Number of panels',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                ),
+                ] else
+                  const Text('No available stock', style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic, fontSize: 12)),
                 const SizedBox(height: 12),
-                Text(
-                  'Notes (Optional)',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: notesController,
-                  decoration: InputDecoration(
-                    hintText: 'Any additional notes...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Click for Details', style: TextStyle(fontSize: 10, color: AppTheme.textLight, fontWeight: FontWeight.w500)),
+                    SizedBox(width: 4),
+                    Icon(Icons.open_in_new_rounded, size: 10, color: AppTheme.textLight),
+                  ],
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  final qty = int.tryParse(quantityController.text.trim());
-                  if (qty == null || qty <= 0) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('Enter a valid quantity')),
-                    );
-                    return;
-                  }
-                  if (qty > _selectedItem!.availableQuantity) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Only ${_selectedItem!.availableQuantity} panels available',
-                        ),
-                        backgroundColor: AppTheme.errorColor,
-                      ),
-                    );
-                    return;
-                  }
-
-                  Navigator.pop(ctx);
-
-                  try {
-                    await InventoryService.assignToApplication(
-                      inventoryItemId: _selectedItem!.id,
-                      applicationId: widget.applicationId,
-                      applicationNumber: widget.applicationNumber,
-                      consumerName: widget.consumerName,
-                      quantity: qty,
-                      notes:
-                          notesController.text.trim().isEmpty
-                              ? null
-                              : notesController.text.trim(),
-                    );
-                    ref.invalidate(availableInventoryProvider);
-                    ref.invalidate(
-                      applicationInventoryProvider(widget.applicationId),
-                    );
-                    ref.invalidate(itemAssignmentsProvider(_selectedItem!.id));
-                    setState(() => _selectedItem = null);
-
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('$qty panel(s) assigned successfully!'),
-                          backgroundColor: AppTheme.successColor,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: AppTheme.errorColor,
-                        ),
-                      );
-                    }
-                  }
-                },
-                child: const Text('Assign'),
-              ),
-            ],
           ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildMeterInventory(InventoryState state) {
+    var meters = state.meters.where((p) => 
+      p.serialNumber.toLowerCase().contains(_searchController.text.toLowerCase()) ||
+      p.brand.toLowerCase().contains(_searchController.text.toLowerCase())
+    ).toList();
+    
+    if (meters.isEmpty && !state.isLoading) {
+      return _buildEmptyCategory('No Meters Found');
+    }
+
+    return Column(
+      children: [
+        _buildSearchBar(),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(24),
+            itemCount: meters.length,
+            itemBuilder: (context, index) {
+              final meter = meters[index];
+              final invoice = state.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == meter.invoiceId, orElse: () => null);
+              
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(meter.serialNumber, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text('${meter.brand} - ${meter.meterCategory} (${meter.meterPhase})', 
+                                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              _StatusBadge(status: meter.status),
+                              if (meter.status == 'available')
+                                IconButton(
+                                  icon: const Icon(Icons.assignment_ind_rounded, color: AppTheme.primaryColor),
+                                  onPressed: () => _showAllotmentDialog(context, meter.id, InventoryItemType.meter),
+                                  tooltip: 'Allot to Customer',
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      if (invoice != null) ...[
+                        const Divider(height: 24),
+                        Row(
+                          children: [
+                            _buildInfoMiniItem('Invoice No', invoice.invoiceNumber),
+                            _buildInfoMiniItem('Date', '${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'),
+                            _buildInfoMiniItem('Party', invoice.partyName),
+                            _buildInfoMiniItem('Received By', invoice.receivedBy ?? 'N/A'),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyCategory(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inventory_2_outlined, color: AppTheme.textLight, size: 48),
+          const SizedBox(height: 16),
+          Text(message, style: AppTextStyles.bodyMedium),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search by serial number or brand...',
+          prefixIcon: const Icon(Icons.search_rounded),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onChanged: (v) => setState(() {}),
+      ),
+    );
+  }
+
+  void _showAllotmentDialog(BuildContext context, String itemId, InventoryItemType type) {
+    showDialog(
+      context: context,
+      builder: (context) => _AllotmentDialog(itemId: itemId, itemType: type),
+    );
+  }
+
+  Widget _buildInfoMiniItem(String label, String value) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.textLight, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+
+  void _showAddInventoryDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const _AddInventoryDialog(),
     );
   }
 }
 
-class _AssignedPanelCard extends ConsumerWidget {
-  final SolarAssignment assignment;
-  final String applicationId;
-
-  const _AssignedPanelCard({
-    required this.assignment,
-    required this.applicationId,
-  });
+class _AddInventoryDialog extends ConsumerStatefulWidget {
+  const _AddInventoryDialog();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.successColor.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.successColor.withOpacity(0.3)),
+  ConsumerState<_AddInventoryDialog> createState() => _AddInventoryDialogState();
+}
+
+class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
+  int _currentStep = 0;
+  final _formKey = GlobalKey<FormState>();
+  
+  // Basic Details
+  final _invoiceController = TextEditingController();
+  final _partyController = TextEditingController();
+  final _brandController = TextEditingController();
+  final _receivedByController = TextEditingController();
+  DateTime _invoiceDate = DateTime.now();
+  InventoryItemType _selectedType = InventoryItemType.panel;
+
+  // Serial Entry Fields
+  final _serialController = TextEditingController();
+  final _capacityController = TextEditingController(text: '540');
+  
+  // Lists
+  List<Map<String, dynamic>> _panelEntries = []; // {serial, capacity, type}
+  List<String> _inverterSerials = [];
+  List<String> _meterSerials = [];
+
+  // Item Specifics
+  String _inverterTypeSelection = 'On Grid';
+  double _inverterCapacitySelection = 5.0;
+  String _meterFullTypeSelection = 'Normal Net Meter';
+  String _meterPhaseSelection = 'Single Phase';
+
+  @override
+  void initState() {
+    super.initState();
+    _receivedByController.text = ref.read(currentUserProvider).value?.fullName ?? '';
+  }
+
+  void _addPanelEntry(String type) {
+    final sn = _serialController.text.trim();
+    final cap = int.tryParse(_capacityController.text) ?? 540;
+    if (sn.isNotEmpty) {
+      if (_panelEntries.any((e) => e['serial'] == sn)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Duplicate serial number in list')));
+        return;
+      }
+      setState(() {
+        _panelEntries.add({'serial': sn, 'capacity': cap, 'type': type});
+        _serialController.clear();
+      });
+    }
+  }
+
+
+  Future<void> _save() async {
+    final invoice = InventoryInvoice(
+      id: '',
+      invoiceNumber: _invoiceController.text,
+      invoiceDate: _invoiceDate,
+      partyName: _partyController.text,
+      price: 0,
+      receivedBy: _receivedByController.text.trim().isEmpty 
+          ? (ref.read(currentUserProvider).value?.fullName ?? 'System')
+          : _receivedByController.text.trim(),
+      itemType: _selectedType,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      if (_selectedType == InventoryItemType.panel) {
+        if (_panelEntries.isEmpty) return;
+        await ref.read(inventoryProvider.notifier).addPanels(
+          invoice: invoice,
+          brand: _brandController.text,
+          panelEntries: _panelEntries,
+        );
+      } else if (_selectedType == InventoryItemType.inverter) {
+        if (_inverterSerials.isEmpty) return;
+        await ref.read(inventoryProvider.notifier).addInverters(
+          invoice: invoice,
+          serialNumbers: _inverterSerials,
+          brand: _brandController.text,
+          capacityKw: _inverterCapacitySelection,
+          inverterType: _inverterTypeSelection,
+        );
+      } else if (_selectedType == InventoryItemType.meter) {
+        if (_meterSerials.isEmpty) return;
+        await ref.read(inventoryProvider.notifier).addMeters(
+          invoice: invoice,
+          brand: _brandController.text,
+          serialNumbers: _meterSerials,
+          category: _meterFullTypeSelection.contains('Net Meter') ? 'Net Meter' : 'Solar Meter',
+          type: _meterFullTypeSelection.startsWith('Normal') 
+              ? 'Normal' 
+              : _meterFullTypeSelection.startsWith('LT CT') 
+                  ? 'LT CT' 
+                  : 'HT CT',
+          phase: _meterPhaseSelection,
+        );
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_currentStep == 0 ? 'Add Stock - Step 1' : _currentStep == 1 ? 'Step 2: Basic Details' : 'Step 3: Item Details'),
+      content: SizedBox(
+        width: 600,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_currentStep == 0) _buildStep1(),
+              if (_currentStep == 1) _buildStep2(),
+              if (_currentStep == 2) _buildStep3(),
+            ],
+          ),
+        ),
       ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.check_circle_outline_rounded,
-            color: AppTheme.successColor,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Qty: ${assignment.quantityAssigned} panel(s) assigned',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.successColor,
-                  ),
-                ),
-                if (assignment.notes != null && assignment.notes!.isNotEmpty)
-                  Text(
-                    assignment.notes!,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.remove_circle_outline_rounded,
-              size: 18,
-              color: AppTheme.errorColor,
-            ),
-            tooltip: 'Remove assignment',
-            onPressed: () async {
-              try {
-                await InventoryService.removeAssignment(
-                  assignment.id,
-                  assignment.inventoryItemId,
-                  assignment.quantityAssigned,
-                );
-                ref.invalidate(availableInventoryProvider);
-                ref.invalidate(applicationInventoryProvider(applicationId));
-                ref.invalidate(
-                  itemAssignmentsProvider(assignment.inventoryItemId),
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Assignment removed'),
-                      backgroundColor: AppTheme.warningColor,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: $e'),
-                      backgroundColor: AppTheme.errorColor,
-                    ),
-                  );
-                }
-              }
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        if (_currentStep > 0)
+          TextButton(onPressed: () => setState(() => _currentStep--), child: const Text('Back')),
+        if (_currentStep < 2)
+          ElevatedButton(
+            onPressed: () {
+              if (_currentStep == 1 && !_formKey.currentState!.validate()) return;
+              setState(() => _currentStep++);
             },
+            child: const Text('Next'),
+          ),
+        if (_currentStep == 2)
+          ElevatedButton(
+            onPressed: (_selectedType == InventoryItemType.panel && _panelEntries.isEmpty) ||
+                      (_selectedType == InventoryItemType.inverter && _inverterSerials.isEmpty) ||
+                      (_selectedType == InventoryItemType.meter && _meterSerials.isEmpty)
+                ? null 
+                : _save,
+            child: const Text('Save Stock'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStep1() {
+    return Column(
+      children: [
+        const Text('Select Item Type to continue:', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        ...InventoryItemType.values.map((type) => RadioListTile<InventoryItemType>(
+          title: Text(type.name.toUpperCase()),
+          value: type,
+          groupValue: _selectedType,
+          onChanged: (v) => setState(() => _selectedType = v!),
+        )),
+      ],
+    );
+  }
+
+  Widget _buildStep2() {
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _invoiceController,
+            decoration: const InputDecoration(labelText: 'Invoice Number'),
+            validator: (v) => v!.isEmpty ? 'Required' : null,
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            title: const Text('Invoice Date'),
+            subtitle: Text("${_invoiceDate.day}/${_invoiceDate.month}/${_invoiceDate.year}"),
+            trailing: const Icon(Icons.calendar_today),
+            onTap: () async {
+              final d = await showDatePicker(context: context, initialDate: _invoiceDate, firstDate: DateTime(2020), lastDate: DateTime.now());
+              if (d != null) setState(() => _invoiceDate = d);
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _partyController,
+            decoration: const InputDecoration(labelText: 'Party Name (Supplier)'),
+            validator: (v) => v!.isEmpty ? 'Required' : null,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _brandController,
+            decoration: const InputDecoration(labelText: 'Brand Name'),
+            validator: (v) => v!.isEmpty ? 'Required' : null,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _receivedByController,
+            decoration: const InputDecoration(labelText: 'Received By'),
+            validator: (v) => v!.isEmpty ? 'Required' : null,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStep3() {
+    if (_selectedType == InventoryItemType.panel) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPanelEntrySection('DCR'),
+          const Divider(height: 32),
+          _buildPanelEntrySection('NDCR'),
+        ],
+      );
+    }
+    
+    return Column(
+      children: [
+        if (_selectedType == InventoryItemType.inverter) ...[
+          DropdownButtonFormField<String>(
+            value: _inverterTypeSelection,
+            items: ['On Grid', 'Hybrid', 'Off Grid'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+            onChanged: (v) => setState(() => _inverterTypeSelection = v!),
+            decoration: const InputDecoration(labelText: 'Inverter Type'),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            initialValue: '5.0',
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Capacity (kW)'),
+            onChanged: (v) => _inverterCapacitySelection = double.tryParse(v) ?? 5.0,
+          ),
+          _buildSimpleSerialEntry(_inverterSerials),
+        ],
+        if (_selectedType == InventoryItemType.meter) ...[
+          DropdownButtonFormField<String>(
+            value: _meterFullTypeSelection,
+            items: [
+              'Normal Net Meter',
+              'Normal Solar Meter',
+              'LT CT Net Meter',
+              'LT CT Solar Meter',
+              'HT CT Net Meter'
+            ].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+            onChanged: (v) => setState(() => _meterFullTypeSelection = v!),
+            decoration: const InputDecoration(labelText: 'Meter Type'),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _meterPhaseSelection,
+            items: ['Single Phase', 'Three Phase'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+            onChanged: (v) => setState(() => _meterPhaseSelection = v!),
+            decoration: const InputDecoration(labelText: 'Meter Phase'),
+          ),
+          _buildSimpleSerialEntry(_meterSerials),
+        ]
+      ],
+    );
+  }
+
+  Widget _buildPanelEntrySection(String type) {
+    final entries = _panelEntries.where((e) => e['type'] == type).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('$type PANELS', style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.primaryColor)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: _serialController,
+                decoration: const InputDecoration(hintText: 'Serial Number', isDense: true),
+                onSubmitted: (_) => _addPanelEntry(type),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _capacityController,
+                decoration: const InputDecoration(hintText: 'Watt', isDense: true),
+                keyboardType: TextInputType.number,
+              ),
+            ),
+            IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _addPanelEntry(type)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 150,
+          decoration: BoxDecoration(border: Border.all(color: AppTheme.borderColor), borderRadius: BorderRadius.circular(8)),
+          child: entries.isEmpty 
+              ? const Center(child: Text('No entries yet', style: TextStyle(color: Colors.grey, fontSize: 12)))
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: entries.length,
+                  itemBuilder: (context, i) => ListTile(
+                    dense: true,
+                    title: Text(entries[i]['serial']),
+                    subtitle: Text('${entries[i]['capacity']}W'),
+                    trailing: IconButton(icon: const Icon(Icons.delete, size: 16, color: Colors.red), onPressed: () => setState(() => _panelEntries.remove(entries[i]))),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSimpleSerialEntry(List<String> target) {
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _serialController,
+                decoration: const InputDecoration(hintText: 'Enter Serial Number'),
+                onSubmitted: (_) {
+                  final sn = _serialController.text.trim();
+                  if (sn.isNotEmpty && !target.contains(sn)) {
+                    setState(() => target.add(sn));
+                    _serialController.clear();
+                  }
+                },
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add), 
+              onPressed: () {
+                final sn = _serialController.text.trim();
+                if (sn.isNotEmpty && !target.contains(sn)) {
+                  setState(() => target.add(sn));
+                  _serialController.clear();
+                }
+              }
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          children: target.map((sn) => Chip(
+            label: Text(sn, style: const TextStyle(fontSize: 10)),
+            onDeleted: () => setState(() => target.remove(sn)),
+          )).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAvailable = status == 'available';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isAvailable ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(
+          color: isAvailable ? Colors.green : Colors.orange,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
+class _AllotmentDialog extends ConsumerStatefulWidget {
+  final String itemId;
+  final InventoryItemType itemType;
+
+  const _AllotmentDialog({required this.itemId, required this.itemType});
+
+  @override
+  ConsumerState<_AllotmentDialog> createState() => _AllotmentDialogState();
+}
+
+class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _customerController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _mobileController = TextEditingController();
+  final _handoverByController = TextEditingController();
+  DateTime _handoverDate = DateTime.now();
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      await ref.read(inventoryProvider.notifier).allotItem(
+        itemId: widget.itemId,
+        itemType: widget.itemType,
+        customerName: _customerController.text,
+        customerAddress: _addressController.text,
+        customerMobile: _mobileController.text,
+        handoverBy: _handoverByController.text,
+        handoverDate: _handoverDate,
+      );
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New Allotment / Handover', style: AppTextStyles.heading3),
+      content: SizedBox(
+        width: 500,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _customerController,
+                  decoration: const InputDecoration(labelText: 'Customer Name'),
+                  validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _addressController,
+                  decoration: const InputDecoration(labelText: 'Address'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _mobileController,
+                  decoration: const InputDecoration(labelText: 'Mobile Number'),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _handoverByController,
+                  decoration: const InputDecoration(labelText: 'Handover By (Staff)'),
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: _handoverDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) setState(() => _handoverDate = date);
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Handover Date'),
+                    child: Text('${_handoverDate.day}/${_handoverDate.month}/${_handoverDate.year}'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ElevatedButton(onPressed: _submit, child: const Text('Confirm Handover')),
+      ],
     );
   }
 }
