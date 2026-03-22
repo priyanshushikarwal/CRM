@@ -142,13 +142,14 @@ class ApplicationService {
     }
 
 
+    final updatedBy = await SupabaseService.currentUserDisplayName();
     final historyItem = StatusHistoryItem(
       id: _uuid.v4(),
       status: newStatus,
       stageStatus: stageStatus,
       timestamp: DateTime.now(),
       remarks: remarks,
-      updatedBy: SupabaseService.currentUser?.email,
+      updatedBy: updatedBy,
     );
 
     final updatedHistory = [...application.statusHistory, historyItem];
@@ -175,15 +176,25 @@ class ApplicationService {
   }
 
   static Future<Map<String, dynamic>> getApplicationStats() async {
-    final applications = await fetchAllApplications();
+    final applications = (await fetchAllApplications())
+        .where((app) => app.approvalStatus == ApprovalStatus.approved)
+        .toList();
     final now = DateTime.now();
 
     double totalRevenue = 0;
     int completedInstallations = 0;
     int monthlyInstallations = 0;
     int pending = 0;
+    double domesticKw = 0;
+    double commercialKw = 0;
 
     for (final app in applications) {
+      if (app.categoryName.toLowerCase() == 'domestic') {
+        domesticKw += app.proposedCapacity;
+      } else if (app.categoryName.toLowerCase() == 'commercial') {
+        commercialKw += app.proposedCapacity;
+      }
+
       if (app.currentStatus == ApplicationStatus.applicationReceived) {
         pending++;
       }
@@ -206,6 +217,8 @@ class ApplicationService {
       'monthlyInstallations': monthlyInstallations,
       'totalRevenue': totalRevenue,
       'inProgress': applications.length - pending - completedInstallations,
+      'domesticKw': domesticKw,
+      'commercialKw': commercialKw,
     };
   }
 
@@ -311,6 +324,7 @@ class DocumentService {
     required String fileName,
     required String mimeType,
   }) async {
+    final uploadedBy = await SupabaseService.currentUserDisplayName();
     final fileExtension = fileName.split('.').last;
     final storagePath = '$applicationId/${_uuid.v4()}.$fileExtension';
 
@@ -335,7 +349,7 @@ class DocumentService {
       fileUrl: fileUrl,
       fileSize: fileBytes.length,
       uploadedOn: DateTime.now(),
-      uploadedBy: SupabaseService.currentUser?.email,
+      uploadedBy: uploadedBy,
     );
 
     await SupabaseService.from(
@@ -359,9 +373,10 @@ class DocumentService {
     required String documentId,
     required String status,
   }) async {
+    final verifiedBy = await SupabaseService.currentUserDisplayName();
     await SupabaseService.from(AppConstants.documentsTable).update({
       'verification_status': status,
-      'verified_by': SupabaseService.currentUser?.email,
+      'verified_by': verifiedBy,
     }).eq('id', documentId);
   }
 }

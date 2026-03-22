@@ -15,6 +15,8 @@ class PaymentModel {
   final DateTime paymentDate;
   final String? remarks;
   final String? collectedBy;
+  final String? receiptFilePath;
+  final String? receiptFileUrl;
   final DateTime createdAt;
 
   const PaymentModel({
@@ -27,6 +29,8 @@ class PaymentModel {
     required this.paymentDate,
     this.remarks,
     this.collectedBy,
+    this.receiptFilePath,
+    this.receiptFileUrl,
     required this.createdAt,
   });
 
@@ -47,6 +51,8 @@ class PaymentModel {
       paymentDate: DateTime.parse(json['payment_date'] as String),
       remarks: json['remarks'] as String?,
       collectedBy: json['collected_by'] as String?,
+      receiptFilePath: json['receipt_file_path'] as String?,
+      receiptFileUrl: json['receipt_file_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -62,6 +68,8 @@ class PaymentModel {
       'payment_date': paymentDate.toIso8601String(),
       'remarks': remarks,
       'collected_by': collectedBy,
+      'receipt_file_path': receiptFilePath,
+      'receipt_file_url': receiptFileUrl,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -76,6 +84,8 @@ class PaymentModel {
     DateTime? paymentDate,
     String? remarks,
     String? collectedBy,
+    String? receiptFilePath,
+    String? receiptFileUrl,
     DateTime? createdAt,
   }) {
     return PaymentModel(
@@ -88,6 +98,8 @@ class PaymentModel {
       paymentDate: paymentDate ?? this.paymentDate,
       remarks: remarks ?? this.remarks,
       collectedBy: collectedBy ?? this.collectedBy,
+      receiptFilePath: receiptFilePath ?? this.receiptFilePath,
+      receiptFileUrl: receiptFileUrl ?? this.receiptFileUrl,
       createdAt: createdAt ?? this.createdAt,
     );
   }

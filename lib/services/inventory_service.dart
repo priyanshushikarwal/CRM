@@ -55,6 +55,20 @@ class InventoryService {
     return (response as List).map((e) => PanelItem.fromJson(e)).toList();
   }
 
+  static Future<void> updatePanelItem(PanelItem item) async {
+    await SupabaseService.from(AppConstants.panelItemsTable)
+        .update(item.toJson())
+        .eq('id', item.id);
+  }
+
+  static Future<void> deletePanelItem(String id) async {
+    await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
+        .delete()
+        .eq('item_id', id)
+        .eq('item_type', 'panel');
+    await SupabaseService.from(AppConstants.panelItemsTable).delete().eq('id', id);
+  }
+
   // --- Inverter Items ---
   static Future<void> addInverterItems(List<InverterItem> items) async {
     await SupabaseService.from(AppConstants.inverterItemsTable)
@@ -70,6 +84,22 @@ class InventoryService {
     return (response as List).map((e) => InverterItem.fromJson(e)).toList();
   }
 
+  static Future<void> updateInverterItem(InverterItem item) async {
+    await SupabaseService.from(AppConstants.inverterItemsTable)
+        .update(item.toJson())
+        .eq('id', item.id);
+  }
+
+  static Future<void> deleteInverterItem(String id) async {
+    await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
+        .delete()
+        .eq('item_id', id)
+        .eq('item_type', 'inverter');
+    await SupabaseService.from(AppConstants.inverterItemsTable)
+        .delete()
+        .eq('id', id);
+  }
+
   // --- Meter Items ---
   static Future<void> addMeterItems(List<MeterItem> items) async {
     await SupabaseService.from(AppConstants.meterItemsTable)
@@ -83,6 +113,20 @@ class InventoryService {
     }
     final response = await query.order('created_at', ascending: false);
     return (response as List).map((e) => MeterItem.fromJson(e)).toList();
+  }
+
+  static Future<void> updateMeterItem(MeterItem item) async {
+    await SupabaseService.from(AppConstants.meterItemsTable)
+        .update(item.toJson())
+        .eq('id', item.id);
+  }
+
+  static Future<void> deleteMeterItem(String id) async {
+    await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
+        .delete()
+        .eq('item_id', id)
+        .eq('item_type', 'meter');
+    await SupabaseService.from(AppConstants.meterItemsTable).delete().eq('id', id);
   }
 
   // --- Allotments ---

@@ -6,6 +6,7 @@ import '../../providers/inventory_providers.dart';
 import '../../providers/app_providers.dart';
 import 'widgets/brand_details_dialog.dart';
 import 'widgets/inverter_details_dialog.dart';
+import 'widgets/meter_details_dialog.dart';
 
 
 class InventoryScreen extends ConsumerStatefulWidget {
@@ -18,6 +19,16 @@ class InventoryScreen extends ConsumerStatefulWidget {
 class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _searchController = TextEditingController();
+  String? _panelBrandFilter;
+  String? _panelTypeFilter;
+  String? _panelStatusFilter;
+  String? _inverterBrandFilter;
+  String? _inverterTypeFilter;
+  String? _inverterStatusFilter;
+  String? _meterBrandFilter;
+  String? _meterCategoryFilter;
+  String? _meterPhaseFilter;
+  String? _meterStatusFilter;
 
   @override
   void initState() {
@@ -38,6 +49,39 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     final inventoryState = ref.watch(inventoryProvider);
+    final currentUserAsync = ref.watch(currentUserProvider);
+    final currentUser = currentUserAsync.value;
+    final canAccessInventory = currentUser?.canAccessInventory ?? false;
+    final canAddInventoryStock = currentUser?.canAddInventoryStock ?? false;
+    final canAllotInventory = currentUser?.canAllotInventory ?? false;
+
+    if (currentUserAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (!canAccessInventory) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_rounded,
+              size: 64,
+              color: AppTheme.textLight.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text('Access Denied', style: AppTextStyles.heading3),
+            const SizedBox(height: 8),
+            Text(
+              'You do not have permission to access inventory.',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -45,6 +89,23 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
         backgroundColor: Colors.white,
         elevation: 0,
         title: Text('Factory Inventory', style: AppTextStyles.heading2),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: IconButton(
+              onPressed: inventoryState.isLoading ? null : _refreshInventory,
+              tooltip: 'Refresh Inventory',
+              icon:
+                  inventoryState.isLoading
+                      ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.refresh_rounded),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppTheme.primaryColor,
@@ -69,15 +130,21 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
                     _buildDashboard(inventoryState),
                     _buildPanelInventory(inventoryState),
                     _buildInverterInventory(inventoryState),
-                    _buildMeterInventory(inventoryState),
+                    _buildMeterInventory(inventoryState, canAllotInventory),
                   ],
                 ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddInventoryDialog(context),
-        backgroundColor: AppTheme.primaryColor,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('Add Stock', style: TextStyle(color: Colors.white)),
-      ),
+      floatingActionButton:
+          canAddInventoryStock
+              ? FloatingActionButton.extended(
+                onPressed: () => _showAddInventoryDialog(context),
+                backgroundColor: AppTheme.primaryColor,
+                icon: const Icon(Icons.add_rounded, color: Colors.white),
+                label: const Text(
+                  'Add Stock',
+                  style: TextStyle(color: Colors.white),
+                ),
+              )
+              : null,
     );
   }
 
@@ -96,12 +163,43 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => ref.read(inventoryProvider.notifier).loadAll(),
+            onPressed: _refreshInventory,
             child: const Text('Retry'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _refreshInventory() async {
+    try {
+      await ref.read(inventoryProvider.notifier).loadAll();
+      if (!mounted) return;
+      final error = ref.read(inventoryProvider).error;
+      if (error == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Inventory refreshed successfully'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Refresh failed: $error'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Refresh failed: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
   }
 
   Widget _buildDashboard(InventoryState state) {
@@ -126,6 +224,14 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           const SizedBox(height: 16),
           _buildBrandSummary(state),
           const SizedBox(height: 32),
+          Text('Inverter Stock', style: AppTextStyles.heading3),
+          const SizedBox(height: 16),
+          _buildInverterSummary(state),
+          const SizedBox(height: 32),
+          Text('Meter Stock', style: AppTextStyles.heading3),
+          const SizedBox(height: 16),
+          _buildMeterSummary(state, false, false),
+          const SizedBox(height: 32),
           Text('Recent Allotments', style: AppTextStyles.heading3),
           const SizedBox(height: 16),
           _buildRecentAllotmentsTable(state),
@@ -135,8 +241,25 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
   }
 
   Widget _buildBrandSummary(InventoryState state) {
+    final searchQuery = _searchController.text.trim().toLowerCase();
+    final filteredPanels = state.panels.where((p) {
+      final matchesSearch =
+          searchQuery.isEmpty ||
+          p.serialNumber.toLowerCase().contains(searchQuery) ||
+          p.brand.toLowerCase().contains(searchQuery) ||
+          p.panelType.toLowerCase().contains(searchQuery) ||
+          p.wattCapacity.toString().contains(searchQuery);
+      final matchesBrand =
+          _panelBrandFilter == null || p.brand == _panelBrandFilter;
+      final matchesType =
+          _panelTypeFilter == null || p.panelType == _panelTypeFilter;
+      final matchesStatus =
+          _panelStatusFilter == null || p.status == _panelStatusFilter;
+      return matchesSearch && matchesBrand && matchesType && matchesStatus;
+    }).toList();
+
     final Map<String, List<PanelItem>> groupedByBrand = {};
-    for (var p in state.panels) {
+    for (var p in filteredPanels) {
       groupedByBrand.putIfAbsent(p.brand, () => []);
       groupedByBrand[p.brand]!.add(p);
     }
@@ -309,9 +432,48 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
   }
 
   Widget _buildPanelInventory(InventoryState state) {
+    final brands =
+        state.panels.map((p) => p.brand).toSet().toList()..sort();
+    final types =
+        state.panels.map((p) => p.panelType).toSet().toList()..sort();
+
     return Column(
       children: [
-        _buildSearchBar(),
+        _buildSearchBar(
+          hintText: 'Search by serial number, brand, watt, or type...',
+        ),
+        _buildFilterBar(
+          filters: [
+            _FilterConfig(
+              hint: 'Brand',
+              value: _panelBrandFilter,
+              items: brands,
+              onChanged:
+                  (value) => setState(() => _panelBrandFilter = value),
+            ),
+            _FilterConfig(
+              hint: 'Type',
+              value: _panelTypeFilter,
+              items: types,
+              onChanged: (value) => setState(() => _panelTypeFilter = value),
+            ),
+            _FilterConfig(
+              hint: 'Status',
+              value: _panelStatusFilter,
+              items: const ['available', 'allotted'],
+              onChanged:
+                  (value) => setState(() => _panelStatusFilter = value),
+            ),
+          ],
+          onClear: () {
+            setState(() {
+              _searchController.clear();
+              _panelBrandFilter = null;
+              _panelTypeFilter = null;
+              _panelStatusFilter = null;
+            });
+          },
+        ),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -330,9 +492,49 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
   }
 
   Widget _buildInverterInventory(InventoryState state) {
+    final brands =
+        state.inverters.map((i) => i.brand).toSet().toList()..sort();
+    final types =
+        state.inverters.map((i) => i.inverterType).toSet().toList()..sort();
+
     return Column(
       children: [
-        _buildSearchBar(),
+        _buildSearchBar(
+          hintText: 'Search by serial number, brand, capacity, or type...',
+        ),
+        _buildFilterBar(
+          filters: [
+            _FilterConfig(
+              hint: 'Brand',
+              value: _inverterBrandFilter,
+              items: brands,
+              onChanged:
+                  (value) => setState(() => _inverterBrandFilter = value),
+            ),
+            _FilterConfig(
+              hint: 'Type',
+              value: _inverterTypeFilter,
+              items: types,
+              onChanged:
+                  (value) => setState(() => _inverterTypeFilter = value),
+            ),
+            _FilterConfig(
+              hint: 'Status',
+              value: _inverterStatusFilter,
+              items: const ['available', 'allotted'],
+              onChanged:
+                  (value) => setState(() => _inverterStatusFilter = value),
+            ),
+          ],
+          onClear: () {
+            setState(() {
+              _searchController.clear();
+              _inverterBrandFilter = null;
+              _inverterTypeFilter = null;
+              _inverterStatusFilter = null;
+            });
+          },
+        ),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -351,8 +553,25 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
   }
 
   Widget _buildInverterSummary(InventoryState state) {
+    final searchQuery = _searchController.text.trim().toLowerCase();
+    final filteredInverters = state.inverters.where((i) {
+      final matchesSearch =
+          searchQuery.isEmpty ||
+          i.serialNumber.toLowerCase().contains(searchQuery) ||
+          i.brand.toLowerCase().contains(searchQuery) ||
+          i.inverterType.toLowerCase().contains(searchQuery) ||
+          i.capacityKw.toString().contains(searchQuery);
+      final matchesBrand =
+          _inverterBrandFilter == null || i.brand == _inverterBrandFilter;
+      final matchesType =
+          _inverterTypeFilter == null || i.inverterType == _inverterTypeFilter;
+      final matchesStatus =
+          _inverterStatusFilter == null || i.status == _inverterStatusFilter;
+      return matchesSearch && matchesBrand && matchesType && matchesStatus;
+    }).toList();
+
     final Map<String, List<InverterItem>> groupedByBrand = {};
-    for (var i in state.inverters) {
+    for (var i in filteredInverters) {
       groupedByBrand.putIfAbsent(i.brand, () => []);
       groupedByBrand[i.brand]!.add(i);
     }
@@ -446,78 +665,341 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
     );
   }
 
-  Widget _buildMeterInventory(InventoryState state) {
-    var meters = state.meters.where((p) => 
-      p.serialNumber.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-      p.brand.toLowerCase().contains(_searchController.text.toLowerCase())
-    ).toList();
-    
-    if (meters.isEmpty && !state.isLoading) {
-      return _buildEmptyCategory('No Meters Found');
-    }
+  Widget _buildMeterInventory(
+    InventoryState state,
+    bool canAllotInventory,
+  ) {
+    final canEditInventory = ref.watch(currentUserProvider).value?.canEdit ?? false;
+    final brands = state.meters.map((m) => m.brand).toSet().toList()..sort();
+    final categories =
+        state.meters.map((m) => m.meterCategory).toSet().toList()..sort();
+    final phases =
+        state.meters.map((m) => m.meterPhase).toSet().toList()..sort();
 
     return Column(
       children: [
-        _buildSearchBar(),
+        _buildSearchBar(
+          hintText: 'Search by serial number, brand, meter type, or phase...',
+        ),
+        _buildFilterBar(
+          filters: [
+            _FilterConfig(
+              hint: 'Brand',
+              value: _meterBrandFilter,
+              items: brands,
+              onChanged: (value) => setState(() => _meterBrandFilter = value),
+            ),
+            _FilterConfig(
+              hint: 'Category',
+              value: _meterCategoryFilter,
+              items: categories,
+              onChanged:
+                  (value) => setState(() => _meterCategoryFilter = value),
+            ),
+            _FilterConfig(
+              hint: 'Phase',
+              value: _meterPhaseFilter,
+              items: phases,
+              onChanged: (value) => setState(() => _meterPhaseFilter = value),
+            ),
+            _FilterConfig(
+              hint: 'Status',
+              value: _meterStatusFilter,
+              items: const ['available', 'allotted'],
+              onChanged: (value) => setState(() => _meterStatusFilter = value),
+            ),
+          ],
+          onClear: () {
+            setState(() {
+              _searchController.clear();
+              _meterBrandFilter = null;
+              _meterCategoryFilter = null;
+              _meterPhaseFilter = null;
+              _meterStatusFilter = null;
+            });
+          },
+        ),
         Expanded(
-          child: ListView.builder(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            itemCount: meters.length,
-            itemBuilder: (context, index) {
-              final meter = meters[index];
-              final invoice = state.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == meter.invoiceId, orElse: () => null);
-              
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(meter.serialNumber, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                              Text('${meter.brand} - ${meter.meterCategory} (${meter.meterPhase})', 
-                                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              _StatusBadge(status: meter.status),
-                              if (meter.status == 'available')
-                                IconButton(
-                                  icon: const Icon(Icons.assignment_ind_rounded, color: AppTheme.primaryColor),
-                                  onPressed: () => _showAllotmentDialog(context, meter.id, InventoryItemType.meter),
-                                  tooltip: 'Allot to Customer',
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      if (invoice != null) ...[
-                        const Divider(height: 24),
-                        Row(
-                          children: [
-                            _buildInfoMiniItem('Invoice No', invoice.invoiceNumber),
-                            _buildInfoMiniItem('Date', '${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'),
-                            _buildInfoMiniItem('Party', invoice.partyName),
-                            _buildInfoMiniItem('Received By', invoice.receivedBy ?? 'N/A'),
-                          ],
-                        ),
-                      ],
-                    ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'STOCK SUMMARY',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textSecondary,
+                    letterSpacing: 1.2,
                   ),
                 ),
-              );
-            },
+                const SizedBox(height: 16),
+                _buildMeterSummary(state, canAllotInventory, canEditInventory),
+              ],
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildMeterSummary(
+    InventoryState state,
+    bool canAllotInventory,
+    bool canEditInventory,
+  ) {
+    final searchQuery = _searchController.text.trim().toLowerCase();
+    final filteredMeters = state.meters.where((m) {
+      final matchesSearch =
+          searchQuery.isEmpty ||
+          m.serialNumber.toLowerCase().contains(searchQuery) ||
+          m.brand.toLowerCase().contains(searchQuery) ||
+          m.meterCategory.toLowerCase().contains(searchQuery) ||
+          m.meterType.toLowerCase().contains(searchQuery) ||
+          m.meterPhase.toLowerCase().contains(searchQuery);
+      final matchesBrand =
+          _meterBrandFilter == null || m.brand == _meterBrandFilter;
+      final matchesCategory =
+          _meterCategoryFilter == null ||
+          m.meterCategory == _meterCategoryFilter;
+      final matchesPhase =
+          _meterPhaseFilter == null || m.meterPhase == _meterPhaseFilter;
+      final matchesStatus =
+          _meterStatusFilter == null || m.status == _meterStatusFilter;
+      return matchesSearch &&
+          matchesBrand &&
+          matchesCategory &&
+          matchesPhase &&
+          matchesStatus;
+    }).toList();
+
+    final Map<String, List<MeterItem>> groupedByBrand = {};
+    for (final meter in filteredMeters) {
+      groupedByBrand.putIfAbsent(meter.brand, () => []);
+      groupedByBrand[meter.brand]!.add(meter);
+    }
+
+    if (groupedByBrand.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderColor),
+        ),
+        child: const Center(
+          child: Text(
+            'No meters in stock.',
+            style: TextStyle(color: AppTheme.textSecondary),
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 24,
+      runSpacing: 24,
+      children: groupedByBrand.entries.map((brandEntry) {
+        final brand = brandEntry.key;
+        final meters = brandEntry.value;
+        final availableMeters =
+            meters.where((meter) => meter.status == 'available').toList();
+
+        final Map<String, int> meterCounts = {};
+        for (final meter in availableMeters) {
+          final key =
+              '${meter.meterCategory} / ${meter.meterType} / ${meter.meterPhase}';
+          meterCounts[key] = (meterCounts[key] ?? 0) + 1;
+        }
+
+        return InkWell(
+          onTap: () => showDialog(
+            context: context,
+            builder:
+                (context) =>
+                    MeterDetailsDialog(brandName: brand, meters: meters),
+          ),
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            width: 320,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppTheme.borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      brand.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                    Text(
+                      '${meters.length} total',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 32),
+                ...meterCounts.entries.map(
+                  (entry) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            entry.key,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const Text(
+                          ' = ',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${entry.value}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Meters',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (meterCounts.isNotEmpty) ...[
+                  const Divider(height: 16),
+                  const Center(
+                    child: Text(
+                      'STOCK AVAILABLE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.orange,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ] else
+                  const Text(
+                    'No available stock',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontStyle: FontStyle.italic,
+                      fontSize: 12,
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                ...meters.take(5).map((meter) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                meter.serialNumber,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${meter.meterCategory} / ${meter.meterType} / ${meter.meterPhase}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            _StatusBadge(status: meter.status),
+                            const SizedBox(height: 8),
+                            const Icon(
+                              Icons.open_in_new_rounded,
+                              size: 14,
+                              color: AppTheme.textLight,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                const SizedBox(height: 6),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Click to view details',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.textLight,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(
+                      Icons.open_in_new_rounded,
+                      size: 10,
+                      color: AppTheme.textLight,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -534,17 +1016,85 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar({
+    String hintText = 'Search by serial number or brand...',
+  }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
-          hintText: 'Search by serial number or brand...',
+          hintText: hintText,
           prefixIcon: const Icon(Icons.search_rounded),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
         onChanged: (v) => setState(() {}),
+      ),
+    );
+  }
+
+  Widget _buildFilterBar({
+    required List<_FilterConfig> filters,
+    required VoidCallback onClear,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+      child: Row(
+        children: [
+          ...filters.map(
+            (filter) => Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: _buildFilterDropdown(
+                hint: filter.hint,
+                value: filter.value,
+                items: filter.items,
+                onChanged: filter.onChanged,
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: onClear,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterDropdown({
+    required String hint,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          hint: Text(
+            hint,
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          ),
+          isExpanded: true,
+          items:
+              items
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item,
+                      child: Text(item, overflow: TextOverflow.ellipsis),
+                    ),
+                  )
+                  .toList(),
+          onChanged: onChanged,
+        ),
       ),
     );
   }
@@ -554,6 +1104,127 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
       context: context,
       builder: (context) => _AllotmentDialog(itemId: itemId, itemType: type),
     );
+  }
+
+  Future<void> _showEditMeterDialog(MeterItem meter) async {
+    final brandController = TextEditingController(text: meter.brand);
+    String selectedCategory = meter.meterCategory;
+    String selectedType =
+        meter.meterType == 'LTCT'
+            ? 'LT CT'
+            : meter.meterType == 'HTCT'
+                ? 'HT CT'
+                : meter.meterType;
+    String selectedPhase = meter.meterPhase;
+    String selectedStatus = meter.status;
+
+    final updated = await showDialog<MeterItem>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Meter'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: brandController,
+              decoration: const InputDecoration(labelText: 'Brand'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: selectedCategory,
+              decoration: const InputDecoration(labelText: 'Category'),
+              items: const ['Net Meter', 'Solar Meter']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (value) => selectedCategory = value ?? selectedCategory,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: selectedType,
+              decoration: const InputDecoration(labelText: 'Type'),
+              items: const ['Normal', 'LT CT', 'HT CT']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (value) => selectedType = value ?? selectedType,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: selectedPhase,
+              decoration: const InputDecoration(labelText: 'Phase'),
+              items: const ['Single Phase', 'Three Phase']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (value) => selectedPhase = value ?? selectedPhase,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: selectedStatus,
+              decoration: const InputDecoration(labelText: 'Status'),
+              items: const ['available', 'allotted']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (value) => selectedStatus = value ?? selectedStatus,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(
+                context,
+                meter.copyWith(
+                  brand: brandController.text.trim(),
+                  meterCategory: selectedCategory,
+                  meterType:
+                      selectedType == 'LT CT'
+                          ? 'LTCT'
+                          : selectedType == 'HT CT'
+                              ? 'HTCT'
+                              : selectedType,
+                  meterPhase: selectedPhase,
+                  status: selectedStatus,
+                ),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (updated == null) return;
+    await ref.read(inventoryProvider.notifier).updateMeter(updated);
+  }
+
+  Future<void> _confirmDeleteMeter(MeterItem meter) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Meter'),
+        content: Text('Delete meter ${meter.serialNumber}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(inventoryProvider.notifier).deleteMeter(meter.id);
+    }
   }
 
   Widget _buildInfoMiniItem(String label, String value) {
@@ -575,6 +1246,20 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
       builder: (context) => const _AddInventoryDialog(),
     );
   }
+}
+
+class _FilterConfig {
+  final String hint;
+  final String? value;
+  final List<String> items;
+  final ValueChanged<String?> onChanged;
+
+  const _FilterConfig({
+    required this.hint,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
 }
 
 class _AddInventoryDialog extends ConsumerStatefulWidget {
@@ -617,11 +1302,18 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
     _receivedByController.text = ref.read(currentUserProvider).value?.fullName ?? '';
   }
 
+  String _normalizeSerial(String serial) => serial.trim().toUpperCase();
+
+  bool _containsSerial(List<String> serials, String serial) {
+    final normalizedSerial = _normalizeSerial(serial);
+    return serials.any((item) => _normalizeSerial(item) == normalizedSerial);
+  }
+
   void _addPanelEntry(String type) {
     final sn = _serialController.text.trim();
     final cap = int.tryParse(_capacityController.text) ?? 540;
     if (sn.isNotEmpty) {
-      if (_panelEntries.any((e) => e['serial'] == sn)) {
+      if (_panelEntries.any((e) => _normalizeSerial(e['serial'] as String) == _normalizeSerial(sn))) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Duplicate serial number in list')));
         return;
       }
@@ -674,8 +1366,8 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
           type: _meterFullTypeSelection.startsWith('Normal') 
               ? 'Normal' 
               : _meterFullTypeSelection.startsWith('LT CT') 
-                  ? 'LT CT' 
-                  : 'HT CT',
+                  ? 'LTCT' 
+                  : 'HTCT',
           phase: _meterPhaseSelection,
         );
       }
@@ -902,9 +1594,13 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
                 decoration: const InputDecoration(hintText: 'Enter Serial Number'),
                 onSubmitted: (_) {
                   final sn = _serialController.text.trim();
-                  if (sn.isNotEmpty && !target.contains(sn)) {
+                  if (sn.isNotEmpty && !_containsSerial(target, sn)) {
                     setState(() => target.add(sn));
                     _serialController.clear();
+                  } else if (sn.isNotEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Duplicate serial number in list')),
+                    );
                   }
                 },
               ),
@@ -913,9 +1609,13 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
               icon: const Icon(Icons.add), 
               onPressed: () {
                 final sn = _serialController.text.trim();
-                if (sn.isNotEmpty && !target.contains(sn)) {
+                if (sn.isNotEmpty && !_containsSerial(target, sn)) {
                   setState(() => target.add(sn));
                   _serialController.clear();
+                } else if (sn.isNotEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Duplicate serial number in list')),
+                  );
                 }
               }
             ),

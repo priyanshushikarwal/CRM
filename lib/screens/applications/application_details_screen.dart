@@ -1,14 +1,19 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/application_model.dart';
 import '../../models/document_model.dart';
+import '../../models/user_model.dart';
 import '../../providers/app_providers.dart';
 import '../../services/application_service.dart';
 import '../../services/installation_service.dart';
@@ -32,6 +37,9 @@ class _ApplicationDetailsScreenState
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _showTrackingPanel = false;
+  ApplicationModel? _applicationOverride;
+  String _inventorySearchQuery = '';
+  String _inventoryTypeFilter = 'all';
 
   @override
   void initState() {
@@ -56,7 +64,15 @@ class _ApplicationDetailsScreenState
     return applicationAsync.when(
       loading:
           () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+              _applicationOverride != null
+                  ? _buildApplicationScaffold(
+                    context,
+                    _applicationOverride!,
+                    isDesktop,
+                  )
+                  : const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  ),
       error:
           (error, stack) => Scaffold(
             body: Center(
@@ -109,37 +125,58 @@ class _ApplicationDetailsScreenState
           );
         }
 
-        return Scaffold(
-          backgroundColor: Colors.white,
-          body: Column(
-            children: [
-              _buildHeader(context, application),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(child: _buildDetailsContent(application)),
-                    if (isDesktop && _showTrackingPanel)
-                      Container(
-                        width: 380,
-                        margin: const EdgeInsets.all(32),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                          border: Border.all(color: AppTheme.borderColor),
-                        ),
-                        child: _buildTrackingPanel(application),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        return _buildApplicationScaffold(
+          context,
+          _applicationOverride ?? application,
+          isDesktop,
         );
       },
     );
   }
 
+  Widget _buildApplicationScaffold(
+    BuildContext context,
+    ApplicationModel application,
+    bool isDesktop,
+  ) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          _buildHeader(context, application),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: _buildDetailsContent(application)),
+                if (isDesktop && _showTrackingPanel)
+                  Container(
+                    width: 380,
+                    margin: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: _buildTrackingPanel(application),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader(BuildContext context, ApplicationModel app) {
+    final currentUser = ref.watch(currentUserProvider).value;
+    final canEditApplication = currentUser?.canEdit ?? false;
+    final canAccessPayments = currentUser?.canAccessPayments ?? false;
+    final canAccessInventory = currentUser?.canAccessInventory ?? false;
+    final canResubmitRequestedChanges =
+        (currentUser?.canAccessApplications ?? false) &&
+        app.submittedBy == currentUser?.id &&
+        app.approvalStatus == ApprovalStatus.changesRequested;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       decoration: const BoxDecoration(
@@ -199,25 +236,33 @@ class _ApplicationDetailsScreenState
             label: Text(_showTrackingPanel ? 'Hide Timeline' : 'Timeline'),
             style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           ),
-          ElevatedButton.icon(
-            onPressed: () => _showInventoryAllotmentDialog(app),
-            icon: const Icon(Icons.solar_power_rounded, size: 18),
-            label: const Text('Allot Solar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          if (canAccessInventory) ...[
+            ElevatedButton.icon(
+              onPressed: () => _showInventoryAllotmentDialog(app),
+              icon: const Icon(Icons.solar_power_rounded, size: 18),
+              label: const Text('Allot Solar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton.icon(
-            onPressed: () => context.go('/applications/${app.id}/edit'),
-            icon: const Icon(Icons.edit_rounded, size: 18),
-            label: const Text('Edit'),
-            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
+          ],
+          if (canEditApplication || canResubmitRequestedChanges) ...[
+            OutlinedButton.icon(
+              onPressed: () => context.go('/applications/${app.id}/edit'),
+              icon: const Icon(Icons.edit_rounded, size: 18),
+              label: Text(
+                canResubmitRequestedChanges && !canEditApplication
+                    ? 'Update & Resubmit'
+                    : 'Edit',
+              ),
+              style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            ),
+            const SizedBox(width: 12),
+          ],
           Consumer(
             builder: (context, ref, child) {
               final currentUser = ref.watch(currentUserProvider).value;
@@ -236,18 +281,23 @@ class _ApplicationDetailsScreenState
               );
             },
           ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_horiz_rounded),
-            onSelected: (value) async => await _handleActionSelection(value, app),
-            itemBuilder: (context) => _buildActionMenuItems(app),
-            style: IconButton.styleFrom(backgroundColor: AppTheme.backgroundColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-          ),
+          if (canEditApplication || canAccessPayments || canAccessInventory || currentUser?.canManageUsers == true)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_horiz_rounded),
+              onSelected: (value) async => await _handleActionSelection(value, app),
+              itemBuilder: (context) => _buildActionMenuItems(app),
+              style: IconButton.styleFrom(backgroundColor: AppTheme.backgroundColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildDetailsContent(ApplicationModel app) {
+    final currentUser = ref.watch(currentUserProvider).value;
+    final canAccessPayments = currentUser?.canAccessPayments ?? false;
+    final canAccessInventory = currentUser?.canAccessInventory ?? false;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -265,13 +315,17 @@ class _ApplicationDetailsScreenState
                       'Application Details',
                       Icons.description_outlined,
                       [
-                        _buildDetailRow('Client Name', app.fullName, highlight: true),
+                        _buildDetailRow('Actual Name', app.fullName, highlight: true),
+                        _buildDetailRow(
+                          'Name As Per Bill',
+                          _optionalText(app.nameAsPerBill),
+                          highlight: true,
+                        ),
                         _buildDetailRow('Phone Number', app.mobile),
-                        _buildDetailRow('Email Address', app.email ?? '-'),
-                        _buildDetailRow('Account No.', app.consumerAccountNumber),
+                        _buildDetailRow('K No.', app.consumerAccountNumber),
                         _buildDetailRow('Full Address', app.address),
                         _buildDetailRow('District / State', '${app.district} / ${app.state}'),
-                        _buildDetailRow('Discom', app.discomName),
+                        _buildDetailRow('Discom', _optionalText(app.discomName)),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -280,10 +334,10 @@ class _ApplicationDetailsScreenState
                       Icons.account_balance_outlined,
                       [
                         _buildDetailRow('Scheme', app.schemeName, highlight: true),
-                        _buildDetailRow('Bank Name', app.bankName ?? '-'),
-                        _buildDetailRow('IFSC Code', app.ifscCode ?? '-'),
-                        _buildDetailRow('Account Holder', app.accountHolderName ?? '-'),
-                        _buildDetailRow('Account No.', app.accountNumber ?? '-'),
+                        _buildDetailRow('Bank Name', _optionalText(app.bankName)),
+                        _buildDetailRow('IFSC Code', _optionalText(app.ifscCode)),
+                        _buildDetailRow('Account Holder', _optionalText(app.accountHolderName)),
+                        _buildDetailRow('Account No.', _optionalText(app.accountNumber)),
                         _buildDetailRow('Subsidy Opt-out', app.giveUpSubsidy ? 'Yes' : 'No'),
                       ],
                     ),
@@ -298,13 +352,10 @@ class _ApplicationDetailsScreenState
                       'Technical Specifications',
                       Icons.solar_power_outlined,
                       [
-                        _buildDetailRow('Proposed Capacity', '${app.proposedCapacity} kWp', highlight: true),
+                        _buildDetailRow('Solar Plant Capacity', '${app.proposedCapacity} kWp', highlight: true),
                         _buildDetailRow('Sanctioned Load', '${app.sanctionedLoad} kW'),
                         _buildDetailRow('Category', app.categoryName),
-                        _buildDetailRow('Coordinates', '${app.latitude ?? '-'}, ${app.longitude ?? '-'}'),
-                        _buildDetailRow('Existing System', '${app.existingInstalledCapacity} kWp'),
-                        _buildDetailRow('Net Capacity', '${app.netEligibleCapacity} kWp'),
-                        _buildDetailRow('Vendor', app.vendorName, highlight: true),
+                        _buildDetailRow('Vendor', _optionalText(app.vendorName), highlight: true),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -313,21 +364,15 @@ class _ApplicationDetailsScreenState
                       Icons.payments_outlined,
                       [
                         _buildDetailRow('Loan Status', app.loanStatus, highlight: true),
-                        _buildDetailRow('Loan App #', app.loanApplicationNumber ?? '-'),
-                        _buildDetailRow('Sanction Date', app.sanctionDate != null ? DateFormat('dd MMM yyyy').format(app.sanctionDate!) : '-'),
+                        _buildDetailRow('Loan App #', _optionalText(app.loanApplicationNumber)),
+                        _buildDetailRow(
+                          'Sanction Date',
+                          app.sanctionDate != null
+                              ? DateFormat('dd MMM yyyy').format(app.sanctionDate!)
+                              : 'Option not available',
+                        ),
                         _buildDetailRow('Sanction Amount', '₹${NumberFormat('#,##,###', 'en_IN').format(app.sanctionAmount ?? 0)}', highlight: true),
                         _buildDetailRow('Processing Fees', '₹${NumberFormat('#,##,###', 'en_IN').format(app.processingFees ?? 0)}'),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    _buildSectionCard(
-                      'Feasibility Report',
-                      Icons.fact_check_outlined,
-                      [
-                        _buildDetailRow('Status', app.feasibilityStatus, highlight: true),
-                        _buildDetailRow('Inspector', app.feasibilityPerson ?? '-'),
-                        _buildDetailRow('Approved Capacity', '${app.approvedCapacity ?? '-'} kWp'),
-                        _buildDetailRow('Inspection Date', app.feasibilityDate != null ? DateFormat('dd MMM yyyy').format(app.feasibilityDate!) : '-'),
                       ],
                     ),
                   ],
@@ -335,10 +380,16 @@ class _ApplicationDetailsScreenState
               ),
             ],
           ),
+          if (canAccessPayments) ...[
+            const SizedBox(height: 32),
+            _buildPaymentSection(app),
+          ],
+          if (canAccessInventory) ...[
+            const SizedBox(height: 32),
+            _buildInventoryAllotmentSection(app),
+          ],
           const SizedBox(height: 32),
-          _buildPaymentSection(app),
-          const SizedBox(height: 32),
-          _buildInventoryAllotmentSection(app),
+          _buildOwnershipSection(app),
           const SizedBox(height: 32),
           _buildDocumentsSection(app),
           const SizedBox(height: 32),
@@ -347,9 +398,113 @@ class _ApplicationDetailsScreenState
     );
   }
 
+  Widget _buildOwnershipSection(ApplicationModel app) {
+    final submittedByAsync =
+        app.submittedBy != null
+            ? ref.watch(userByIdProvider(app.submittedBy!))
+            : const AsyncValue<UserModel?>.data(null);
+    final approvedByAsync =
+        app.approvedBy != null
+            ? ref.watch(userByIdProvider(app.approvedBy!))
+            : const AsyncValue<UserModel?>.data(null);
+
+    final submittedByName = submittedByAsync.value?.displayName ?? '-';
+    final approvedByName = approvedByAsync.value?.displayName ?? '-';
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Work Tracking',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 24,
+            runSpacing: 16,
+            children: [
+              _buildMetaInfoItem('Submitted By', submittedByName),
+              _buildMetaInfoItem(
+                'Approved / Reviewed By',
+                app.approvedBy != null ? approvedByName : '-',
+              ),
+              _buildMetaInfoItem(
+                'Approval Date',
+                app.approvalDate != null
+                    ? DateFormat('dd MMM yyyy, hh:mm a').format(app.approvalDate!)
+                    : '-',
+              ),
+              _buildMetaInfoItem(
+                'Approval Remarks',
+                (app.approvalRemarks?.trim().isNotEmpty ?? false)
+                    ? app.approvalRemarks!
+                    : '-',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetaInfoItem(String label, String value) {
+    return SizedBox(
+      width: 240,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: AppTextStyles.caption.copyWith(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: AppTextStyles.bodyMedium.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInventoryAllotmentSection(ApplicationModel app) {
     final inventoryState = ref.watch(inventoryProvider);
-    final appAllotments = inventoryState.allotments.where((a) => a.applicationId == app.id).toList();
+    final appAllotments =
+        inventoryState.allotments.where((a) => a.applicationId == app.id).toList();
+    final filteredAllotments =
+        appAllotments.where((allotment) {
+          if (_inventoryTypeFilter != 'all' &&
+              allotment.itemType.name != _inventoryTypeFilter) {
+            return false;
+          }
+
+          if (_inventorySearchQuery.trim().isEmpty) {
+            return true;
+          }
+
+          final resolved = _resolveAllotmentDisplay(allotment, inventoryState);
+          final query = _inventorySearchQuery.trim().toLowerCase();
+          return resolved['serial']!.toLowerCase().contains(query) ||
+              resolved['details']!.toLowerCase().contains(query) ||
+              allotment.itemType.name.toLowerCase().contains(query) ||
+              (allotment.handoverBy ?? '').toLowerCase().contains(query);
+        }).toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -377,16 +532,37 @@ class _ApplicationDetailsScreenState
                     Text('Inventory Allotment', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
                   ],
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _showInventoryAllotmentDialog(app),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                  icon: const Icon(Icons.add_task_rounded, size: 16),
-                  label: const Text('Allot Item', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed:
+                          appAllotments.isEmpty
+                              ? null
+                              : () => _exportInventoryAllotmentsPdf(
+                                app,
+                                filteredAllotments,
+                                inventoryState,
+                              ),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                      label: const Text('Export PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _showInventoryAllotmentDialog(app),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.add_task_rounded, size: 16),
+                      label: const Text('Allot Item', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -400,46 +576,105 @@ class _ApplicationDetailsScreenState
                       child: Text('No inventory items allotted to this application', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                     ),
                   )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: appAllotments.length,
-                    separatorBuilder: (context, index) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final allotment = appAllotments[index];
-                      String serial = 'N/A';
-                      String details = '';
-                      try {
-                        if (allotment.itemType == InventoryItemType.panel) {
-                          final p = inventoryState.panels.firstWhere((p) => p.id == allotment.itemId);
-                          serial = p.serialNumber;
-                          details = '${p.brand} - ${p.wattCapacity}W (${p.panelType})';
-                        } else if (allotment.itemType == InventoryItemType.inverter) {
-                          final i = inventoryState.inverters.firstWhere((i) => i.id == allotment.itemId);
-                          serial = i.serialNumber;
-                          details = '${i.brand} - ${i.capacityKw}kW (${i.inverterType})';
-                        } else {
-                          final m = inventoryState.meters.firstWhere((m) => m.id == allotment.itemId);
-                          serial = m.serialNumber;
-                          details = '${m.brand} - ${m.meterCategory} (${m.meterPhase})';
-                        }
-                      } catch (_) { serial = 'ID: ${allotment.itemId}'; }
-
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                          child: Icon(
-                            allotment.itemType == InventoryItemType.panel ? Icons.solar_power_outlined :
-                            allotment.itemType == InventoryItemType.inverter ? Icons.electrical_services_outlined : Icons.speed_outlined,
-                            color: AppTheme.primaryColor,
-                            size: 20,
+                : Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              onChanged:
+                                  (value) => setState(
+                                    () => _inventorySearchQuery = value,
+                                  ),
+                              decoration: InputDecoration(
+                                hintText: 'Search by serial no. or item details',
+                                prefixIcon: const Icon(Icons.search_rounded),
+                                isDense: true,
+                                filled: true,
+                                fillColor: AppTheme.backgroundColor,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
                           ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 180,
+                            child: DropdownButtonFormField<String>(
+                              value: _inventoryTypeFilter,
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: AppTheme.backgroundColor,
+                                isDense: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 'all', child: Text('All Items')),
+                                DropdownMenuItem(value: 'panel', child: Text('Panels')),
+                                DropdownMenuItem(value: 'inverter', child: Text('Inverters')),
+                                DropdownMenuItem(value: 'meter', child: Text('Meters')),
+                              ],
+                              onChanged:
+                                  (value) => setState(
+                                    () => _inventoryTypeFilter = value ?? 'all',
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (filteredAllotments.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'No allotments match the selected search or filter.',
+                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: filteredAllotments.length,
+                          separatorBuilder: (context, index) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final allotment = filteredAllotments[index];
+                            final resolved = _resolveAllotmentDisplay(allotment, inventoryState);
+
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                child: Icon(
+                                  allotment.itemType == InventoryItemType.panel
+                                      ? Icons.solar_power_outlined
+                                      : allotment.itemType == InventoryItemType.inverter
+                                      ? Icons.electrical_services_outlined
+                                      : Icons.speed_outlined,
+                                  color: AppTheme.primaryColor,
+                                  size: 20,
+                                ),
+                              ),
+                              title: Text(
+                                'S/N: ${resolved['serial']}',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Text(
+                                '${resolved['details']}\nAssigned by: ${allotment.handoverBy ?? '-'}',
+                              ),
+                              isThreeLine: true,
+                              trailing: Text(
+                                DateFormat('dd MMM yyyy').format(allotment.handoverDate),
+                                style: AppTextStyles.caption,
+                              ),
+                            );
+                          },
                         ),
-                        title: Text('S/N: $serial', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(details),
-                        trailing: Text(DateFormat('dd MMM yyyy').format(allotment.handoverDate), style: AppTextStyles.caption),
-                      );
-                    },
+                    ],
                   ),
           ),
         ],
@@ -624,6 +859,46 @@ class _ApplicationDetailsScreenState
         ],
       ),
     );
+  }
+
+  String _optionalText(String? value) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty || normalized == '-') {
+      return 'Option not available';
+    }
+    return normalized;
+  }
+
+  Map<String, String> _resolveAllotmentDisplay(
+    InventoryAllotment allotment,
+    InventoryState inventoryState,
+  ) {
+    try {
+      if (allotment.itemType == InventoryItemType.panel) {
+        final item = inventoryState.panels.firstWhere((p) => p.id == allotment.itemId);
+        return {
+          'serial': item.serialNumber,
+          'details': '${item.brand} - ${item.wattCapacity}W (${item.panelType})',
+        };
+      }
+      if (allotment.itemType == InventoryItemType.inverter) {
+        final item = inventoryState.inverters.firstWhere((i) => i.id == allotment.itemId);
+        return {
+          'serial': item.serialNumber,
+          'details': '${item.brand} - ${item.capacityKw}kW (${item.inverterType})',
+        };
+      }
+      final item = inventoryState.meters.firstWhere((m) => m.id == allotment.itemId);
+      return {
+        'serial': item.serialNumber,
+        'details': '${item.brand} - ${item.meterCategory} (${item.meterPhase})',
+      };
+    } catch (_) {
+      return {
+        'serial': 'ID: ${allotment.itemId}',
+        'details': allotment.itemType.name.toUpperCase(),
+      };
+    }
   }
 
   Widget _buildDocumentsSection(ApplicationModel app) {
@@ -999,6 +1274,8 @@ class _ApplicationDetailsScreenState
   }
 
   Widget _buildDocumentsTable(List<DocumentModel> documents) {
+    final canEditApplication = ref.watch(currentUserProvider).value?.canEdit ?? false;
+
     return Column(
       children: [
         Container(
@@ -1012,7 +1289,7 @@ class _ApplicationDetailsScreenState
               SizedBox(width: 48, child: Text('SR.', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
               Expanded(flex: 2, child: Text('TYPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
               Expanded(flex: 3, child: Text('FILE NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-              Expanded(child: Text('UPLOADED', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+              Expanded(child: Text('UPLOADED BY / DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
               Expanded(child: Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
               SizedBox(width: 120, child: Text('ACTIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary), textAlign: TextAlign.right)),
             ],
@@ -1038,14 +1315,35 @@ class _ApplicationDetailsScreenState
                     ],
                   ),
                 ),
-                Expanded(child: Text(DateFormat('dd MMM yyyy').format(doc.uploadedOn), style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(doc.uploadedBy ?? '-', style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                      const SizedBox(height: 2),
+                      Text(DateFormat('dd MMM yyyy').format(doc.uploadedOn), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: _getDocStatusColor(doc.verificationStatus).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                        child: Text(doc.verificationStatus.toUpperCase(), style: TextStyle(fontSize: 10, color: _getDocStatusColor(doc.verificationStatus), fontWeight: FontWeight.w800)),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: _getDocStatusColor(doc.verificationStatus).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                            child: Text(doc.verificationStatus.toUpperCase(), style: TextStyle(fontSize: 10, color: _getDocStatusColor(doc.verificationStatus), fontWeight: FontWeight.w800)),
+                          ),
+                          if (doc.verifiedBy != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'By: ${doc.verifiedBy}',
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
@@ -1058,7 +1356,7 @@ class _ApplicationDetailsScreenState
                       IconButton(icon: const Icon(Icons.visibility_outlined, size: 18), onPressed: () => _viewDocument(doc), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                       const SizedBox(width: 16),
                       IconButton(icon: const Icon(Icons.download_outlined, size: 18), onPressed: () => _viewDocument(doc), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-                      if (doc.verificationStatus == 'pending') ...[
+                      if (canEditApplication && doc.verificationStatus == 'pending') ...[
                         const SizedBox(width: 16),
                         IconButton(icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: Colors.green), onPressed: () => _updateDocumentStatus(doc.id, 'verified'), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                       ],
@@ -1195,13 +1493,15 @@ class _ApplicationDetailsScreenState
     required bool isCurrent,
     required bool isLast,
   }) {
+    final canEditApplication = ref.watch(currentUserProvider).value?.canEdit ?? false;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Column(
           children: [
             InkWell(
-              onTap: () => _updateStatus(status),
+              onTap: canEditApplication ? () => _updateStatus(status) : null,
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 width: 28,
@@ -1292,6 +1592,16 @@ class _ApplicationDetailsScreenState
                         ),
                       ),
                     ),
+                    if (isCurrent && !canEditApplication) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        'Admin update only',
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 10,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -1365,11 +1675,16 @@ class _ApplicationDetailsScreenState
 
   List<PopupMenuEntry<String>> _buildActionMenuItems(ApplicationModel app) {
     final items = <PopupMenuEntry<String>>[];
+    final currentUser = ref.read(currentUserProvider).value;
+    final canEditApplication = currentUser?.canEdit ?? false;
+    final canAccessInventory = currentUser?.canAccessInventory ?? false;
+    final canManageInstallations =
+        currentUser?.canManageInstallations ?? false;
 
     final currentIndex = app.currentStatus.index;
     final canAdvance = currentIndex < ApplicationStatus.values.length - 1;
 
-    if (canAdvance) {
+    if (canAdvance && canEditApplication) {
       final nextStatus = ApplicationStatus.values[currentIndex + 1];
       items.add(
         PopupMenuItem(
@@ -1404,19 +1719,23 @@ class _ApplicationDetailsScreenState
         break;
     }
 
-    items.add(const PopupMenuDivider());
-    items.add(
-      const PopupMenuItem(
-        value: 'update_status',
-        child: Row(
-          children: [
-            Icon(Icons.edit_rounded, size: 18),
-            SizedBox(width: 12),
-            Text('Update Status Manually'),
-          ],
+    if (canEditApplication && items.isNotEmpty) {
+      items.add(const PopupMenuDivider());
+    }
+    if (canEditApplication) {
+      items.add(
+        const PopupMenuItem(
+          value: 'update_status',
+          child: Row(
+            children: [
+              Icon(Icons.edit_rounded, size: 18),
+              SizedBox(width: 12),
+              Text('Update Status Manually'),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
     items.add(
       const PopupMenuItem(
         value: 'view_history',
@@ -1430,20 +1749,23 @@ class _ApplicationDetailsScreenState
       ),
     );
     
-    items.add(
-      const PopupMenuItem(
-        value: 'allot_solar',
-        child: Row(
-          children: [
-            Icon(Icons.solar_power_rounded, size: 18),
-            SizedBox(width: 12),
-            Text('Allot Solar / Inventory'),
-          ],
+    if (canAccessInventory) {
+      items.add(
+        const PopupMenuItem(
+          value: 'allot_solar',
+          child: Row(
+            children: [
+              Icon(Icons.solar_power_rounded, size: 18),
+              SizedBox(width: 12),
+              Text('Allot Solar / Inventory'),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
     
-    if (app.statusIndex >= ApplicationStatus.installationScheduled.index) {
+    if (canManageInstallations &&
+        app.statusIndex >= ApplicationStatus.installationScheduled.index) {
       items.add(
         const PopupMenuItem(
           value: 'view_installation',
@@ -1454,6 +1776,37 @@ class _ApplicationDetailsScreenState
               Text('View Installation'),
             ],
           ),
+        ),
+      );
+    }
+
+    if (canEditApplication) {
+      if (items.isNotEmpty) {
+        items.add(const PopupMenuDivider());
+      }
+      items.add(
+        const PopupMenuItem(
+          value: 'delete_application',
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline_rounded,
+                size: 18,
+                color: AppTheme.errorColor,
+              ),
+              SizedBox(width: 12),
+              Text('Delete Application'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (items.isEmpty) {
+      items.add(
+        const PopupMenuItem(
+          enabled: false,
+          child: Text('No actions available'),
         ),
       );
     }
@@ -1488,6 +1841,9 @@ class _ApplicationDetailsScreenState
       case 'allot_solar':
         _showInventoryAllotmentDialog(app);
         return;
+      case 'delete_application':
+        await _confirmDeleteApplication(app);
+        return;
       default:
         return;
     }
@@ -1497,13 +1853,50 @@ class _ApplicationDetailsScreenState
     }
   }
 
+  Future<void> _confirmDeleteApplication(ApplicationModel app) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Delete Application'),
+            content: Text(
+              'Are you sure you want to delete application ${app.applicationNumber}? This action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.errorColor,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed != true) return;
+
+    await ref.read(applicationsProvider.notifier).deleteApplication(app.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Application deleted successfully.')),
+    );
+    context.go('/applications');
+  }
+
   Future<void> _updateApplicationStatus(
     ApplicationModel app,
     ApplicationStatus newStatus,
     String? remarks,
   ) async {
+    var loaderShown = false;
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       builder:
           (context) => const Center(
@@ -1522,6 +1915,7 @@ class _ApplicationDetailsScreenState
             ),
           ),
     );
+    loaderShown = true;
 
     try {
       if (newStatus == ApplicationStatus.installationScheduled) {
@@ -1541,12 +1935,14 @@ class _ApplicationDetailsScreenState
             remarks: remarks,
           );
 
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      if (mounted && loaderShown) {
+        Navigator.of(context, rootNavigator: true).pop();
+        loaderShown = false;
       }
 
       if (result != null) {
         ref.invalidate(applicationProvider(widget.applicationId));
+        await ref.refresh(applicationProvider(widget.applicationId).future);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1569,8 +1965,9 @@ class _ApplicationDetailsScreenState
         }
       }
     } catch (e) {
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      if (mounted && loaderShown) {
+        Navigator.of(context, rootNavigator: true).pop();
+        loaderShown = false;
       }
 
       if (mounted) {
@@ -1952,22 +2349,28 @@ class _ApplicationDetailsScreenState
 
     if (result != true) return;
 
+    var loadingShown = false;
     try {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
+        useRootNavigator: true,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
       );
+      loadingShown = true;
 
       final currentUser = ref.read(currentUserProvider).value;
       if (currentUser == null) {
-        Navigator.pop(context);
+        if (loadingShown && mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         return;
       }
 
+      ApplicationModel? updatedApplication;
       switch (action) {
         case 'approve':
-          await ApplicationService.approveApplication(
+          updatedApplication = await ApplicationService.approveApplication(
             app,
             currentUser.id,
             remarks:
@@ -1977,14 +2380,14 @@ class _ApplicationDetailsScreenState
           );
           break;
         case 'reject':
-          await ApplicationService.rejectApplication(
+          updatedApplication = await ApplicationService.rejectApplication(
             app,
             currentUser.id,
             remarks: remarksController.text,
           );
           break;
         case 'changes':
-          await ApplicationService.requestChanges(
+          updatedApplication = await ApplicationService.requestChanges(
             app,
             currentUser.id,
             remarksController.text,
@@ -1992,9 +2395,17 @@ class _ApplicationDetailsScreenState
           break;
       }
 
-      if (mounted) Navigator.pop(context);
+      if (loadingShown && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        loadingShown = false;
+      }
 
-      ref.invalidate(applicationProvider(widget.applicationId));
+      if (mounted && updatedApplication != null) {
+        setState(() {
+          _applicationOverride = updatedApplication;
+        });
+      }
+
       ref.read(applicationsProvider.notifier).loadApplications();
 
       if (mounted) {
@@ -2013,7 +2424,9 @@ class _ApplicationDetailsScreenState
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // Close loading
+        if (loadingShown) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
@@ -2027,6 +2440,7 @@ class _ApplicationDetailsScreenState
   Widget _buildPaymentSection(ApplicationModel app) {
     final paymentStatsAsync = ref.watch(paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)));
     final paymentsAsync = ref.watch(paymentsProvider(app.id));
+    final canManagePayments = ref.watch(currentUserProvider).value?.canEdit ?? false;
 
     return Container(
       decoration: BoxDecoration(
@@ -2054,16 +2468,33 @@ class _ApplicationDetailsScreenState
                     Text('Payment Summary', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
                   ],
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _showAddPaymentDialog(app),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('New Payment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final payments = await ref.read(paymentsProvider(app.id).future);
+                        await _exportPaymentSummaryPdf(app, payments);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                      label: const Text('Export PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _showAddPaymentDialog(app),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: const Text('New Payment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -2078,7 +2509,7 @@ class _ApplicationDetailsScreenState
                     children: [
                       _buildStatItem('Total Amount', stats['totalAmount']!, Icons.account_balance_wallet_outlined, Colors.blue),
                       const SizedBox(width: 16),
-                      _buildStatItem('Paid Amount', stats['advancePaid']!, Icons.check_circle_outline_rounded, Colors.green),
+                      _buildStatItem('Paid Amount', stats['totalPaid']!, Icons.check_circle_outline_rounded, Colors.green),
                       const SizedBox(width: 16),
                       _buildStatItem('Remaining', stats['remainingAmount']!, Icons.pending_actions_rounded, Colors.orange),
                     ],
@@ -2105,29 +2536,59 @@ class _ApplicationDetailsScreenState
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: DataTable(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: DataTable(
                               headingRowHeight: 48,
                               dataRowMinHeight: 48,
                               dataRowMaxHeight: 60,
                               headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
                               horizontalMargin: 24,
-                              columns: const [
+                              columns: [
                                 DataColumn(label: Text('DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
                                 DataColumn(label: Text('TYPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
                                 DataColumn(label: Text('MODE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
                                 DataColumn(label: Text('TRANSACTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+                                DataColumn(label: Text('COLLECTED BY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
                                 DataColumn(label: Text('AMOUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+                                DataColumn(label: Text('RECEIPT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
+                                if (canManagePayments)
+                                  const DataColumn(label: Text('ACTIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
                               ],
                               rows: payments.map((p) => DataRow(cells: [
                                 DataCell(Text(DateFormat('dd MMM yyyy').format(p.paymentDate), style: const TextStyle(fontSize: 13))),
                                 DataCell(Text(p.paymentType.name.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                 DataCell(Text(p.paymentMode.name.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                 DataCell(Text(p.transactionNumber ?? '-', style: const TextStyle(fontSize: 13))),
+                                DataCell(Text(p.collectedBy ?? '-', style: const TextStyle(fontSize: 13))),
                                 DataCell(Text(
                                   '₹${NumberFormat('#,##,###', 'en_IN').format(p.amount)}',
                                   style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.green, fontSize: 13),
                                 )),
+                                DataCell(
+                                  IconButton(
+                                    icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                                    onPressed: () => _downloadPaymentReceipt(app, p),
+                                    tooltip: 'Download Receipt',
+                                  ),
+                                ),
+                                if (canManagePayments)
+                                  DataCell(
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit_rounded, size: 18),
+                                          onPressed: () => _showEditPaymentDialog(app, p),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.errorColor),
+                                          onPressed: () => _confirmDeletePayment(app, p),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                               ])).toList(),
+                              ),
                             ),
                           ),
                         ),
@@ -2174,6 +2635,579 @@ class _ApplicationDetailsScreenState
         ),
       ),
     );
+  }
+
+  Future<void> _exportPaymentSummaryPdf(
+    ApplicationModel app,
+    List<PaymentModel> payments,
+  ) async {
+    if (payments.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No payments available to export.')),
+        );
+      }
+      return;
+    }
+
+    final document = PdfDocument();
+    final page = document.pages.add();
+    final pageWidth = page.getClientSize().width;
+    final titleFont = PdfStandardFont(
+      PdfFontFamily.helvetica,
+      14,
+      style: PdfFontStyle.bold,
+    );
+    final headerFont = PdfStandardFont(
+      PdfFontFamily.helvetica,
+      9,
+      style: PdfFontStyle.bold,
+    );
+    final cellFont = PdfStandardFont(PdfFontFamily.helvetica, 8);
+
+    double y = 0;
+    page.graphics.drawString(
+      'Payment Summary - ${app.applicationNumber}',
+      titleFont,
+      bounds: Rect.fromLTWH(0, y, pageWidth, 20),
+    );
+    y += 20;
+    page.graphics.drawString(
+      '${app.fullName} | ${app.mobile}',
+      cellFont,
+      bounds: Rect.fromLTWH(0, y, pageWidth, 14),
+    );
+    y += 20;
+
+    const headers = ['Date', 'Type', 'Mode', 'Transaction', 'Collected By', 'Amount'];
+    const widths = [70.0, 55.0, 55.0, 110.0, 120.0, 70.0];
+    double x = 0;
+    for (var i = 0; i < headers.length; i++) {
+      page.graphics.drawRectangle(
+        brush: PdfSolidBrush(PdfColor(30, 64, 175)),
+        bounds: Rect.fromLTWH(x, y, widths[i], 18),
+      );
+      page.graphics.drawString(
+        headers[i],
+        headerFont,
+        brush: PdfSolidBrush(PdfColor(255, 255, 255)),
+        bounds: Rect.fromLTWH(x + 2, y + 3, widths[i] - 4, 12),
+      );
+      x += widths[i];
+    }
+    y += 18;
+
+    for (final payment in payments) {
+      x = 0;
+      final row = [
+        DateFormat('dd MMM yyyy').format(payment.paymentDate),
+        payment.paymentType.name.toUpperCase(),
+        payment.paymentMode.name.toUpperCase(),
+        payment.transactionNumber?.trim().isNotEmpty == true
+            ? payment.transactionNumber!
+            : '-',
+        payment.collectedBy ?? '-',
+        'Rs.${NumberFormat('#,##,###', 'en_IN').format(payment.amount)}',
+      ];
+      for (var i = 0; i < row.length; i++) {
+        page.graphics.drawString(
+          row[i],
+          cellFont,
+          bounds: Rect.fromLTWH(x + 2, y + 3, widths[i] - 4, 12),
+        );
+        x += widths[i];
+      }
+      y += 16;
+    }
+
+    final bytes = document.saveSync();
+    document.dispose();
+
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save Payment Summary PDF',
+      fileName: 'payment_summary_${app.applicationNumber}.pdf',
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (path == null) return;
+
+    await File(path).writeAsBytes(bytes);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment PDF exported successfully.')),
+      );
+    }
+  }
+
+  Future<void> _exportInventoryAllotmentsPdf(
+    ApplicationModel app,
+    List<InventoryAllotment> allotments,
+    InventoryState inventoryState,
+  ) async {
+    if (allotments.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No inventory allotments available to export.')),
+        );
+      }
+      return;
+    }
+
+    final document = PdfDocument();
+    final page = document.pages.add();
+    final pageWidth = page.getClientSize().width;
+    final titleFont = PdfStandardFont(
+      PdfFontFamily.helvetica,
+      14,
+      style: PdfFontStyle.bold,
+    );
+    final headerFont = PdfStandardFont(
+      PdfFontFamily.helvetica,
+      8,
+      style: PdfFontStyle.bold,
+    );
+    final cellFont = PdfStandardFont(PdfFontFamily.helvetica, 7);
+
+    double y = 0;
+    page.graphics.drawString(
+      'Inventory Allotment - ${app.applicationNumber}',
+      titleFont,
+      bounds: Rect.fromLTWH(0, y, pageWidth, 20),
+    );
+    y += 20;
+    page.graphics.drawString(
+      '${app.fullName} | ${app.mobile}',
+      cellFont,
+      bounds: Rect.fromLTWH(0, y, pageWidth, 14),
+    );
+    y += 20;
+
+    const headers = ['Type', 'Serial No.', 'Details', 'Assigned By', 'Date'];
+    const widths = [60.0, 110.0, 170.0, 120.0, 70.0];
+    double x = 0;
+    for (var i = 0; i < headers.length; i++) {
+      page.graphics.drawRectangle(
+        brush: PdfSolidBrush(PdfColor(30, 64, 175)),
+        bounds: Rect.fromLTWH(x, y, widths[i], 18),
+      );
+      page.graphics.drawString(
+        headers[i],
+        headerFont,
+        brush: PdfSolidBrush(PdfColor(255, 255, 255)),
+        bounds: Rect.fromLTWH(x + 2, y + 3, widths[i] - 4, 12),
+      );
+      x += widths[i];
+    }
+    y += 18;
+
+    for (final allotment in allotments) {
+      x = 0;
+      final resolved = _resolveAllotmentDisplay(allotment, inventoryState);
+      final row = [
+        allotment.itemType.name.toUpperCase(),
+        resolved['serial'] ?? '-',
+        resolved['details'] ?? '-',
+        allotment.handoverBy ?? '-',
+        DateFormat('dd MMM yyyy').format(allotment.handoverDate),
+      ];
+      for (var i = 0; i < row.length; i++) {
+        page.graphics.drawString(
+          row[i],
+          cellFont,
+          bounds: Rect.fromLTWH(x + 2, y + 3, widths[i] - 4, 12),
+        );
+        x += widths[i];
+      }
+      y += 16;
+    }
+
+    final bytes = document.saveSync();
+    document.dispose();
+
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save Inventory Allotment PDF',
+      fileName: 'inventory_allotment_${app.applicationNumber}.pdf',
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (path == null) return;
+
+    await File(path).writeAsBytes(bytes);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Inventory allotment PDF exported successfully.')),
+      );
+    }
+  }
+
+  Future<void> _confirmDeletePayment(
+    ApplicationModel app,
+    PaymentModel payment,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Payment'),
+        content: Text('Delete payment of Rs.${NumberFormat('#,##,###', 'en_IN').format(payment.amount)}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await PaymentService.deletePayment(
+        payment.id,
+        receiptFilePath: payment.receiptFilePath,
+      );
+      ref.invalidate(paymentsProvider(app.id));
+      ref.invalidate(allPaymentsProvider);
+      ref.invalidate(
+        paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)),
+      );
+      await ref.refresh(paymentsProvider(app.id).future);
+      await ref.refresh(
+        paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)).future,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment deleted successfully.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Delete failed: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showEditPaymentDialog(
+    ApplicationModel app,
+    PaymentModel payment,
+  ) async {
+    final amountController = TextEditingController(
+      text: payment.amount.toStringAsFixed(0),
+    );
+    final transactionController = TextEditingController(
+      text: payment.transactionNumber ?? '',
+    );
+    final remarksController = TextEditingController(
+      text: payment.remarks ?? '',
+    );
+    PaymentMode selectedMode = payment.paymentMode;
+    PaymentType selectedType = payment.paymentType;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Payment'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount (Rs.)',
+                    prefixText: 'Rs. ',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<PaymentType>(
+                  value: selectedType,
+                  decoration: const InputDecoration(labelText: 'Payment Type'),
+                  items: PaymentType.values
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t.name.toUpperCase()),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setDialogState(() => selectedType = value!),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<PaymentMode>(
+                  value: selectedMode,
+                  decoration: const InputDecoration(labelText: 'Payment Mode'),
+                  items: PaymentMode.values
+                      .map(
+                        (m) => DropdownMenuItem(
+                          value: m,
+                          child: Text(m.name.toUpperCase()),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setDialogState(() => selectedMode = value!),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: transactionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Transaction Number / Reference',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: remarksController,
+                  decoration: const InputDecoration(
+                    labelText: 'Remarks (Optional)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(amountController.text.trim());
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid payment amount.'),
+                      backgroundColor: AppTheme.errorColor,
+                    ),
+                  );
+                  return;
+                }
+
+                final updatedPayment = payment.copyWith(
+                  amount: amount,
+                  paymentMode: selectedMode,
+                  paymentType: selectedType,
+                  transactionNumber: transactionController.text.trim(),
+                  remarks: remarksController.text.trim(),
+                );
+
+                final paymentWithReceipt = await _attachPaymentReceipt(
+                  app,
+                  updatedPayment,
+                );
+                await PaymentService.updatePayment(paymentWithReceipt);
+                ref.invalidate(paymentsProvider(app.id));
+                ref.invalidate(allPaymentsProvider);
+                ref.invalidate(
+                  paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)),
+                );
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Payment updated successfully.'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _sanitizeReceiptFileName(String value) {
+    return value
+        .trim()
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '')
+        .replaceAll(RegExp(r'\s+'), '_');
+  }
+
+  Uint8List _buildPaymentReceiptPdfBytes(
+    ApplicationModel app,
+    PaymentModel payment,
+  ) {
+    final document = PdfDocument();
+    final page = document.pages.add();
+    final pageSize = page.getClientSize();
+
+    final titleFont = PdfStandardFont(
+      PdfFontFamily.helvetica,
+      18,
+      style: PdfFontStyle.bold,
+    );
+    final headerFont = PdfStandardFont(
+      PdfFontFamily.helvetica,
+      11,
+      style: PdfFontStyle.bold,
+    );
+    final bodyFont = PdfStandardFont(PdfFontFamily.helvetica, 10);
+
+    double y = 0;
+
+    page.graphics.drawString(
+      AppConstants.companyName,
+      titleFont,
+      brush: PdfSolidBrush(PdfColor(30, 64, 175)),
+      bounds: Rect.fromLTWH(0, y, pageSize.width, 24),
+    );
+    y += 28;
+
+    page.graphics.drawString(
+      'Payment Receipt',
+      PdfStandardFont(
+        PdfFontFamily.helvetica,
+        14,
+        style: PdfFontStyle.bold,
+      ),
+      bounds: Rect.fromLTWH(0, y, pageSize.width, 18),
+    );
+    y += 26;
+
+    final rows = <List<String>>[
+      ['Consumer Name', app.fullName],
+      ['Application No.', app.applicationNumber],
+      ['Mobile Number', app.mobile],
+      ['Payment Date', DateFormat('dd MMM yyyy, hh:mm a').format(payment.paymentDate)],
+      ['Payment Type', payment.paymentType.name.toUpperCase()],
+      ['Payment Mode', payment.paymentMode.name.toUpperCase()],
+      ['Transaction No.', (payment.transactionNumber?.trim().isNotEmpty ?? false) ? payment.transactionNumber! : '-'],
+      ['Amount Received', 'Rs.${NumberFormat('#,##,###', 'en_IN').format(payment.amount)}'],
+      ['Collected By', payment.collectedBy ?? '-'],
+      ['Remarks', (payment.remarks?.trim().isNotEmpty ?? false) ? payment.remarks! : '-'],
+    ];
+
+    for (final row in rows) {
+      page.graphics.drawString(
+        row[0],
+        headerFont,
+        bounds: Rect.fromLTWH(0, y, 140, 16),
+      );
+      page.graphics.drawString(
+        row[1],
+        bodyFont,
+        bounds: Rect.fromLTWH(150, y, pageSize.width - 150, 16),
+      );
+      y += 22;
+    }
+
+    y += 12;
+    page.graphics.drawLine(
+      PdfPen(PdfColor(200, 200, 200), width: 1),
+      Offset(0, y),
+      Offset(pageSize.width, y),
+    );
+    y += 12;
+
+    page.graphics.drawString(
+      'Receipt generated automatically after payment entry.',
+      PdfStandardFont(PdfFontFamily.helvetica, 9),
+      brush: PdfSolidBrush(PdfColor(110, 110, 110)),
+      bounds: Rect.fromLTWH(0, y, pageSize.width, 14),
+    );
+
+    final bytes = Uint8List.fromList(document.saveSync());
+    document.dispose();
+    return bytes;
+  }
+
+  Future<PaymentModel> _attachPaymentReceipt(
+    ApplicationModel app,
+    PaymentModel payment,
+  ) async {
+    final bytes = _buildPaymentReceiptPdfBytes(app, payment);
+    final upload = await PaymentService.uploadReceiptPdf(
+      applicationId: app.id,
+      paymentId: payment.id,
+      bytes: bytes,
+    );
+
+    return payment.copyWith(
+      receiptFilePath: upload['path'],
+      receiptFileUrl: upload['url'],
+    );
+  }
+
+  Future<PaymentModel> _ensurePaymentReceipt(
+    ApplicationModel app,
+    PaymentModel payment,
+  ) async {
+    if ((payment.receiptFileUrl?.trim().isNotEmpty ?? false) &&
+        (payment.receiptFilePath?.trim().isNotEmpty ?? false)) {
+      return payment;
+    }
+
+    final paymentWithReceipt = await _attachPaymentReceipt(app, payment);
+    await PaymentService.updateReceiptFields(
+      paymentId: payment.id,
+      receiptFilePath: paymentWithReceipt.receiptFilePath!,
+      receiptFileUrl: paymentWithReceipt.receiptFileUrl!,
+    );
+    ref.invalidate(paymentsProvider(app.id));
+    ref.invalidate(allPaymentsProvider);
+    return paymentWithReceipt;
+  }
+
+  Future<void> _downloadPaymentReceipt(
+    ApplicationModel app,
+    PaymentModel payment,
+  ) async {
+    try {
+      final ensuredPayment = await _ensurePaymentReceipt(app, payment);
+      final bytes = _buildPaymentReceiptPdfBytes(app, ensuredPayment);
+      final consumerName = _sanitizeReceiptFileName(app.fullName);
+      final receiptDate = DateFormat('yyyyMMdd_HHmm').format(
+        ensuredPayment.paymentDate,
+      );
+
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Download Payment Receipt',
+        fileName: '${consumerName}_payment_receipt_$receiptDate.pdf',
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (path == null) return;
+
+      await File(path).writeAsBytes(bytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Receipt downloaded successfully.'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Receipt download failed: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
   }
 
   void _showAddPaymentDialog(ApplicationModel app) {
@@ -2229,7 +3263,17 @@ class _ApplicationDetailsScreenState
             ElevatedButton(
               onPressed: () async {
                 final amount = double.tryParse(amountController.text);
-                if (amount == null || amount <= 0) return;
+                if (amount == null || amount <= 0) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a valid payment amount.'),
+                        backgroundColor: AppTheme.errorColor,
+                      ),
+                    );
+                  }
+                  return;
+                }
 
                 final now = DateTime.now();
                 final payment = PaymentModel(
@@ -2238,19 +3282,53 @@ class _ApplicationDetailsScreenState
                   amount: amount,
                   paymentMode: selectedMode,
                   paymentType: selectedType,
-                  transactionNumber: transactionController.text,
+                  transactionNumber: transactionController.text.trim(),
                   paymentDate: now,
-                  remarks: remarksController.text,
-                  collectedBy: ref.read(currentUserProvider).value?.email,
+                  remarks: remarksController.text.trim(),
+                  collectedBy:
+                      ref.read(currentUserProvider).value?.fullName ??
+                      ref.read(currentUserProvider).value?.email,
                   createdAt: now,
                 );
 
-                await PaymentService.addPayment(payment);
-                ref.invalidate(paymentsProvider(app.id));
-                ref.invalidate(allPaymentsProvider);
-                ref.invalidate(paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)));
-                
-                if (context.mounted) Navigator.pop(context);
+                try {
+                  final paymentWithReceipt = await _attachPaymentReceipt(
+                    app,
+                    payment,
+                  );
+                  final savedPayment = await PaymentService.addPayment(
+                    paymentWithReceipt,
+                  );
+                  ref.invalidate(paymentsProvider(app.id));
+                  ref.invalidate(allPaymentsProvider);
+                  ref.invalidate(
+                    paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)),
+                  );
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Payment added successfully.'),
+                        backgroundColor: AppTheme.successColor,
+                        action: SnackBarAction(
+                          label: 'Download Receipt',
+                          textColor: Colors.white,
+                          onPressed: () => _downloadPaymentReceipt(app, savedPayment),
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to add payment: $e'),
+                        backgroundColor: AppTheme.errorColor,
+                      ),
+                    );
+                  }
+                }
               },
               child: const Text('Save Payment'),
             ),

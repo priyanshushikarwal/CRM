@@ -39,6 +39,23 @@ class _ApplicationsListScreenState
     super.dispose();
   }
 
+  Future<void> _refreshApplications() async {
+    await ref.read(applicationsProvider.notifier).loadApplications();
+    if (!mounted) return;
+    final error = ref.read(applicationsProvider).error;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null
+              ? 'Applications refreshed successfully.'
+              : 'Refresh failed: $error',
+        ),
+        backgroundColor:
+            error == null ? AppTheme.successColor : AppTheme.errorColor,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final applicationsState = ref.watch(applicationsProvider);
@@ -48,8 +65,25 @@ class _ApplicationsListScreenState
       loading: () => null,
       error: (_, __) => null,
     );
+    final bool canCreateApplication = currentUser?.canCreateApplication ?? false;
     final bool canEdit = currentUser?.canEdit ?? false;
     final bool canDelete = currentUser?.canDelete ?? false;
+    final approvedApplications =
+        applicationsState.applications
+            .where((app) => app.approvalStatus == ApprovalStatus.approved)
+            .toList();
+    final pendingApplications =
+        currentUser == null
+            ? const <ApplicationModel>[]
+            : applicationsState.applications
+                .where(
+                  (app) =>
+                      app.submittedBy == currentUser.id &&
+                      (app.approvalStatus == ApprovalStatus.pending ||
+                          app.approvalStatus ==
+                              ApprovalStatus.changesRequested),
+                )
+                .toList();
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
 
@@ -78,7 +112,7 @@ class _ApplicationsListScreenState
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          'Total Applications: ${applicationsState.stats['total'] ?? 0}',
+                          'Total Applications: ${approvedApplications.length}',
                           style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -88,10 +122,20 @@ class _ApplicationsListScreenState
               ),
               Row(
                 children: [
+                  IconButton(
+                    onPressed: _refreshApplications,
+                    tooltip: 'Refresh Applications',
+                    icon: const Icon(Icons.refresh_rounded),
+                    style: IconButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.primaryColor.withOpacity(0.08),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   if (!isMobile) ...[
                     OutlinedButton.icon(
                       onPressed: () {
-                        final apps = ref.read(applicationsProvider).applications;
+                        final apps = approvedApplications;
                         _exportToCSV(apps);
                       },
                       icon: const Icon(Icons.download_rounded, size: 18),
@@ -100,7 +144,7 @@ class _ApplicationsListScreenState
                     const SizedBox(width: 12),
                     OutlinedButton.icon(
                       onPressed: () {
-                        final apps = ref.read(applicationsProvider).applications;
+                        final apps = approvedApplications;
                         _exportToPDF(apps);
                       },
                       icon: const Icon(Icons.table_chart_rounded, size: 18),
@@ -108,7 +152,7 @@ class _ApplicationsListScreenState
                     ),
                     const SizedBox(width: 12),
                   ],
-                  if (canEdit)
+                  if (canCreateApplication)
                     ElevatedButton.icon(
                       onPressed: () => context.go('/applications/add'),
                       icon: const Icon(Icons.add_rounded, size: 20),
@@ -186,6 +230,10 @@ class _ApplicationsListScreenState
           ),
           
           const SizedBox(height: 32),
+          if (pendingApplications.isNotEmpty) ...[
+            _buildPendingSection(pendingApplications),
+            const SizedBox(height: 24),
+          ],
           
           Expanded(
             child: Container(
@@ -197,10 +245,10 @@ class _ApplicationsListScreenState
               clipBehavior: Clip.antiAlias,
               child: applicationsState.isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : applicationsState.applications.isEmpty
-                      ? _buildEmptyState()
+                  : approvedApplications.isEmpty
+                      ? _buildEmptyState(canCreateApplication)
                       : _buildApplicationsTable(
-                          applicationsState.applications,
+                          approvedApplications,
                           isMobile,
                           canEdit,
                           canDelete,
@@ -212,7 +260,7 @@ class _ApplicationsListScreenState
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool canCreateApplication) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(48),
@@ -225,13 +273,157 @@ class _ApplicationsListScreenState
             const SizedBox(height: 8),
             const Text('Try adjusting your search or filters', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () => context.go('/applications/add'),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Create New Application'),
-            ),
+            if (canCreateApplication)
+              ElevatedButton.icon(
+                onPressed: () => context.go('/applications/add'),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Create New Application'),
+              ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPendingSection(List<ApplicationModel> pendingApplications) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.warningColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.pending_actions_rounded,
+                  color: AppTheme.warningColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pending Applications',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'These applications are waiting for admin approval or need your updates.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...pendingApplications.map(_buildPendingApplicationCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingApplicationCard(ApplicationModel app) {
+    final needsChanges =
+        app.approvalStatus == ApprovalStatus.changesRequested;
+    final statusColor =
+        needsChanges ? AppTheme.errorColor : AppTheme.warningColor;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: statusColor.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  app.fullName,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  app.applicationNumber,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  needsChanges
+                      ? (app.approvalRemarks?.trim().isNotEmpty ?? false)
+                          ? 'Changes requested: ${app.approvalRemarks}'
+                          : 'Admin requested changes on this application.'
+                      : 'Application is waiting for admin approval.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              needsChanges ? 'Changes Requested' : 'Pending',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: statusColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          if (needsChanges)
+            OutlinedButton.icon(
+              onPressed: () => context.go('/applications/${app.id}/edit'),
+              icon: const Icon(Icons.edit_rounded, size: 18),
+              label: const Text('Update'),
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: () => context.go('/applications/${app.id}'),
+              icon: const Icon(Icons.visibility_outlined, size: 18),
+              label: const Text('View'),
+            ),
+        ],
       ),
     );
   }
@@ -258,8 +450,32 @@ class _ApplicationsListScreenState
                 const Expanded(flex: 1, child: Text('CAPACITY', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
                 const Expanded(flex: 1, child: Text('LOCATION', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
               ],
-              const Expanded(child: Text('STATUS', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
-              const SizedBox(width: 80, child: Text('ACTION', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700), textAlign: TextAlign.center)),
+              const Expanded(
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Text(
+                    'STATUS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: canDelete ? 120 : 80,
+                child: const Text(
+                  'ACTION',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ],
           ),
         ),
@@ -314,19 +530,33 @@ class _ApplicationsListScreenState
               Expanded(child: Text(app.district, style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary), overflow: TextOverflow.ellipsis)),
             ],
             Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: _getStatusColor(app.currentStatus).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: Text(
-                  app.statusDisplayName.toUpperCase(),
-                  style: TextStyle(fontSize: 10, color: _getStatusColor(app.currentStatus), fontWeight: FontWeight.w800),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
+              child: Align(
+                alignment: Alignment.center,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 150, maxWidth: 232),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(app.currentStatus).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    app.statusDisplayName.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: _getStatusColor(app.currentStatus),
+                      fontWeight: FontWeight.w800,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ),
             SizedBox(
-              width: 80,
+              width: canDelete ? 120 : 80,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -335,6 +565,15 @@ class _ApplicationsListScreenState
                     onPressed: () => context.go('/applications/${app.id}'),
                     color: AppTheme.primaryColor,
                   ),
+                  if (canDelete)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        size: 20,
+                        color: AppTheme.errorColor,
+                      ),
+                      onPressed: () => _confirmDelete(context, app),
+                    ),
                 ],
               ),
             ),

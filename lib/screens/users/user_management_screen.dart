@@ -17,6 +17,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   List<UserModel> _users = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  String? _deletingUserId;
 
   @override
   void initState() {
@@ -51,7 +52,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
       final query = _searchQuery.toLowerCase();
       return user.email.toLowerCase().contains(query) ||
           (user.fullName?.toLowerCase().contains(query) ?? false) ||
-          user.role.name.toLowerCase().contains(query);
+          user.role.name.toLowerCase().contains(query) ||
+          user.assignedWorkSummary.toLowerCase().contains(query);
     }).toList();
   }
 
@@ -102,7 +104,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                         Text('User Management', style: AppTextStyles.heading2),
                         const SizedBox(height: 4),
                         Text(
-                          'Manage registered users - change roles and activate/deactivate accounts',
+                          'Assign module access, change roles, and control account status',
                           style: AppTextStyles.bodyMedium.copyWith(
                             color: AppTheme.textSecondary,
                           ),
@@ -148,7 +150,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   child: TextField(
                     onChanged: (value) => setState(() => _searchQuery = value),
                     decoration: InputDecoration(
-                      hintText: 'Search users by name, email, or role...',
+                      hintText: 'Search users by name, email, role, or assigned work...',
                       prefixIcon: const Icon(Icons.search_rounded),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
@@ -178,6 +180,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   Widget _buildStatsRow() {
     final adminCount = _users.where((u) => u.role == UserRole.admin).length;
     final staffCount = _users.where((u) => u.role == UserRole.staff).length;
+    final factoryCount = _users.where((u) => u.role == UserRole.factory).length;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -202,6 +205,13 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
             staffCount.toString(),
             Icons.people_outline_rounded,
             AppTheme.successColor,
+          ),
+          const SizedBox(width: 12),
+          _buildStatCard(
+            'Factory',
+            factoryCount.toString(),
+            Icons.inventory_2_rounded,
+            Colors.orange,
           ),
         ],
       ),
@@ -327,13 +337,20 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   ),
                 ),
                 const Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Assigned Work',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const Expanded(
                   child: Text(
                     'Status',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
                 const SizedBox(
-                  width: 120,
+                  width: 168,
                   child: Text(
                     'Actions',
                     style: TextStyle(fontWeight: FontWeight.w600),
@@ -407,6 +424,44 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
             ),
           ),
           Expanded(
+            flex: 2,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  user.assignedWorkLabels.isEmpty
+                      ? [
+                        Text(
+                          'No modules assigned',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ]
+                      : user.assignedWorkLabels
+                          .map(
+                            (label) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                label,
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+            ),
+          ),
+          Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -430,7 +485,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
             ),
           ),
           SizedBox(
-            width: 120,
+            width: 168,
             child: Row(
               children: [
                 IconButton(
@@ -453,6 +508,29 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   onPressed: () => _toggleUserStatus(user),
                   tooltip: user.isActive ? 'Deactivate' : 'Activate',
                 ),
+                IconButton(
+                  icon:
+                      _deletingUserId == user.id
+                          ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Icon(Icons.delete_outline_rounded, size: 20),
+                  color:
+                      user.id == ref.read(currentUserProvider).value?.id
+                          ? AppTheme.textLight
+                          : AppTheme.errorColor,
+                  onPressed:
+                      _deletingUserId == user.id ||
+                              user.id == ref.read(currentUserProvider).value?.id
+                          ? null
+                          : () => _deleteUser(user),
+                  tooltip:
+                      user.id == ref.read(currentUserProvider).value?.id
+                          ? 'You cannot delete your own account'
+                          : 'Delete User',
+                ),
               ],
             ),
           ),
@@ -467,6 +545,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         return AppTheme.errorColor;
       case UserRole.staff:
         return AppTheme.successColor;
+      case UserRole.factory:
+        return Colors.orange;
     }
   }
 
@@ -475,6 +555,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     final nameController = TextEditingController(text: user.fullName);
     final phoneController = TextEditingController(text: user.phone);
     UserRole selectedRole = user.role;
+    bool applicationsAccess = user.applicationsAccess ?? user.canAccessApplications;
+    bool paymentsAccess = user.paymentsAccess ?? user.canAccessPayments;
+    bool inventoryAccess = user.inventoryAccess ?? user.canAccessInventory;
 
     final result = await showDialog<bool>(
       context: context,
@@ -552,9 +635,72 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                 }).toList(),
                             onChanged: (value) {
                               if (value != null) {
-                                setState(() => selectedRole = value);
+                                setState(() {
+                                  selectedRole = value;
+                                  if (selectedRole == UserRole.admin) {
+                                    applicationsAccess = true;
+                                    paymentsAccess = true;
+                                    inventoryAccess = true;
+                                  }
+                                });
                               }
                             },
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Assign Work Modules',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                CheckboxListTile(
+                                  value: selectedRole == UserRole.admin || applicationsAccess,
+                                  onChanged:
+                                      selectedRole == UserRole.admin
+                                          ? null
+                                          : (value) => setState(
+                                            () => applicationsAccess = value ?? false,
+                                          ),
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Applications'),
+                                ),
+                                CheckboxListTile(
+                                  value: selectedRole == UserRole.admin || paymentsAccess,
+                                  onChanged:
+                                      selectedRole == UserRole.admin
+                                          ? null
+                                          : (value) => setState(
+                                            () => paymentsAccess = value ?? false,
+                                          ),
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Payments'),
+                                ),
+                                CheckboxListTile(
+                                  value: selectedRole == UserRole.admin || inventoryAccess,
+                                  onChanged:
+                                      selectedRole == UserRole.admin
+                                          ? null
+                                          : (value) => setState(
+                                            () => inventoryAccess = value ?? false,
+                                          ),
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Inventory'),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Container(
@@ -614,6 +760,12 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                     ? null
                     : phoneController.text.trim(),
             role: selectedRole,
+            applicationsAccess:
+                selectedRole == UserRole.admin ? true : applicationsAccess,
+            paymentsAccess:
+                selectedRole == UserRole.admin ? true : paymentsAccess,
+            inventoryAccess:
+                selectedRole == UserRole.admin ? true : inventoryAccess,
           ),
         );
         await _loadUsers();
@@ -695,12 +847,69 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     }
   }
 
+  Future<void> _deleteUser(UserModel user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Delete User?'),
+            content: Text(
+              'This will remove ${user.displayName} from the app, revoke all access, and delete the user from Supabase. This action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.errorColor,
+                ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete User'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _deletingUserId = user.id);
+    try {
+      await UserService.deleteUser(user);
+      await _loadUsers();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${user.displayName} deleted successfully'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete user: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _deletingUserId = null);
+      }
+    }
+  }
+
   IconData _getRoleIcon(UserRole role) {
     switch (role) {
       case UserRole.admin:
         return Icons.admin_panel_settings_rounded;
       case UserRole.staff:
         return Icons.people_outline_rounded;
+      case UserRole.factory:
+        return Icons.inventory_2_rounded;
     }
   }
 
@@ -710,6 +919,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         return 'Admin';
       case UserRole.staff:
         return 'Staff';
+      case UserRole.factory:
+        return 'Factory Employee';
     }
   }
 
@@ -718,7 +929,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
       case UserRole.admin:
         return 'Full access: Can manage users, settings, and all applications.';
       case UserRole.staff:
-        return 'Limited access: Can add/edit applications, upload documents, update status.';
+        return 'Employee profile: Assign specific modules like applications, payments, or inventory.';
+      case UserRole.factory:
+        return 'Factory profile: Usually used for inventory-focused work, but modules can be assigned separately.';
     }
   }
 }

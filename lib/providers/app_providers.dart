@@ -9,6 +9,7 @@ import '../services/application_service.dart';
 import '../services/installation_service.dart';
 import '../services/payment_service.dart';
 import '../services/supabase_service.dart';
+import '../services/user_service.dart';
 import '../core/constants/app_constants.dart';
 
 final authStateProvider = StreamProvider<bool>((ref) {
@@ -38,7 +39,12 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
     final newUser = UserModel(
       id: user.id,
       email: user.email ?? '',
-      role: UserRole.admin, // First user gets admin role
+      fullName: user.userMetadata?['full_name'] as String?,
+      phone: user.userMetadata?['phone'] as String?,
+      role: UserRole.staff,
+      applicationsAccess: false,
+      paymentsAccess: false,
+      inventoryAccess: false,
       createdAt: DateTime.now(),
     );
 
@@ -46,7 +52,7 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
       AppConstants.usersTable,
     ).insert(newUser.toJson());
 
-    print('DEBUG: Created new user with admin role');
+    print('DEBUG: Created new user with default restricted access');
     return newUser;
   } catch (e) {
     print('DEBUG: Error fetching/creating user: $e');
@@ -54,9 +60,16 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
       id: user.id,
       email: user.email ?? '',
       role: UserRole.staff,
+      applicationsAccess: false,
+      paymentsAccess: false,
+      inventoryAccess: false,
       createdAt: DateTime.now(),
     );
   }
+});
+
+final userByIdProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {
+  return await UserService.fetchUser(userId);
 });
 
 class ApplicationsState {
@@ -306,6 +319,33 @@ final paymentStatsProvider = FutureProvider.family<Map<String, double>, ({String
 
 final allPaymentsProvider = FutureProvider<List<PaymentModel>>((ref) async {
   return await PaymentService.fetchAllPayments();
+});
+
+class PaymentRecordRow {
+  final PaymentModel payment;
+  final ApplicationModel? application;
+
+  const PaymentRecordRow({
+    required this.payment,
+    required this.application,
+  });
+}
+
+final paymentRecordsProvider = FutureProvider<List<PaymentRecordRow>>((ref) async {
+  final payments = await PaymentService.fetchAllPayments();
+  final applications = await ApplicationService.fetchAllApplications();
+  final applicationsById = {
+    for (final application in applications) application.id: application,
+  };
+
+  return payments
+      .map(
+        (payment) => PaymentRecordRow(
+          payment: payment,
+          application: applicationsById[payment.applicationId],
+        ),
+      )
+      .toList();
 });
 
 final revenueReportProvider = FutureProvider<Map<String, dynamic>>((ref) async {

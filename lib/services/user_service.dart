@@ -1,6 +1,7 @@
 import '../models/user_model.dart';
 import '../core/constants/app_constants.dart';
 import 'supabase_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserService {
   static Future<List<UserModel>> fetchAllUsers() async {
@@ -40,6 +41,40 @@ class UserService {
         ).update(user.toJson()).eq('id', user.id).select().single();
 
     return UserModel.fromJson(response);
+  }
+
+  static Future<void> revokeUserAccess(String userId) async {
+    await SupabaseService.from(AppConstants.usersTable)
+        .update({
+          'is_active': false,
+          'role': UserRole.staff.name,
+          'applications_access': false,
+          'payments_access': false,
+          'inventory_access': false,
+        })
+        .eq('id', userId);
+  }
+
+  static Future<void> deleteUser(UserModel user) async {
+    final currentUserId = SupabaseService.currentUser?.id;
+    if (currentUserId == user.id) {
+      throw Exception('You cannot delete your own account while logged in.');
+    }
+
+    await revokeUserAccess(user.id);
+
+    try {
+      await SupabaseService.client.rpc(
+        'delete_user_account',
+        params: {'target_user_id': user.id},
+      );
+    } on PostgrestException catch (e) {
+      throw Exception(
+        'User access was removed, but full Supabase deletion failed. '
+        'Please add the `delete_user_account` SQL function in Supabase. '
+        'Original error: ${e.message}',
+      );
+    }
   }
 
   static Future<void> updateUserRole(String userId, UserRole newRole) async {

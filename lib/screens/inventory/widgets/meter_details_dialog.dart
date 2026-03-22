@@ -2,30 +2,32 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../models/inventory_model.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/inventory_providers.dart';
 
-class BrandDetailsDialog extends ConsumerStatefulWidget {
+class MeterDetailsDialog extends ConsumerStatefulWidget {
   final String brandName;
-  final List<PanelItem> panels;
+  final List<MeterItem> meters;
 
-  const BrandDetailsDialog({
+  const MeterDetailsDialog({
     super.key,
     required this.brandName,
-    required this.panels,
+    required this.meters,
   });
 
   @override
-  ConsumerState<BrandDetailsDialog> createState() => _BrandDetailsDialogState();
+  ConsumerState<MeterDetailsDialog> createState() => _MeterDetailsDialogState();
 }
 
-class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
+class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
   String _searchSerial = '';
-  String? _selectedWatt;
-  String? _selectedType; // DCR, NDCR
-  String? _selectedStatus; // available, allotted
+  String? _selectedCategory;
+  String? _selectedType;
+  String? _selectedPhase;
+  String? _selectedStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -33,29 +35,43 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
     final inventoryState = ref.watch(inventoryProvider);
     final canAllotInventory = currentUser?.canAllotInventory ?? false;
     final canEditInventory = currentUser?.canEdit ?? false;
-    final currentPanels =
-        inventoryState.panels
-            .where((p) => p.brand == widget.brandName)
+    final currentMeters =
+        inventoryState.meters
+            .where((m) => m.brand == widget.brandName)
             .toList();
-    final filteredPanels = currentPanels.where((p) {
-      final matchesSerial = p.serialNumber.toLowerCase().contains(_searchSerial.toLowerCase());
-      final matchesWatt = _selectedWatt == null || p.wattCapacity.toString() == _selectedWatt;
-      final matchesType = _selectedType == null || p.panelType == _selectedType;
-      final matchesStatus = _selectedStatus == null || p.status == _selectedStatus;
-      return matchesSerial && matchesWatt && matchesType && matchesStatus;
-    }).toList()
-      ..sort((a, b) {
-        // Sort by type then watt
-        int c = a.panelType.compareTo(b.panelType);
-        if (c != 0) return c;
-        return a.wattCapacity.compareTo(b.wattCapacity);
-      });
 
-    final totalAvailable = currentPanels.where((p) => p.status == 'available').length;
-    final totalAllotted = currentPanels.where((p) => p.status == 'allotted').length;
+    final filteredMeters =
+        currentMeters.where((m) {
+            final matchesSearch =
+                _searchSerial.isEmpty ||
+                m.serialNumber.toLowerCase().contains(
+                  _searchSerial.toLowerCase(),
+                );
+            final matchesCategory =
+                _selectedCategory == null || m.meterCategory == _selectedCategory;
+            final matchesType =
+                _selectedType == null || m.meterType == _selectedType;
+            final matchesPhase =
+                _selectedPhase == null || m.meterPhase == _selectedPhase;
+            final matchesStatus =
+                _selectedStatus == null || m.status == _selectedStatus;
+            return matchesSearch &&
+                matchesCategory &&
+                matchesType &&
+                matchesPhase &&
+                matchesStatus;
+          }).toList()
+          ..sort((a, b) => a.serialNumber.compareTo(b.serialNumber));
 
-    final watts = currentPanels.map((p) => p.wattCapacity.toString()).toSet().toList()..sort();
-    final types = currentPanels.map((p) => p.panelType).toSet().toList()..sort();
+    final totalAvailable =
+        currentMeters.where((m) => m.status == 'available').length;
+    final totalAllotted =
+        currentMeters.where((m) => m.status == 'allotted').length;
+    final categories =
+        currentMeters.map((m) => m.meterCategory).toSet().toList()..sort();
+    final types = currentMeters.map((m) => m.meterType).toSet().toList()..sort();
+    final phases =
+        currentMeters.map((m) => m.meterPhase).toSet().toList()..sort();
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -75,29 +91,23 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                 end: Alignment.bottomRight,
                 colors: [
                   Colors.white.withOpacity(0.78),
-                  const Color(0xFFF2F7FF).withOpacity(0.72),
-                  const Color(0xFFF9FBFF).withOpacity(0.7),
+                  const Color(0xFFFFF6EA).withOpacity(0.72),
+                  const Color(0xFFFDFBFF).withOpacity(0.7),
                 ],
               ),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.55),
-                width: 1.2,
-              ),
-              boxShadow: [
+              border: Border.all(color: Colors.white.withOpacity(0.55), width: 1.2),
+              boxShadow: const [
                 BoxShadow(
-                  color: const Color(0x1A1F3B73),
+                  color: Color(0x1A1F3B73),
                   blurRadius: 28,
-                  offset: const Offset(0, 20),
+                  offset: Offset(0, 20),
                 ),
               ],
             ),
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 18,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),
                     color: Colors.white.withOpacity(0.38),
@@ -111,18 +121,11 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                            colors: [Color(0xFFF59E0B), Color(0xFFF97316)],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0x334F46E5),
-                              blurRadius: 18,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
                         ),
                         child: const Icon(
-                          Icons.solar_power_rounded,
+                          Icons.speed_rounded,
                           color: Colors.white,
                           size: 28,
                         ),
@@ -133,7 +136,7 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${widget.brandName} Panel Inventory',
+                              '${widget.brandName} Meter Inventory',
                               style: AppTextStyles.heading3.copyWith(
                                 color: const Color(0xFF172033),
                                 fontWeight: FontWeight.w800,
@@ -141,7 +144,7 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '${filteredPanels.length} matching serials across this brand',
+                              '${filteredMeters.length} matching serials across this brand',
                               style: AppTextStyles.bodySmall.copyWith(
                                 color: AppTheme.textSecondary,
                               ),
@@ -191,10 +194,9 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                   child: Wrap(
                     spacing: 12,
                     runSpacing: 12,
-                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       SizedBox(
-                        width: 380,
+                        width: 300,
                         child: TextField(
                           decoration: InputDecoration(
                             hintText: 'Search by serial number',
@@ -215,7 +217,7 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(18),
                               borderSide: const BorderSide(
-                                color: Color(0xFF6366F1),
+                                color: Color(0xFFF59E0B),
                               ),
                             ),
                           ),
@@ -223,16 +225,22 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                         ),
                       ),
                       _buildFilterDropdown(
-                        hint: 'Watt',
-                        value: _selectedWatt,
-                        items: watts,
-                        onChanged: (v) => setState(() => _selectedWatt = v),
+                        hint: 'Category',
+                        value: _selectedCategory,
+                        items: categories,
+                        onChanged: (v) => setState(() => _selectedCategory = v),
                       ),
                       _buildFilterDropdown(
-                        hint: 'Type (DCR/NDCR)',
+                        hint: 'Type',
                         value: _selectedType,
                         items: types,
                         onChanged: (v) => setState(() => _selectedType = v),
+                      ),
+                      _buildFilterDropdown(
+                        hint: 'Phase',
+                        value: _selectedPhase,
+                        items: phases,
+                        onChanged: (v) => setState(() => _selectedPhase = v),
                       ),
                       _buildFilterDropdown(
                         hint: 'Status',
@@ -249,13 +257,13 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                         child: IconButton(
                           onPressed: () => setState(() {
                             _searchSerial = '';
-                            _selectedWatt = null;
+                            _selectedCategory = null;
                             _selectedType = null;
+                            _selectedPhase = null;
                             _selectedStatus = null;
                           }),
                           icon: const Icon(Icons.refresh_rounded),
-                          tooltip: 'Clear Filters',
-                          color: const Color(0xFF4F46E5),
+                          color: const Color(0xFFF59E0B),
                         ),
                       ),
                     ],
@@ -268,13 +276,6 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                       borderRadius: BorderRadius.circular(26),
                       color: Colors.white.withOpacity(0.44),
                       border: Border.all(color: Colors.white.withOpacity(0.48)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.white.withOpacity(0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, -2),
-                        ),
-                      ],
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(26),
@@ -285,63 +286,80 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                           dataRowMinHeight: 60,
                           dataRowMaxHeight: 72,
                           horizontalMargin: 18,
-                          columnSpacing: 28,
+                          columnSpacing: 24,
                           headingRowColor: WidgetStateProperty.all(
-                            const Color(0xFFEFF4FB).withOpacity(0.95),
+                            const Color(0xFFFFF1D9).withOpacity(0.95),
                           ),
                           columns: const [
                             DataColumn(label: Text('Serial No.', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Wattage', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Phase', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Purchase From', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Invoice / Date', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
                           ],
-                          rows: filteredPanels.map((p) {
-                            final invoice = inventoryState.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == p.invoiceId, orElse: () => null);
+                          rows: filteredMeters.map((meter) {
+                            final invoice = inventoryState.invoices
+                                .cast<InventoryInvoice?>()
+                                .firstWhere(
+                                  (inv) => inv?.id == meter.invoiceId,
+                                  orElse: () => null,
+                                );
 
-                            return DataRow(cells: [
-                              DataCell(Text(p.serialNumber, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
-                              DataCell(Text('${p.wattCapacity}W')),
-                              DataCell(Text(p.panelType)),
-                              DataCell(_StatusBadge(status: p.status)),
-                              DataCell(Text(invoice?.partyName ?? 'N/A')),
-                              DataCell(
-                                invoice != null
-                                    ? Text(
-                                      '${invoice.invoiceNumber}\n${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}',
-                                      style: const TextStyle(fontSize: 10, height: 1.4),
-                                    )
-                                    : const Text('-'),
-                              ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (p.status == 'available' && canAllotInventory)
-                                      TextButton.icon(
-                                        onPressed: () => _showAllotmentDialog(context, p.id, InventoryItemType.panel),
-                                        icon: const Icon(Icons.assignment_ind_rounded, size: 16),
-                                        label: const Text('Allot'),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: const Color(0xFF4F46E5),
-                                        ),
-                                      ),
-                                    if (canEditInventory)
-                                      IconButton(
-                                        icon: const Icon(Icons.edit_rounded, size: 18),
-                                        onPressed: () => _showEditPanelDialog(p),
-                                      ),
-                                    if (canEditInventory)
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.errorColor),
-                                        onPressed: () => _confirmDeletePanel(p),
-                                      ),
-                                  ],
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(meter.serialNumber, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
+                                DataCell(Text(meter.meterCategory)),
+                                DataCell(Text(_displayMeterType(meter.meterType))),
+                                DataCell(Text(meter.meterPhase)),
+                                DataCell(_StatusBadge(status: meter.status)),
+                                DataCell(Text(invoice?.partyName ?? 'N/A')),
+                                DataCell(
+                                  invoice != null
+                                      ? Text(
+                                        '${invoice.invoiceNumber}\n${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}',
+                                        style: const TextStyle(fontSize: 10, height: 1.4),
+                                      )
+                                      : const Text('-'),
                                 ),
-                              ),
-                            ]);
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (meter.status == 'available' && canAllotInventory)
+                                        TextButton.icon(
+                                          onPressed: () => _showAllotmentDialog(
+                                            context,
+                                            meter.id,
+                                            InventoryItemType.meter,
+                                          ),
+                                          icon: const Icon(Icons.assignment_ind_rounded, size: 16),
+                                          label: const Text('Allot'),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: const Color(0xFFF59E0B),
+                                          ),
+                                        ),
+                                      if (canEditInventory)
+                                        IconButton(
+                                          icon: const Icon(Icons.edit_rounded, size: 18),
+                                          onPressed: () => _showEditMeterDialog(meter),
+                                        ),
+                                      if (canEditInventory)
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete_outline_rounded,
+                                            size: 18,
+                                            color: AppTheme.errorColor,
+                                          ),
+                                          onPressed: () => _confirmDeleteMeter(meter),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
                           }).toList(),
                         ),
                       ),
@@ -356,96 +374,128 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
     );
   }
 
-  void _showAllotmentDialog(BuildContext context, String itemId, InventoryItemType type) {
-    // We need to access the parent's _showAllotmentDialog or redefine it.
-    // For now, I'll assume the parent can call it or I'll implement a callback.
-    // Since I'm in a separate file, I'll need to define it or pass it.
-    // However, I can just use the one from inventory_screen if I make it public or export it.
-    // To keep it simple, I'll show the dialog here as well if needed.
-    showDialog(
-      context: context,
-      builder: (context) => _AllotmentDialog(itemId: itemId, itemType: type),
-    );
+  String _displayMeterType(String value) {
+    if (value == 'LTCT') return 'LT CT';
+    if (value == 'HTCT') return 'HT CT';
+    return value;
   }
 
-  Future<void> _showEditPanelDialog(PanelItem panel) async {
-    final brandController = TextEditingController(text: panel.brand);
-    final wattController = TextEditingController(text: panel.wattCapacity.toString());
-    String selectedType = panel.panelType;
-    String selectedStatus = panel.status;
+  Future<void> _showEditMeterDialog(MeterItem meter) async {
+    final brandController = TextEditingController(text: meter.brand);
+    String selectedCategory = meter.meterCategory;
+    String selectedType = _displayMeterType(meter.meterType);
+    String selectedPhase = meter.meterPhase;
+    String selectedStatus = meter.status;
 
-    final updated = await showDialog<PanelItem>(
+    final updated = await showDialog<MeterItem>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFF7F9FF),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Edit Panel'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: brandController, decoration: const InputDecoration(labelText: 'Brand')),
-            const SizedBox(height: 12),
-            TextField(controller: wattController, decoration: const InputDecoration(labelText: 'Watt Capacity'), keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: selectedType,
-              decoration: const InputDecoration(labelText: 'Type'),
-              items: const ['DCR', 'NDCR'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              onChanged: (value) => selectedType = value ?? selectedType,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: selectedStatus,
-              decoration: const InputDecoration(labelText: 'Status'),
-              items: const ['available', 'allotted'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              onChanged: (value) => selectedStatus = value ?? selectedStatus,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(
-                context,
-                panel.copyWith(
-                  brand: brandController.text.trim(),
-                  wattCapacity: int.tryParse(wattController.text.trim()) ?? panel.wattCapacity,
-                  panelType: selectedType,
-                  status: selectedStatus,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFFFFFBF5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: const Text('Edit Meter'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: brandController,
+                  decoration: const InputDecoration(labelText: 'Brand'),
                 ),
-              );
-            },
-            child: const Text('Save'),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: const ['Net Meter', 'Solar Meter']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => selectedCategory = value ?? selectedCategory,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  items: const ['Normal', 'LT CT', 'HT CT']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => selectedType = value ?? selectedType,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedPhase,
+                  decoration: const InputDecoration(labelText: 'Phase'),
+                  items: const ['Single Phase', 'Three Phase']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => selectedPhase = value ?? selectedPhase,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const ['available', 'allotted']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => selectedStatus = value ?? selectedStatus,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(
+                    context,
+                    meter.copyWith(
+                      brand: brandController.text.trim(),
+                      meterCategory: selectedCategory,
+                      meterType:
+                          selectedType == 'LT CT'
+                              ? 'LTCT'
+                              : selectedType == 'HT CT'
+                                  ? 'HTCT'
+                                  : selectedType,
+                      meterPhase: selectedPhase,
+                      status: selectedStatus,
+                    ),
+                  );
+                },
+                child: const Text('Save'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (updated == null) return;
-    await ref.read(inventoryProvider.notifier).updatePanel(updated);
+    await ref.read(inventoryProvider.notifier).updateMeter(updated);
   }
 
-  Future<void> _confirmDeletePanel(PanelItem panel) async {
+  Future<void> _confirmDeleteMeter(MeterItem meter) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFFFFAFA),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Delete Panel'),
-        content: Text('Delete panel ${panel.serialNumber}?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
-            child: const Text('Delete'),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFFFFFAFA),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: const Text('Delete Meter'),
+            content: Text('Delete meter ${meter.serialNumber}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
     if (confirmed == true) {
-      await ref.read(inventoryProvider.notifier).deletePanel(panel.id);
+      await ref.read(inventoryProvider.notifier).deleteMeter(meter.id);
     }
   }
 
@@ -512,16 +562,36 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
           ),
           isExpanded: true,
           borderRadius: BorderRadius.circular(18),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
+          items:
+              items
+                  .map(
+                    (e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(e, style: const TextStyle(fontSize: 12)),
+                    ),
+                  )
+                  .toList(),
           onChanged: onChanged,
         ),
       ),
+    );
+  }
+
+  void _showAllotmentDialog(
+    BuildContext context,
+    String itemId,
+    InventoryItemType type,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => _AllotmentDialog(itemId: itemId, itemType: type),
     );
   }
 }
 
 class _StatusBadge extends StatelessWidget {
   final String status;
+
   const _StatusBadge({required this.status});
 
   @override
@@ -535,12 +605,6 @@ class _StatusBadge extends StatelessWidget {
                 ? Colors.green.withOpacity(0.12)
                 : Colors.orange.withOpacity(0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color:
-              isAvailable
-                  ? Colors.green.withOpacity(0.12)
-                  : Colors.orange.withOpacity(0.12),
-        ),
       ),
       child: Text(
         status.toUpperCase(),
@@ -553,10 +617,6 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 }
-
-// I need the AllotmentDialog here too if I want to allow allotment from the popup.
-// I'll copy the _AllotmentDialog implementation here as well for now, or move it to a common file.
-// Moving to a common file is better later, but for now copying is faster to fulfill the request.
 
 class _AllotmentDialog extends ConsumerStatefulWidget {
   final String itemId;
@@ -602,7 +662,7 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFFF7F9FF),
+      backgroundColor: const Color(0xFFFFFBF5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: const Text('New Allotment / Handover', style: AppTextStyles.heading3),
       content: SizedBox(
@@ -633,23 +693,27 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _handoverByController,
-                  decoration: const InputDecoration(labelText: 'Handover By (Staff)'),
+                  decoration: const InputDecoration(labelText: 'Handover By'),
                 ),
                 const SizedBox(height: 16),
-                InkWell(
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Handover Date'),
+                  subtitle: Text(
+                    '${_handoverDate.day}/${_handoverDate.month}/${_handoverDate.year}',
+                  ),
+                  trailing: const Icon(Icons.calendar_today_outlined),
                   onTap: () async {
-                    final date = await showDatePicker(
+                    final picked = await showDatePicker(
                       context: context,
                       initialDate: _handoverDate,
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                     );
-                    if (date != null) setState(() => _handoverDate = date);
+                    if (picked != null) {
+                      setState(() => _handoverDate = picked);
+                    }
                   },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Handover Date'),
-                    child: Text('${_handoverDate.day}/${_handoverDate.month}/${_handoverDate.year}'),
-                  ),
                 ),
               ],
             ),
@@ -657,8 +721,14 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        ElevatedButton(onPressed: _submit, child: const Text('Confirm Handover')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submit,
+          child: const Text('Allot'),
+        ),
       ],
     );
   }

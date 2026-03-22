@@ -24,8 +24,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(applicationsProvider.notifier).loadApplications();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final currentUser = await ref.read(currentUserProvider.future);
+      if (!mounted || currentUser == null) return;
+      if (currentUser.canAccessApplications || currentUser.canViewDashboard) {
+        ref.read(applicationsProvider.notifier).loadApplications();
+      }
     });
   }
 
@@ -144,9 +148,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   loading: () => null,
                   error: (_, __) => null,
                 );
+                final canAccessApplications =
+                    currentUser?.canAccessApplications ?? false;
+                final canAccessPayments =
+                    currentUser?.canAccessPayments ?? false;
                 final canManageUsers = currentUser?.canManageUsers ?? false;
                 final canViewDashboard = currentUser?.canViewDashboard ?? false;
                 final canManageInstallations = currentUser?.canManageInstallations ?? false;
+                final canAccessInventory =
+                    currentUser?.canAccessInventory ?? false;
                 final isAdmin = currentUser?.isAdmin ?? false;
 
                 return SingleChildScrollView(
@@ -164,33 +174,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      _buildNavItem(
-                        context,
-                        icon: Icons.layers_rounded,
-                        label: 'Applications',
-                        route: '/applications',
-                        isActive: currentLocation.startsWith('/applications'),
-                        isCollapsed: isCollapsed,
-                      ),
-                      const SizedBox(height: 4),
-                      _buildNavItem(
-                        context,
-                        icon: Icons.settings_input_component_rounded,
-                        label: 'Installations',
-                        route: '/installations',
-                        isActive: currentLocation == '/installations',
-                        isCollapsed: isCollapsed,
-                      ),
-                      const SizedBox(height: 4),
-                      _buildNavItem(
-                        context,
-                        icon: Icons.receipt_long_rounded,
-                        label: 'Payments',
-                        route: '/payments',
-                        isActive: currentLocation == '/payments',
-                        isCollapsed: isCollapsed,
-                      ),
-                      const SizedBox(height: 4),
+                      if (canAccessApplications) ...[
+                        _buildNavItem(
+                          context,
+                          icon: Icons.layers_rounded,
+                          label: 'Applications',
+                          route: '/applications',
+                          isActive: currentLocation.startsWith('/applications'),
+                          isCollapsed: isCollapsed,
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      if (canManageInstallations) ...[
+                        _buildNavItem(
+                          context,
+                          icon: Icons.settings_input_component_rounded,
+                          label: 'Installations',
+                          route: '/installations',
+                          isActive: currentLocation == '/installations',
+                          isCollapsed: isCollapsed,
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      if (canAccessPayments) ...[
+                        _buildNavItem(
+                          context,
+                          icon: Icons.receipt_long_rounded,
+                          label: 'Payments',
+                          route: '/payments',
+                          isActive: currentLocation == '/payments',
+                          isCollapsed: isCollapsed,
+                        ),
+                        const SizedBox(height: 4),
+                      ],
                       if (canManageUsers) ...[
                         _buildNavItem(
                           context,
@@ -211,7 +227,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (canManageInstallations) ...[
+                      if (canAccessInventory) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.inventory_2_rounded,
@@ -569,8 +585,18 @@ class DashboardOverviewContent extends ConsumerWidget {
                   _buildStatCard('Total Projects', '${stats['total'] ?? 0}', Icons.folder_open_rounded, Colors.blue),
                   _buildStatCard('Active Clients', '${stats['pending'] ?? 0}', Icons.people_outline_rounded, Colors.teal),
                   _buildStatCard('Installations', '${stats['completedInstallations'] ?? 0}', Icons.done_all_rounded, Colors.indigo),
-                  _buildStatCard('Monthly Target', '72%', Icons.track_changes_rounded, Colors.orange),
-                  _buildStatCard('Revenue (L)', '2', Icons.monetization_on_outlined, Colors.purple),
+                  _buildStatCard(
+                    'Domestic kW',
+                    '${(stats['domesticKw'] ?? 0.0).toStringAsFixed(1)}',
+                    Icons.home_work_outlined,
+                    Colors.orange,
+                  ),
+                  _buildStatCard(
+                    'Commercial kW',
+                    '${(stats['commercialKw'] ?? 0.0).toStringAsFixed(1)}',
+                    Icons.business_outlined,
+                    Colors.purple,
+                  ),
                 ],
               );
             },
@@ -654,6 +680,11 @@ class DashboardOverviewContent extends ConsumerWidget {
   }
 
   Widget _buildRecentSection(BuildContext context, ApplicationsState state) {
+    final approvedApplications =
+        state.applications
+            .where((app) => app.approvalStatus == ApprovalStatus.approved)
+            .toList();
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -684,7 +715,9 @@ class DashboardOverviewContent extends ConsumerWidget {
               },
               children: [
                 _buildTableHeader(),
-                ...state.applications.take(5).map((app) => _buildTableRow(context, app)),
+                ...approvedApplications.take(5).map(
+                  (app) => _buildTableRow(context, app),
+                ),
               ],
             ),
         ],

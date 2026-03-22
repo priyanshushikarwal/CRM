@@ -59,6 +59,29 @@ class SupabaseService {
     await client.auth.resetPasswordForEmail(email);
   }
 
+  static Future<String?> currentUserDisplayName() async {
+    final user = currentUser;
+    if (user == null) return null;
+
+    try {
+      final response = await from(AppConstants.usersTable)
+          .select('full_name, email')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final fullName = response?['full_name'] as String?;
+      if (fullName != null && fullName.trim().isNotEmpty) {
+        return fullName.trim();
+      }
+      final email = response?['email'] as String?;
+      if (email != null && email.trim().isNotEmpty) {
+        return email.trim();
+      }
+    } catch (_) {}
+
+    return user.email;
+  }
+
   static SupabaseQueryBuilder from(String table) => client.from(table);
 
   static SupabaseStorageClient get storage => client.storage;

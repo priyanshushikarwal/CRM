@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/router/app_router.dart';
+import '../../models/user_model.dart';
 import '../../providers/app_providers.dart';
 import '../../services/supabase_service.dart';
 
@@ -24,6 +25,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   static const String _defaultEmail = 'admin@dooninfra.net';
   static const String _defaultPassword = '12345678';
+
+  String _getLandingRouteForUser(UserModel? user) {
+    if (user == null) {
+      return '/applications';
+    }
+    if (user.canViewDashboard) {
+      return '/dashboard';
+    }
+    if (user.canAccessApplications) {
+      return '/applications';
+    }
+    if (user.canAccessPayments) {
+      return '/payments';
+    }
+    if (user.canAccessInventory) {
+      return '/inventory';
+    }
+    return '/login';
+  }
 
   @override
   void dispose() {
@@ -61,6 +81,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     try {
+      UserModel? loggedInUser;
       final response = await SupabaseService.signInWithEmail(
         email: enteredEmail,
         password: enteredPassword,
@@ -77,12 +98,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         try {
           final userResponse =
               await SupabaseService.from('users')
-                  .select('is_active, role')
+                  .select()
                   .eq('id', response.user!.id)
                   .maybeSingle();
 
           if (userResponse != null) {
-            final isActive = userResponse['is_active'] as bool? ?? true;
+            loggedInUser = UserModel.fromJson(userResponse);
+            final isActive = loggedInUser!.isActive;
 
             if (!isActive) {
               await SupabaseService.signOut();
@@ -102,6 +124,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
 
         ref.invalidate(currentUserProvider);
+        if (mounted) {
+          context.go(_getLandingRouteForUser(loggedInUser));
+        }
+        return;
       } else {
         if (mounted) {
           setState(() {
@@ -109,10 +135,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           });
         }
         return;
-      }
-
-      if (mounted) {
-        context.go('/dashboard');
       }
     } on Exception catch (e) {
       final msg = e.toString();

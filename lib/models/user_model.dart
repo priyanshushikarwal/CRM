@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum UserRole { admin, staff }
+enum UserRole { admin, staff, factory }
 
 @immutable
 class UserModel {
@@ -13,6 +13,9 @@ class UserModel {
   final DateTime createdAt;
   final DateTime? lastLoginAt;
   final String? profileImageUrl;
+  final bool? applicationsAccess;
+  final bool? paymentsAccess;
+  final bool? inventoryAccess;
 
   const UserModel({
     required this.id,
@@ -24,6 +27,9 @@ class UserModel {
     required this.createdAt,
     this.lastLoginAt,
     this.profileImageUrl,
+    this.applicationsAccess,
+    this.paymentsAccess,
+    this.inventoryAccess,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -38,6 +44,9 @@ class UserModel {
           if (json['role'] == 'superadmin' || json['role'] == 'admin') {
             return UserRole.admin;
           }
+          if (json['role'] == 'factory') {
+            return UserRole.factory;
+          }
           return UserRole.staff;
         },
       ),
@@ -48,6 +57,9 @@ class UserModel {
               ? DateTime.parse(json['last_login_at'] as String)
               : null,
       profileImageUrl: json['profile_image_url'] as String?,
+      applicationsAccess: json['applications_access'] as bool?,
+      paymentsAccess: json['payments_access'] as bool?,
+      inventoryAccess: json['inventory_access'] as bool?,
     );
   }
 
@@ -62,6 +74,9 @@ class UserModel {
       'created_at': createdAt.toIso8601String(),
       'last_login_at': lastLoginAt?.toIso8601String(),
       'profile_image_url': profileImageUrl,
+      'applications_access': applicationsAccess,
+      'payments_access': paymentsAccess,
+      'inventory_access': inventoryAccess,
     };
   }
 
@@ -75,6 +90,9 @@ class UserModel {
     DateTime? createdAt,
     DateTime? lastLoginAt,
     String? profileImageUrl,
+    bool? applicationsAccess,
+    bool? paymentsAccess,
+    bool? inventoryAccess,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -86,6 +104,9 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      applicationsAccess: applicationsAccess ?? this.applicationsAccess,
+      paymentsAccess: paymentsAccess ?? this.paymentsAccess,
+      inventoryAccess: inventoryAccess ?? this.inventoryAccess,
     );
   }
 
@@ -97,18 +118,57 @@ class UserModel {
         return 'Admin';
       case UserRole.staff:
         return 'Staff';
+      case UserRole.factory:
+        return 'Factory Employee';
     }
   }
 
   bool get isAdmin => role == UserRole.admin;
   bool get isStaff => role == UserRole.staff;
-  
-  // Feature Access based on screenshot exactly
-  bool get canEdit => true; // Both can add/edit solar applications
-  bool get canDelete => role == UserRole.admin; // Only admin
-  bool get canManageUsers => role == UserRole.admin;
-  bool get canViewDashboard => role == UserRole.admin; // Reports & dashboard
-  bool get canManagePayments => role == UserRole.admin; // Payment tracking
-  bool get canManageInstallations => role == UserRole.admin; // Installation management
-  bool get canManageAdmins => role == UserRole.admin;
+  bool get isFactory => role == UserRole.factory;
+  bool get hasExplicitModuleAssignments =>
+      applicationsAccess != null ||
+      paymentsAccess != null ||
+      inventoryAccess != null;
+
+  bool get canAccessApplications {
+    if (isAdmin) return true;
+    if (hasExplicitModuleAssignments) return applicationsAccess ?? false;
+    return role == UserRole.staff;
+  }
+
+  bool get canAccessPayments {
+    if (isAdmin) return true;
+    if (hasExplicitModuleAssignments) return paymentsAccess ?? false;
+    return false;
+  }
+
+  bool get canAccessInventory {
+    if (isAdmin) return true;
+    if (hasExplicitModuleAssignments) return inventoryAccess ?? false;
+    return role == UserRole.factory;
+  }
+
+  bool get canAddInventoryStock => canAccessInventory;
+  bool get canAllotInventory => canAccessInventory;
+  bool get canCreateApplication => canAccessApplications;
+
+  bool get canEdit => isAdmin;
+  bool get canDelete => isAdmin;
+  bool get canManageUsers => isAdmin;
+  bool get canViewDashboard => isAdmin;
+  bool get canManagePayments => canAccessPayments;
+  bool get canManageInstallations => isAdmin;
+  bool get canManageAdmins => isAdmin;
+
+  List<String> get assignedWorkLabels {
+    final labels = <String>[];
+    if (canAccessApplications) labels.add('Applications');
+    if (canAccessPayments) labels.add('Payments');
+    if (canAccessInventory) labels.add('Inventory');
+    return labels;
+  }
+
+  String get assignedWorkSummary =>
+      assignedWorkLabels.isEmpty ? 'No modules assigned' : assignedWorkLabels.join(', ');
 }

@@ -50,6 +50,56 @@ class InventoryNotifier extends Notifier<InventoryState> {
   @override
   InventoryState build() => const InventoryState();
 
+  String _normalizeSerial(String serial) => serial.trim().toUpperCase();
+
+  Never _throwDuplicateSerialError(String serial, String itemLabel) {
+    throw Exception(
+      'Duplicate Serial Number: $itemLabel serial "$serial" already exists in inventory.',
+    );
+  }
+
+  void _ensureUniquePanelSerials(List<Map<String, dynamic>> panelEntries) {
+    final existingSerials =
+        state.panels.map((item) => _normalizeSerial(item.serialNumber)).toSet();
+    final seenSerials = <String>{};
+
+    for (final entry in panelEntries) {
+      final originalSerial = (entry['serial'] as String? ?? '').trim();
+      final normalizedSerial = _normalizeSerial(originalSerial);
+
+      if (normalizedSerial.isEmpty) {
+        continue;
+      }
+
+      if (!seenSerials.add(normalizedSerial) ||
+          existingSerials.contains(normalizedSerial)) {
+        _throwDuplicateSerialError(originalSerial, 'Panel');
+      }
+    }
+  }
+
+  void _ensureUniqueSimpleSerials(
+    List<String> serialNumbers,
+    Set<String> existingSerials,
+    String itemLabel,
+  ) {
+    final seenSerials = <String>{};
+
+    for (final serial in serialNumbers) {
+      final originalSerial = serial.trim();
+      final normalizedSerial = _normalizeSerial(originalSerial);
+
+      if (normalizedSerial.isEmpty) {
+        continue;
+      }
+
+      if (!seenSerials.add(normalizedSerial) ||
+          existingSerials.contains(normalizedSerial)) {
+        _throwDuplicateSerialError(originalSerial, itemLabel);
+      }
+    }
+  }
+
   Future<void> loadAll() async {
     print('Inventory: Starting loadAll...');
     state = state.copyWith(isLoading: true, error: null);
@@ -86,6 +136,8 @@ class InventoryNotifier extends Notifier<InventoryState> {
   }) async {
     state = state.copyWith(isLoading: true);
     try {
+      _ensureUniquePanelSerials(panelEntries);
+
       final savedInvoice = await InventoryService.createInvoice(
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: invoice.invoiceDate,
@@ -98,7 +150,7 @@ class InventoryNotifier extends Notifier<InventoryState> {
       final items = panelEntries.map((e) => PanelItem(
         id: '',
         invoiceId: savedInvoice.id,
-        serialNumber: e['serial'] as String,
+        serialNumber: (e['serial'] as String).trim(),
         brand: brand,
         wattCapacity: e['capacity'] as int,
         panelType: e['type'] as String,
@@ -126,6 +178,12 @@ class InventoryNotifier extends Notifier<InventoryState> {
   }) async {
     state = state.copyWith(isLoading: true);
     try {
+      _ensureUniqueSimpleSerials(
+        serialNumbers,
+        state.inverters.map((item) => _normalizeSerial(item.serialNumber)).toSet(),
+        'Inverter',
+      );
+
       final savedInvoice = await InventoryService.createInvoice(
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: invoice.invoiceDate,
@@ -138,7 +196,7 @@ class InventoryNotifier extends Notifier<InventoryState> {
       final items = serialNumbers.map((sn) => InverterItem(
         id: '',
         invoiceId: savedInvoice.id,
-        serialNumber: sn,
+        serialNumber: sn.trim(),
         brand: brand,
         capacityKw: capacityKw,
         inverterType: inverterType,
@@ -167,6 +225,12 @@ class InventoryNotifier extends Notifier<InventoryState> {
   }) async {
     state = state.copyWith(isLoading: true);
     try {
+      _ensureUniqueSimpleSerials(
+        serialNumbers,
+        state.meters.map((item) => _normalizeSerial(item.serialNumber)).toSet(),
+        'Meter',
+      );
+
       final savedInvoice = await InventoryService.createInvoice(
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: invoice.invoiceDate,
@@ -179,7 +243,7 @@ class InventoryNotifier extends Notifier<InventoryState> {
       final items = serialNumbers.map((sn) => MeterItem(
         id: '',
         invoiceId: savedInvoice.id,
-        serialNumber: sn,
+        serialNumber: sn.trim(),
         brand: brand,
         meterCategory: category,
         meterType: type,
@@ -196,6 +260,66 @@ class InventoryNotifier extends Notifier<InventoryState> {
         errorMessage = 'Duplicate Serial Number: One or more meters already exist in inventory.';
       }
       state = state.copyWith(isLoading: false, error: errorMessage);
+    }
+  }
+
+  Future<void> updatePanel(PanelItem item) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await InventoryService.updatePanelItem(item);
+      await loadAll();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> deletePanel(String id) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await InventoryService.deletePanelItem(id);
+      await loadAll();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> updateInverter(InverterItem item) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await InventoryService.updateInverterItem(item);
+      await loadAll();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> deleteInverter(String id) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await InventoryService.deleteInverterItem(id);
+      await loadAll();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> updateMeter(MeterItem item) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await InventoryService.updateMeterItem(item);
+      await loadAll();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> deleteMeter(String id) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await InventoryService.deleteMeterItem(id);
+      await loadAll();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 

@@ -49,6 +49,7 @@ class InventoryInvoice {
       'item_type': itemType.toString().split('.').last,
     };
   }
+
 }
 
 @immutable
@@ -79,7 +80,7 @@ class PanelItem {
       invoiceId: json['invoice_id'] as String?,
       serialNumber: json['serial_number'] as String,
       brand: json['brand'] as String,
-      wattCapacity: json['watt_capacity'] as int,
+      wattCapacity: (json['watt_capacity'] as num).toInt(),
       panelType: json['panel_type'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -95,6 +96,28 @@ class PanelItem {
       'panel_type': panelType,
       'status': status,
     };
+  }
+
+  PanelItem copyWith({
+    String? id,
+    String? invoiceId,
+    String? serialNumber,
+    String? brand,
+    int? wattCapacity,
+    String? panelType,
+    String? status,
+    DateTime? createdAt,
+  }) {
+    return PanelItem(
+      id: id ?? this.id,
+      invoiceId: invoiceId ?? this.invoiceId,
+      serialNumber: serialNumber ?? this.serialNumber,
+      brand: brand ?? this.brand,
+      wattCapacity: wattCapacity ?? this.wattCapacity,
+      panelType: panelType ?? this.panelType,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }
 
@@ -142,6 +165,28 @@ class InverterItem {
       'inverter_type': inverterType,
       'status': status,
     };
+  }
+
+  InverterItem copyWith({
+    String? id,
+    String? invoiceId,
+    String? serialNumber,
+    String? brand,
+    double? capacityKw,
+    String? inverterType,
+    String? status,
+    DateTime? createdAt,
+  }) {
+    return InverterItem(
+      id: id ?? this.id,
+      invoiceId: invoiceId ?? this.invoiceId,
+      serialNumber: serialNumber ?? this.serialNumber,
+      brand: brand ?? this.brand,
+      capacityKw: capacityKw ?? this.capacityKw,
+      inverterType: inverterType ?? this.inverterType,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }
 
@@ -193,6 +238,30 @@ class MeterItem {
       'meter_phase': meterPhase,
       'status': status,
     };
+  }
+
+  MeterItem copyWith({
+    String? id,
+    String? invoiceId,
+    String? serialNumber,
+    String? brand,
+    String? meterCategory,
+    String? meterType,
+    String? meterPhase,
+    String? status,
+    DateTime? createdAt,
+  }) {
+    return MeterItem(
+      id: id ?? this.id,
+      invoiceId: invoiceId ?? this.invoiceId,
+      serialNumber: serialNumber ?? this.serialNumber,
+      brand: brand ?? this.brand,
+      meterCategory: meterCategory ?? this.meterCategory,
+      meterType: meterType ?? this.meterType,
+      meterPhase: meterPhase ?? this.meterPhase,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }
 

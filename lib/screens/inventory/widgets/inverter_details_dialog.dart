@@ -1,7 +1,10 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/inventory_model.dart';
+import '../../../providers/app_providers.dart';
 import '../../../providers/inventory_providers.dart';
 
 class InverterDetailsDialog extends ConsumerStatefulWidget {
@@ -26,7 +29,15 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredInverters = widget.inverters.where((i) {
+    final currentUser = ref.watch(currentUserProvider).value;
+    final inventoryState = ref.watch(inventoryProvider);
+    final canAllotInventory = currentUser?.canAllotInventory ?? false;
+    final canEditInventory = currentUser?.canEdit ?? false;
+    final currentInverters =
+        inventoryState.inverters
+            .where((i) => i.brand == widget.brandName)
+            .toList();
+    final filteredInverters = currentInverters.where((i) {
       final matchesSerial = i.serialNumber.toLowerCase().contains(_searchSerial.toLowerCase());
       final matchesCapacity = _selectedCapacity == null || i.capacityKw.toString() == _selectedCapacity;
       final matchesType = _selectedType == null || i.inverterType == _selectedType;
@@ -39,139 +50,267 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
         return a.capacityKw.compareTo(b.capacityKw);
       });
 
-    final totalAvailable = widget.inverters.where((i) => i.status == 'available').length;
-    final totalAllotted = widget.inverters.where((i) => i.status == 'allotted').length;
+    final totalAvailable = currentInverters.where((i) => i.status == 'available').length;
+    final totalAllotted = currentInverters.where((i) => i.status == 'allotted').length;
 
-    final capacities = widget.inverters.map((i) => i.capacityKw.toString()).toSet().toList()..sort();
-    final types = widget.inverters.map((i) => i.inverterType).toSet().toList()..sort();
+    final capacities = currentInverters.map((i) => i.capacityKw.toString()).toSet().toList()..sort();
+    final types = currentInverters.map((i) => i.inverterType).toSet().toList()..sort();
 
-    return AlertDialog(
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${widget.brandName} - Inverter Inventory', style: AppTextStyles.heading3),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  _buildTotalBadge('Available (Balance)', totalAvailable, Colors.green),
-                  const SizedBox(width: 12),
-                  _buildTotalBadge('Allotted', totalAllotted, Colors.orange),
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            width: 1080,
+            height: 680,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.78),
+                  const Color(0xFFEEF8F7).withOpacity(0.72),
+                  const Color(0xFFF8FBFF).withOpacity(0.7),
                 ],
               ),
-            ],
-          ),
-          IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-        ],
-      ),
-      content: SizedBox(
-        width: 1000,
-        height: 600,
-        child: Column(
-          children: [
-            // Filters
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search Serial No.',
-                      prefixIcon: const Icon(Icons.search),
-                      isDense: true,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onChanged: (v) => setState(() => _searchSerial = v),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                _buildFilterDropdown(
-                  hint: 'Capacity (kW)',
-                  value: _selectedCapacity,
-                  items: capacities,
-                  onChanged: (v) => setState(() => _selectedCapacity = v),
-                ),
-                const SizedBox(width: 8),
-                _buildFilterDropdown(
-                  hint: 'Type',
-                  value: _selectedType,
-                  items: types,
-                  onChanged: (v) => setState(() => _selectedType = v),
-                ),
-                const SizedBox(width: 8),
-                _buildFilterDropdown(
-                  hint: 'Status',
-                  value: _selectedStatus,
-                  items: const ['available', 'allotted'],
-                  onChanged: (v) => setState(() => _selectedStatus = v),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => setState(() {
-                    _searchSerial = '';
-                    _selectedCapacity = null;
-                    _selectedType = null;
-                    _selectedStatus = null;
-                  }),
-                  icon: const Icon(Icons.refresh),
+              border: Border.all(color: Colors.white.withOpacity(0.55), width: 1.2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1A1F3B73),
+                  blurRadius: 28,
+                  offset: Offset(0, 20),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            // Table
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.borderColor),
-                  borderRadius: BorderRadius.circular(16),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    color: Colors.white.withOpacity(0.38),
+                    border: Border.all(color: Colors.white.withOpacity(0.45)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x3314B8A6),
+                              blurRadius: 18,
+                              offset: Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.electrical_services_rounded, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(width: 18),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${widget.brandName} Inverter Inventory',
+                              style: AppTextStyles.heading3.copyWith(
+                                color: const Color(0xFF172033),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${filteredInverters.length} matching serials across this brand',
+                              style: AppTextStyles.bodySmall.copyWith(color: AppTheme.textSecondary),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _buildTotalBadge('Available Balance', totalAvailable, const Color(0xFF16A34A)),
+                                _buildTotalBadge('Allotted', totalAllotted, const Color(0xFFF59E0B)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.65),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                          color: const Color(0xFF475569),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: SingleChildScrollView(
-                    child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
-                      columns: const [
-                        DataColumn(label: Text('Serial No.', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Capacity', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Purchase From', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Invoice / Date', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                      ],
-                      rows: filteredInverters.map((i) {
-                        final inventoryState = ref.watch(inventoryProvider);
-                        final invoice = inventoryState.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == i.invoiceId, orElse: () => null);
-                        
-                        return DataRow(cells: [
-                          DataCell(Text(i.serialNumber, style: const TextStyle(fontWeight: FontWeight.w500))),
-                          DataCell(Text('${i.capacityKw}kW')),
-                          DataCell(Text(i.inverterType)),
-                          DataCell(_StatusBadge(status: i.status)),
-                          DataCell(Text(invoice?.partyName ?? 'N/A')),
-                          DataCell(
-                            invoice != null 
-                              ? Text('${invoice.invoiceNumber}\n${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}', style: const TextStyle(fontSize: 10))
-                              : const Text('-')
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    color: Colors.white.withOpacity(0.32),
+                    border: Border.all(color: Colors.white.withOpacity(0.42)),
+                  ),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: 380,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search by serial number',
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            isDense: true,
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.7),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide(color: Colors.white.withOpacity(0.35)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: const BorderSide(color: Color(0xFF0F766E)),
+                            ),
                           ),
-                          DataCell(
-                            i.status == 'available'
-                                ? TextButton.icon(
-                                    onPressed: () => _showAllotmentDialog(context, i.id, InventoryItemType.inverter),
-                                    icon: const Icon(Icons.assignment_ind_rounded, size: 16),
-                                    label: const Text('Allot'),
-                                  )
-                                : const Text('-'),
+                          onChanged: (v) => setState(() => _searchSerial = v),
+                        ),
+                      ),
+                      _buildFilterDropdown(
+                        hint: 'Capacity (kW)',
+                        value: _selectedCapacity,
+                        items: capacities,
+                        onChanged: (v) => setState(() => _selectedCapacity = v),
+                      ),
+                      _buildFilterDropdown(
+                        hint: 'Type',
+                        value: _selectedType,
+                        items: types,
+                        onChanged: (v) => setState(() => _selectedType = v),
+                      ),
+                      _buildFilterDropdown(
+                        hint: 'Status',
+                        value: _selectedStatus,
+                        items: const ['available', 'allotted'],
+                        onChanged: (v) => setState(() => _selectedStatus = v),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.75),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: Colors.white.withOpacity(0.4)),
+                        ),
+                        child: IconButton(
+                          onPressed: () => setState(() {
+                            _searchSerial = '';
+                            _selectedCapacity = null;
+                            _selectedType = null;
+                            _selectedStatus = null;
+                          }),
+                          icon: const Icon(Icons.refresh_rounded),
+                          color: const Color(0xFF0F766E),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(26),
+                      color: Colors.white.withOpacity(0.44),
+                      border: Border.all(color: Colors.white.withOpacity(0.48)),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(26),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(12),
+                        child: DataTable(
+                          headingRowHeight: 56,
+                          dataRowMinHeight: 60,
+                          dataRowMaxHeight: 72,
+                          horizontalMargin: 18,
+                          columnSpacing: 28,
+                          headingRowColor: WidgetStateProperty.all(
+                            const Color(0xFFEAF7F5).withOpacity(0.95),
                           ),
-                        ]);
-                      }).toList(),
+                          columns: const [
+                            DataColumn(label: Text('Serial No.', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Capacity', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Purchase From', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Invoice / Date', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+                          ],
+                          rows: filteredInverters.map((i) {
+                            final invoice = inventoryState.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == i.invoiceId, orElse: () => null);
+                            return DataRow(cells: [
+                              DataCell(Text(i.serialNumber, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
+                              DataCell(Text('${i.capacityKw}kW')),
+                              DataCell(Text(i.inverterType)),
+                              DataCell(_StatusBadge(status: i.status)),
+                              DataCell(Text(invoice?.partyName ?? 'N/A')),
+                              DataCell(
+                                invoice != null
+                                    ? Text('${invoice.invoiceNumber}\n${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}', style: const TextStyle(fontSize: 10, height: 1.4))
+                                    : const Text('-'),
+                              ),
+                              DataCell(
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (i.status == 'available' && canAllotInventory)
+                                      TextButton.icon(
+                                        onPressed: () => _showAllotmentDialog(context, i.id, InventoryItemType.inverter),
+                                        icon: const Icon(Icons.assignment_ind_rounded, size: 16),
+                                        label: const Text('Allot'),
+                                        style: TextButton.styleFrom(foregroundColor: const Color(0xFF0F766E)),
+                                      ),
+                                    if (canEditInventory)
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_rounded, size: 18),
+                                        onPressed: () => _showEditInverterDialog(i),
+                                      ),
+                                    if (canEditInventory)
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.errorColor),
+                                        onPressed: () => _confirmDeleteInverter(i),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ]);
+                          }).toList(),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -184,20 +323,108 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
     );
   }
 
+  Future<void> _showEditInverterDialog(InverterItem inverter) async {
+    final brandController = TextEditingController(text: inverter.brand);
+    final capacityController = TextEditingController(text: inverter.capacityKw.toString());
+    String selectedType = inverter.inverterType;
+    String selectedStatus = inverter.status;
+
+    final updated = await showDialog<InverterItem>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFF7FCFC),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Edit Inverter'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: brandController, decoration: const InputDecoration(labelText: 'Brand')),
+            const SizedBox(height: 12),
+            TextField(controller: capacityController, decoration: const InputDecoration(labelText: 'Capacity (kW)'), keyboardType: TextInputType.number),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: selectedType,
+              decoration: const InputDecoration(labelText: 'Type'),
+              items: const ['On Grid', 'Hybrid', 'Off Grid'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              onChanged: (value) => selectedType = value ?? selectedType,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: selectedStatus,
+              decoration: const InputDecoration(labelText: 'Status'),
+              items: const ['available', 'allotted'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              onChanged: (value) => selectedStatus = value ?? selectedStatus,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(
+                context,
+                inverter.copyWith(
+                  brand: brandController.text.trim(),
+                  capacityKw: double.tryParse(capacityController.text.trim()) ?? inverter.capacityKw,
+                  inverterType: selectedType,
+                  status: selectedStatus,
+                ),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (updated == null) return;
+    await ref.read(inventoryProvider.notifier).updateInverter(updated);
+  }
+
+  Future<void> _confirmDeleteInverter(InverterItem inverter) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFFFFAFA),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Delete Inverter'),
+        content: Text('Delete inverter ${inverter.serialNumber}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(inventoryProvider.notifier).deleteInverter(inverter.id);
+    }
+  }
+
   Widget _buildTotalBadge(String label, int count, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withOpacity(0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: TextStyle(fontSize: 11, color: color.withOpacity(0.8), fontWeight: FontWeight.bold)),
-          const SizedBox(width: 6),
-          Text(count.toString(), style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w900)),
+          Text(label, style: TextStyle(fontSize: 11, color: color.withOpacity(0.9), fontWeight: FontWeight.w700)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(count.toString(), style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w900)),
+          ),
         ],
       ),
     );
@@ -210,18 +437,19 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
     required Function(String?) onChanged,
   }) {
     return Container(
-      width: 140,
+      width: 150,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor),
+        color: Colors.white.withOpacity(0.74),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.4)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
           hint: Text(hint, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           isExpanded: true,
+          borderRadius: BorderRadius.circular(18),
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
           onChanged: onChanged,
         ),
@@ -238,10 +466,13 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final isAvailable = status == 'available';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isAvailable ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: isAvailable ? Colors.green.withOpacity(0.12) : Colors.orange.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: isAvailable ? Colors.green.withOpacity(0.12) : Colors.orange.withOpacity(0.12),
+        ),
       ),
       child: Text(
         status.toUpperCase(),
@@ -299,6 +530,8 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: const Color(0xFFF7FCFC),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: const Text('New Allotment / Handover', style: AppTextStyles.heading3),
       content: SizedBox(
         width: 500,
