@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/updater_service.dart';
 import '../../widgets/update_available_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -15,6 +15,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _checkingForUpdates = false;
+  final UpdaterService _updaterService = UpdaterService();
 
   static const String _versionJsonUrl =
       'https://raw.githubusercontent.com/priyanshushikarwal/CRM-updates/main/version.json';
@@ -45,15 +46,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final currentVersion = AppConstants.appVersion;
 
-      final response = await http.get(Uri.parse(_versionJsonUrl));
-
-      if (response.statusCode != 200) {
-        throw Exception(
-          'Failed to check for updates (HTTP ${response.statusCode})',
-        );
-      }
-
-      final Map<String, dynamic> data = json.decode(response.body);
+      final manifestText = await _updaterService.fetchText(_versionJsonUrl);
+      final Map<String, dynamic> data = json.decode(manifestText);
 
       final remoteVersion = data['version'] as String? ?? '';
       final downloadUrl = data['url'] as String? ?? '';

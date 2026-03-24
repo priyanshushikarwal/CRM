@@ -7,7 +7,7 @@
 ; ============================================================
 
 #define MyAppName "Doon Infra CRM"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.16"
 #define MyAppPublisher "Doon Infra"
 #define MyAppExeName "dooninfra_app.exe"
 

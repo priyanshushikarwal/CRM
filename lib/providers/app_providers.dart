@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/application_model.dart';
 import '../models/document_model.dart';
@@ -11,12 +14,16 @@ import '../services/payment_service.dart';
 import '../services/supabase_service.dart';
 import '../services/user_service.dart';
 import '../core/constants/app_constants.dart';
+import 'inventory_providers.dart';
+import 'refresh_providers.dart';
 
 final authStateProvider = StreamProvider<bool>((ref) {
   return SupabaseService.authStateChanges.map((state) => state.session != null);
 });
 
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
+  ref.watch(appDataRefreshProvider);
+
   final user = SupabaseService.currentUser;
   if (user == null) {
     print('DEBUG: No current user from Supabase');
@@ -69,7 +76,70 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
 });
 
 final userByIdProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {
+  ref.watch(appDataRefreshProvider);
   return await UserService.fetchUser(userId);
+});
+
+final realtimeSyncProvider = Provider<void>((ref) {
+  Timer? refreshDebounce;
+  final channels = <RealtimeChannel>[];
+
+  void scheduleRefresh() {
+    refreshDebounce?.cancel();
+    refreshDebounce = Timer(const Duration(milliseconds: 100), () {
+      ref.read(appDataRefreshProvider.notifier).bump();
+
+      Future.microtask(() {
+        ref.invalidate(currentUserProvider);
+        ref.invalidate(documentsProvider);
+        ref.invalidate(applicationProvider);
+        ref.invalidate(installationByAppProvider);
+        ref.invalidate(paymentsProvider);
+        ref.invalidate(paymentStatsProvider);
+        ref.invalidate(allPaymentsProvider);
+        ref.invalidate(paymentRecordsProvider);
+        ref.invalidate(revenueReportProvider);
+      });
+    });
+  }
+
+  RealtimeChannel registerChannel(String name, List<String> tables) {
+    var channel = SupabaseService.channel(name);
+    for (final table in tables) {
+      channel = channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: table,
+        callback: (_) => scheduleRefresh(),
+      );
+    }
+    channel.subscribe();
+    channels.add(channel);
+    return channel;
+  }
+
+  registerChannel('crm-app-data', [
+    AppConstants.usersTable,
+    AppConstants.applicationsTable,
+    AppConstants.documentsTable,
+    'payments',
+    'installations',
+  ]);
+
+  registerChannel('crm-inventory-data', [
+    AppConstants.inventoryInvoicesTable,
+    AppConstants.panelItemsTable,
+    AppConstants.inverterItemsTable,
+    AppConstants.meterItemsTable,
+    AppConstants.inventoryAllotmentsTable,
+  ]);
+
+  ref.onDispose(() {
+    refreshDebounce?.cancel();
+    for (final channel in channels) {
+      SupabaseService.client.removeChannel(channel);
+    }
+  });
 });
 
 class ApplicationsState {
@@ -115,6 +185,9 @@ class ApplicationsState {
 class ApplicationsNotifier extends Notifier<ApplicationsState> {
   @override
   ApplicationsState build() {
+    ref.listen<int>(appDataRefreshProvider, (_, __) {
+      Future.microtask(loadApplications);
+    });
     return const ApplicationsState();
   }
 
@@ -122,13 +195,17 @@ class ApplicationsNotifier extends Notifier<ApplicationsState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final applications = await ApplicationService.fetchApplications(
-        searchQuery: state.searchQuery.isNotEmpty ? state.searchQuery : null,
-        status: state.statusFilter,
-        state: state.stateFilter,
-      );
+      final results = await Future.wait<dynamic>([
+        ApplicationService.fetchApplications(
+          searchQuery: state.searchQuery.isNotEmpty ? state.searchQuery : null,
+          status: state.statusFilter,
+          state: state.stateFilter,
+        ),
+        ApplicationService.getApplicationStats(),
+      ]);
 
-      final stats = await ApplicationService.getApplicationStats();
+      final applications = results[0] as List<ApplicationModel>;
+      final stats = results[1] as Map<String, dynamic>;
 
       state = state.copyWith(
         applications: applications,
@@ -231,6 +308,7 @@ final documentsProvider = FutureProvider.family<List<DocumentModel>, String>((
   ref,
   applicationId,
 ) async {
+  ref.watch(appDataRefreshProvider);
   return await DocumentService.fetchDocuments(applicationId);
 });
 
@@ -238,6 +316,7 @@ final applicationProvider = FutureProvider.family<ApplicationModel?, String>((
   ref,
   id,
 ) async {
+  ref.watch(appDataRefreshProvider);
   return await ApplicationService.fetchApplication(id);
 });
 
@@ -268,6 +347,9 @@ class InstallationsState {
 class InstallationsNotifier extends Notifier<InstallationsState> {
   @override
   InstallationsState build() {
+    ref.listen<int>(appDataRefreshProvider, (_, __) {
+      Future.microtask(loadInstallations);
+    });
     return const InstallationsState();
   }
 
@@ -300,6 +382,7 @@ final installationByAppProvider = FutureProvider.family<InstallationModel?, Stri
   ref,
   applicationId,
 ) async {
+  ref.watch(appDataRefreshProvider);
   return await InstallationService.fetchInstallationByApplicationId(applicationId);
 });
 
@@ -307,6 +390,7 @@ final paymentsProvider = FutureProvider.family<List<PaymentModel>, String>((
   ref,
   applicationId,
 ) async {
+  ref.watch(appDataRefreshProvider);
   return await PaymentService.fetchPayments(applicationId);
 });
 
@@ -314,10 +398,12 @@ final paymentStatsProvider = FutureProvider.family<Map<String, double>, ({String
   ref,
   arg,
 ) async {
+  ref.watch(appDataRefreshProvider);
   return await PaymentService.getPaymentStats(arg.id, arg.total);
 });
 
 final allPaymentsProvider = FutureProvider<List<PaymentModel>>((ref) async {
+  ref.watch(appDataRefreshProvider);
   return await PaymentService.fetchAllPayments();
 });
 
@@ -332,6 +418,7 @@ class PaymentRecordRow {
 }
 
 final paymentRecordsProvider = FutureProvider<List<PaymentRecordRow>>((ref) async {
+  ref.watch(appDataRefreshProvider);
   final payments = await PaymentService.fetchAllPayments();
   final applications = await ApplicationService.fetchAllApplications();
   final applicationsById = {
@@ -349,6 +436,7 @@ final paymentRecordsProvider = FutureProvider<List<PaymentRecordRow>>((ref) asyn
 });
 
 final revenueReportProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  ref.watch(appDataRefreshProvider);
   final payments = await ref.watch(allPaymentsProvider.future);
   final now = DateTime.now();
   
@@ -373,5 +461,27 @@ final revenueReportProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     'monthlyRevenue': monthlyRevenue,
     'monthlyData': monthlyData,
     'recentPayments': payments.take(10).toList(),
+  };
+});
+
+final globalRefreshProvider = Provider<Future<void> Function()>((ref) {
+  return () async {
+    ref.read(appDataRefreshProvider.notifier).bump();
+
+    await Future.wait([
+      ref.read(applicationsProvider.notifier).loadApplications(),
+      ref.read(installationsProvider.notifier).loadInstallations(),
+      ref.read(inventoryProvider.notifier).loadAll(),
+      ref.refresh(currentUserProvider.future),
+      ref.refresh(allPaymentsProvider.future),
+      ref.refresh(paymentRecordsProvider.future),
+      ref.refresh(revenueReportProvider.future),
+    ]);
+
+    ref.invalidate(documentsProvider);
+    ref.invalidate(applicationProvider);
+    ref.invalidate(installationByAppProvider);
+    ref.invalidate(paymentsProvider);
+    ref.invalidate(paymentStatsProvider);
   };
 });

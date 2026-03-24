@@ -34,6 +34,8 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
   final _locationController = TextEditingController();
   final _discomController = TextEditingController();
   final _consumerAccountNumberController = TextEditingController();
+  final _plantThroughController = TextEditingController();
+  final _electricityBillLoadController = TextEditingController();
   final _proposedCapacityController = TextEditingController();
   final _finalAmountController = TextEditingController();
   final _bankNameController = TextEditingController();
@@ -45,6 +47,7 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
   final _processingFeesController = TextEditingController();
 
   String _selectedCategory = 'Domestic';
+  String _selectedConnectionType = 'Single Phase';
   String _selectedLoanStatus = 'Not Applied';
   bool _giveUpSubsidy = false;
   DateTime _applicationDate = DateTime.now();
@@ -58,7 +61,29 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
     if (_isEditing) {
       _loadApplicationData();
     } else {
-      _generatedId = ApplicationService.generateApplicationNumber();
+      _loadGeneratedId();
+    }
+  }
+
+  Future<void> _loadGeneratedId() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final generatedId = await ApplicationService.generateApplicationNumber();
+      if (!mounted) return;
+      setState(() => _generatedId = generatedId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating application ID: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -79,6 +104,9 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
         _locationController.text = app.district;
         _discomController.text = app.discomName;
         _consumerAccountNumberController.text = app.consumerAccountNumber;
+        _plantThroughController.text = app.plantThrough ?? '';
+        _electricityBillLoadController.text =
+            app.electricityBillLoad?.toString() ?? '';
         _proposedCapacityController.text = app.proposedCapacity.toString();
         _finalAmountController.text = app.finalAmount?.toString() ?? '';
         _bankNameController.text = app.bankName ?? '';
@@ -96,6 +124,12 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
            _selectedCategory = app.categoryName;
         } else {
            _selectedCategory = 'Domestic';
+        }
+
+        if (['Single Phase', 'Three Phase'].contains(app.connectionType)) {
+          _selectedConnectionType = app.connectionType!;
+        } else {
+          _selectedConnectionType = 'Single Phase';
         }
       }
     } catch (e) {
@@ -121,6 +155,8 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
     _locationController.dispose();
     _discomController.dispose();
     _consumerAccountNumberController.dispose();
+    _plantThroughController.dispose();
+    _electricityBillLoadController.dispose();
     _proposedCapacityController.dispose();
     _finalAmountController.dispose();
     _bankNameController.dispose();
@@ -421,6 +457,64 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _plantThroughController,
+                  decoration: const InputDecoration(
+                    labelText: 'Plant Kiske Through Hai',
+                    hintText: 'Self / Sales person / Site name',
+                    prefixIcon: Icon(Icons.person_search_outlined),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _selectedConnectionType,
+                  decoration: const InputDecoration(
+                    labelText: 'Connection Type *',
+                    prefixIcon: Icon(Icons.power_outlined),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Single Phase',
+                      child: Text('Single Phase'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Three Phase',
+                      child: Text('Three Phase'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _selectedConnectionType = value);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _electricityBillLoadController,
+                  decoration: const InputDecoration(
+                    labelText: 'Electricity Bill Load (kW) *',
+                    prefixIcon: Icon(Icons.bolt_outlined),
+                    suffixText: 'kW',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                  ],
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Required field' : null,
+                ),
+              ),
+              const SizedBox(width: 16),
               Expanded(
                 child: TextFormField(
                   controller: _proposedCapacityController,
@@ -782,6 +876,7 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
                     consumerAccountNumber: '',
                     mobile: '',
                     district: '',
+                    connectionType: _selectedConnectionType,
                     applicationSubmissionDate: _applicationDate,
                     circleName: 'Default',
                     divisionName: 'Default',
@@ -811,6 +906,10 @@ class _AddApplicationScreenState extends ConsumerState<AddApplicationScreen> {
                 consumerAccountNumber:
                     _consumerAccountNumberController.text.trim(),
                 mobile: _mobileController.text.trim(),
+                plantThrough: _emptyToNull(_plantThroughController.text),
+                connectionType: _selectedConnectionType,
+                electricityBillLoad:
+                    double.tryParse(_electricityBillLoadController.text.trim()),
                 applicationSubmissionDate: _applicationDate,
                 proposedCapacity:
                     double.tryParse(_proposedCapacityController.text.trim()) ??

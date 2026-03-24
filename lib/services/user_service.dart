@@ -3,6 +3,20 @@ import '../core/constants/app_constants.dart';
 import 'supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class DeleteUserResult {
+  final bool accessRevoked;
+  final bool authDeleted;
+  final String? message;
+
+  const DeleteUserResult({
+    required this.accessRevoked,
+    required this.authDeleted,
+    this.message,
+  });
+
+  bool get fullyDeleted => accessRevoked && authDeleted;
+}
+
 class UserService {
   static Future<List<UserModel>> fetchAllUsers() async {
     final response = await SupabaseService.from(
@@ -55,7 +69,7 @@ class UserService {
         .eq('id', userId);
   }
 
-  static Future<void> deleteUser(UserModel user) async {
+  static Future<DeleteUserResult> deleteUser(UserModel user) async {
     final currentUserId = SupabaseService.currentUser?.id;
     if (currentUserId == user.id) {
       throw Exception('You cannot delete your own account while logged in.');
@@ -68,11 +82,15 @@ class UserService {
         'delete_user_account',
         params: {'target_user_id': user.id},
       );
+      return const DeleteUserResult(accessRevoked: true, authDeleted: true);
     } on PostgrestException catch (e) {
-      throw Exception(
-        'User access was removed, but full Supabase deletion failed. '
-        'Please add the `delete_user_account` SQL function in Supabase. '
-        'Original error: ${e.message}',
+      return DeleteUserResult(
+        accessRevoked: true,
+        authDeleted: false,
+        message:
+            'User access was removed, but full Supabase deletion failed. '
+            'Please add the `delete_user_account` SQL function in Supabase. '
+            'Original error: ${e.message}',
       );
     }
   }

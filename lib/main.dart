@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/constants/app_constants.dart';
+import 'providers/app_providers.dart';
 import 'services/supabase_service.dart';
 
 void main() async {
@@ -13,11 +14,13 @@ void main() async {
   runApp(const ProviderScope(child: DoonInfraApp()));
 }
 
-class DoonInfraApp extends StatelessWidget {
+class DoonInfraApp extends ConsumerWidget {
   const DoonInfraApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(realtimeSyncProvider);
+
     return MaterialApp.router(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,

@@ -876,13 +876,20 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
 
     setState(() => _deletingUserId = user.id);
     try {
-      await UserService.deleteUser(user);
+      final result = await UserService.deleteUser(user);
       await _loadUsers();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${user.displayName} deleted successfully'),
-            backgroundColor: AppTheme.successColor,
+            content: Text(
+              result.fullyDeleted
+                  ? '${user.displayName} deleted successfully'
+                  : '${user.displayName} access removed. Run the Supabase delete-user SQL to complete account deletion.',
+            ),
+            backgroundColor:
+                result.fullyDeleted
+                    ? AppTheme.successColor
+                    : AppTheme.warningColor,
           ),
         );
       }

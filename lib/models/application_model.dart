@@ -39,6 +39,9 @@ class ApplicationModel {
   final String mobile;
   final String? email;
   final String district;
+  final String? plantThrough;
+  final String? connectionType;
+  final double? electricityBillLoad;
   final DateTime applicationSubmissionDate;
   final String? scStStatus;
   final String circleName;
@@ -104,6 +107,9 @@ class ApplicationModel {
     required this.mobile,
     this.email,
     required this.district,
+    this.plantThrough,
+    this.connectionType,
+    this.electricityBillLoad,
     required this.applicationSubmissionDate,
     this.scStStatus,
     required this.circleName,
@@ -163,6 +169,10 @@ class ApplicationModel {
       mobile: json['mobile'] as String,
       email: json['email'] as String?,
       district: json['district'] as String,
+      plantThrough: json['plant_through'] as String?,
+      connectionType: json['connection_type'] as String?,
+      electricityBillLoad:
+          (json['electricity_bill_load'] as num?)?.toDouble(),
       applicationSubmissionDate: DateTime.parse(
         json['application_submission_date'] as String,
       ),
@@ -248,6 +258,9 @@ class ApplicationModel {
       'mobile': mobile,
       'email': email,
       'district': district,
+      'plant_through': plantThrough,
+      'connection_type': connectionType,
+      'electricity_bill_load': electricityBillLoad,
       'application_submission_date':
           applicationSubmissionDate.toIso8601String(),
       'sc_st_status': scStStatus,
@@ -308,6 +321,9 @@ class ApplicationModel {
     String? mobile,
     String? email,
     String? district,
+    String? plantThrough,
+    String? connectionType,
+    double? electricityBillLoad,
     DateTime? applicationSubmissionDate,
     String? scStStatus,
     String? circleName,
@@ -366,6 +382,9 @@ class ApplicationModel {
       mobile: mobile ?? this.mobile,
       email: email ?? this.email,
       district: district ?? this.district,
+      plantThrough: plantThrough ?? this.plantThrough,
+      connectionType: connectionType ?? this.connectionType,
+      electricityBillLoad: electricityBillLoad ?? this.electricityBillLoad,
       applicationSubmissionDate:
           applicationSubmissionDate ?? this.applicationSubmissionDate,
       scStStatus: scStStatus ?? this.scStStatus,

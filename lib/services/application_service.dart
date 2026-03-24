@@ -166,13 +166,19 @@ class ApplicationService {
     return result;
   }
 
-  static String generateApplicationNumber() {
-    final now = DateTime.now();
-    final month = now.month.toString().padLeft(2, '0');
-    final year = now.year.toString();
-    final random = (1000 + now.millisecondsSinceEpoch % 9000).toString();
+  static Future<String> generateApplicationNumber() async {
+    const startingNumber = 11011;
+    final applications = await fetchAllApplications();
 
-    return 'ID-DS/$month/$year/$random';
+    var maxNumber = startingNumber - 1;
+    for (final application in applications) {
+      final parsedNumber = int.tryParse(application.applicationNumber.trim());
+      if (parsedNumber != null && parsedNumber > maxNumber) {
+        maxNumber = parsedNumber;
+      }
+    }
+
+    return (maxNumber + 1).toString();
   }
 
   static Future<Map<String, dynamic>> getApplicationStats() async {

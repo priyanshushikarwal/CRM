@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'DoonInfra Solar Manager';
-  static const String appVersion = '1.0.13';
+  static const String appVersion = '1.0.17';
   static const String companyName = 'Doon Infrapower Projects Pvt. Ltd.';
 
   static const String supabaseUrl = 'https://mclanssbjbmcelunhpip.supabase.co';

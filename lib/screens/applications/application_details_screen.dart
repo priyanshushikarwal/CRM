@@ -326,6 +326,7 @@ class _ApplicationDetailsScreenState
                         _buildDetailRow('Full Address', app.address),
                         _buildDetailRow('District / State', '${app.district} / ${app.state}'),
                         _buildDetailRow('Discom', _optionalText(app.discomName)),
+                        _buildDetailRow('Plant Through', _optionalText(app.plantThrough)),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -352,6 +353,16 @@ class _ApplicationDetailsScreenState
                       'Technical Specifications',
                       Icons.solar_power_outlined,
                       [
+                        _buildDetailRow(
+                          'Connection Type',
+                          _optionalText(app.connectionType),
+                        ),
+                        _buildDetailRow(
+                          'Electricity Bill Load',
+                          app.electricityBillLoad != null
+                              ? '${app.electricityBillLoad} kW'
+                              : 'Option not available',
+                        ),
                         _buildDetailRow('Solar Plant Capacity', '${app.proposedCapacity} kWp', highlight: true),
                         _buildDetailRow('Sanctioned Load', '${app.sanctionedLoad} kW'),
                         _buildDetailRow('Category', app.categoryName),
@@ -2916,6 +2927,7 @@ class _ApplicationDetailsScreenState
     );
     PaymentMode selectedMode = payment.paymentMode;
     PaymentType selectedType = payment.paymentType;
+    DateTime selectedPaymentDate = payment.paymentDate;
 
     await showDialog(
       context: context,
@@ -2965,6 +2977,34 @@ class _ApplicationDetailsScreenState
                       setDialogState(() => selectedMode = value!),
                 ),
                 const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: selectedPaymentDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (pickedDate == null) return;
+                    setDialogState(() {
+                      selectedPaymentDate = DateTime(
+                        pickedDate.year,
+                        pickedDate.month,
+                        pickedDate.day,
+                      );
+                    });
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Payment Date *',
+                      prefixIcon: Icon(Icons.calendar_today_outlined),
+                    ),
+                    child: Text(
+                      DateFormat('dd/MM/yyyy').format(selectedPaymentDate),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: transactionController,
                   decoration: const InputDecoration(
@@ -3003,6 +3043,7 @@ class _ApplicationDetailsScreenState
                   amount: amount,
                   paymentMode: selectedMode,
                   paymentType: selectedType,
+                  paymentDate: selectedPaymentDate,
                   transactionNumber: transactionController.text.trim(),
                   remarks: remarksController.text.trim(),
                 );
@@ -3216,6 +3257,7 @@ class _ApplicationDetailsScreenState
     final remarksController = TextEditingController();
     PaymentMode selectedMode = PaymentMode.cash;
     PaymentType selectedType = PaymentType.partial;
+    DateTime selectedPaymentDate = DateTime.now();
 
     showDialog(
       context: context,
@@ -3244,6 +3286,34 @@ class _ApplicationDetailsScreenState
                   decoration: const InputDecoration(labelText: 'Payment Mode'),
                   items: PaymentMode.values.map((m) => DropdownMenuItem(value: m, child: Text(m.name.toUpperCase()))).toList(),
                   onChanged: (v) => setDialogState(() => selectedMode = v!),
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: selectedPaymentDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (pickedDate == null) return;
+                    setDialogState(() {
+                      selectedPaymentDate = DateTime(
+                        pickedDate.year,
+                        pickedDate.month,
+                        pickedDate.day,
+                      );
+                    });
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Payment Date *',
+                      prefixIcon: Icon(Icons.calendar_today_outlined),
+                    ),
+                    child: Text(
+                      DateFormat('dd/MM/yyyy').format(selectedPaymentDate),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -3283,7 +3353,7 @@ class _ApplicationDetailsScreenState
                   paymentMode: selectedMode,
                   paymentType: selectedType,
                   transactionNumber: transactionController.text.trim(),
-                  paymentDate: now,
+                  paymentDate: selectedPaymentDate,
                   remarks: remarksController.text.trim(),
                   collectedBy:
                       ref.read(currentUserProvider).value?.fullName ??

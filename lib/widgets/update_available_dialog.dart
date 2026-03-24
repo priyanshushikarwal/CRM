@@ -37,7 +37,9 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
     });
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final savePath = '${Directory.systemTemp.path}\\app_update_$timestamp.zip';
+    final packageExtension = _resolvePackageExtension(widget.downloadUrl);
+    final savePath =
+        '${Directory.systemTemp.path}\\app_update_$timestamp$packageExtension';
 
     try {
       await _updaterService.downloadUpdate(
@@ -63,9 +65,33 @@ class _UpdateAvailableDialogState extends State<UpdateAvailableDialog> {
       if (!mounted) return;
       setState(() {
         _state = _UpdateState.error;
-        _errorMessage = e.toString();
+        _errorMessage = _buildFriendlyErrorMessage(e);
       });
     }
+  }
+
+  String _resolvePackageExtension(String url) {
+    final path = Uri.tryParse(url)?.path.toLowerCase() ?? '';
+
+    if (path.endsWith('.exe')) {
+      return '.exe';
+    }
+
+    if (path.endsWith('.msi')) {
+      return '.msi';
+    }
+
+    return '.zip';
+  }
+
+  String _buildFriendlyErrorMessage(Object error) {
+    final message = error.toString();
+
+    if (message.contains('Status code: 404')) {
+      return 'Update file not found (404).\nURL: ${widget.downloadUrl}';
+    }
+
+    return message;
   }
 
   @override

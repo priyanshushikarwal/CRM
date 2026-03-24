@@ -20,6 +20,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isCollapsed = false;
+  bool _isGlobalRefreshing = false;
 
   @override
   void initState() {
@@ -445,6 +446,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             color: AppTheme.textSecondary,
             onPressed: () {},
           ),
+          IconButton(
+            icon:
+                _isGlobalRefreshing
+                    ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.sync_rounded, size: 20),
+            color: AppTheme.textSecondary,
+            tooltip: 'Refresh all data',
+            onPressed: _isGlobalRefreshing ? null : () => _handleGlobalRefresh(context),
+          ),
           Stack(
             children: [
               IconButton(
@@ -522,6 +536,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       await SupabaseService.signOut();
       if (context.mounted) {
         context.go('/login');
+      }
+    }
+  }
+
+  Future<void> _handleGlobalRefresh(BuildContext context) async {
+    setState(() => _isGlobalRefreshing = true);
+
+    try {
+      await ref.read(globalRefreshProvider)();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All data synced successfully.'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync failed: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isGlobalRefreshing = false);
       }
     }
   }

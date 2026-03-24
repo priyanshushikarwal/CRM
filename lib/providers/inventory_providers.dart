@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/inventory_model.dart';
 import '../services/inventory_service.dart';
+import 'refresh_providers.dart';
 
 class InventoryState {
   final List<PanelItem> panels;
@@ -48,7 +49,12 @@ class InventoryState {
 
 class InventoryNotifier extends Notifier<InventoryState> {
   @override
-  InventoryState build() => const InventoryState();
+  InventoryState build() {
+    ref.listen<int>(appDataRefreshProvider, (_, __) {
+      Future.microtask(loadAll);
+    });
+    return const InventoryState();
+  }
 
   String _normalizeSerial(String serial) => serial.trim().toUpperCase();
 
@@ -104,15 +110,23 @@ class InventoryNotifier extends Notifier<InventoryState> {
     print('Inventory: Starting loadAll...');
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final panels = await InventoryService.fetchPanels();
-      final inverters = await InventoryService.fetchInverters();
-      final meters = await InventoryService.fetchMeters();
-      final allotments = await InventoryService.fetchAllotments();
-      
-      // Load all invoices to show details
-      final pInvoices = await InventoryService.fetchInvoices(InventoryItemType.panel);
-      final iInvoices = await InventoryService.fetchInvoices(InventoryItemType.inverter);
-      final mInvoices = await InventoryService.fetchInvoices(InventoryItemType.meter);
+      final results = await Future.wait<dynamic>([
+        InventoryService.fetchPanels(),
+        InventoryService.fetchInverters(),
+        InventoryService.fetchMeters(),
+        InventoryService.fetchAllotments(),
+        InventoryService.fetchInvoices(InventoryItemType.panel),
+        InventoryService.fetchInvoices(InventoryItemType.inverter),
+        InventoryService.fetchInvoices(InventoryItemType.meter),
+      ]);
+
+      final panels = results[0] as List<PanelItem>;
+      final inverters = results[1] as List<InverterItem>;
+      final meters = results[2] as List<MeterItem>;
+      final allotments = results[3] as List<InventoryAllotment>;
+      final pInvoices = results[4] as List<InventoryInvoice>;
+      final iInvoices = results[5] as List<InventoryInvoice>;
+      final mInvoices = results[6] as List<InventoryInvoice>;
       
       state = state.copyWith(
         panels: panels,

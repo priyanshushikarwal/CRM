@@ -3,11 +3,41 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class UpdaterService {
+  Future<String> fetchText(String url) async {
+    final client = http.Client();
+    try {
+      final response = await client.get(Uri.parse(url));
+
+      if (response.statusCode != 200) {
+        throw Exception('Request failed. Status code: ${response.statusCode}');
+      }
+
+      return response.body;
+    } on HandshakeException catch (_) {
+      if (!Platform.isWindows) {
+        rethrow;
+      }
+
+      return _fetchTextWithPowerShell(url);
+    } catch (e) {
+      if (Platform.isWindows && _isTlsError(e)) {
+        return _fetchTextWithPowerShell(url);
+      }
+
+      rethrow;
+    } finally {
+      client.close();
+    }
+  }
+
   Future<void> downloadUpdate(
     String url,
     String savePath,
     void Function(double progress) onProgress,
   ) async {
+    final file = File(savePath);
+    await file.parent.create(recursive: true);
+
     final client = http.Client();
     try {
       final request = http.Request('GET', Uri.parse(url));
@@ -21,8 +51,6 @@ class UpdaterService {
 
       final totalBytes = response.contentLength ?? -1;
       int bytesReceived = 0;
-
-      final file = File(savePath);
       final sink = file.openWrite();
 
       await for (final chunk in response.stream) {
@@ -35,12 +63,103 @@ class UpdaterService {
 
       await sink.flush();
       await sink.close();
+    } on HandshakeException catch (_) {
+      await _deleteIfExists(file);
+
+      if (!Platform.isWindows) {
+        rethrow;
+      }
+
+      await _downloadWithPowerShell(url, savePath);
+      onProgress(1.0);
+    } catch (e) {
+      await _deleteIfExists(file);
+
+      if (Platform.isWindows && _isTlsError(e)) {
+        await _downloadWithPowerShell(url, savePath);
+        onProgress(1.0);
+        return;
+      }
+
+      rethrow;
     } finally {
       client.close();
     }
   }
 
-  Future<void> installUpdateAndRestart(String downloadedZipPath) async {
+  Future<void> _downloadWithPowerShell(String url, String savePath) async {
+    final result = await Process.run('powershell', [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      r"$ProgressPreference='SilentlyContinue'; "
+          r"Invoke-WebRequest -Uri $env:UPDATER_URL -OutFile $env:UPDATER_SAVE_PATH",
+    ], environment: {
+      'UPDATER_URL': url,
+      'UPDATER_SAVE_PATH': savePath,
+    });
+
+    if (result.exitCode != 0) {
+      final stderr = (result.stderr ?? '').toString().trim();
+      final stdout = (result.stdout ?? '').toString().trim();
+      final details = stderr.isNotEmpty ? stderr : stdout;
+      throw Exception(
+        details.isNotEmpty
+            ? 'Failed to download update via Windows downloader: $details'
+            : 'Failed to download update via Windows downloader.',
+      );
+    }
+  }
+
+  Future<String> _fetchTextWithPowerShell(String url) async {
+    final result = await Process.run('powershell', [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      r"$ProgressPreference='SilentlyContinue'; "
+          r"(Invoke-WebRequest -Uri $env:UPDATER_URL -UseBasicParsing).Content",
+    ], environment: {'UPDATER_URL': url});
+
+    if (result.exitCode != 0) {
+      final stderr = (result.stderr ?? '').toString().trim();
+      final stdout = (result.stdout ?? '').toString().trim();
+      final details = stderr.isNotEmpty ? stderr : stdout;
+      throw Exception(
+        details.isNotEmpty
+            ? 'Failed to fetch update manifest via Windows downloader: $details'
+            : 'Failed to fetch update manifest via Windows downloader.',
+      );
+    }
+
+    return (result.stdout ?? '').toString();
+  }
+
+  bool _isTlsError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('certificate_verify_failed') ||
+        message.contains('handshakeexception') ||
+        message.contains('certificate') && message.contains('issuer');
+  }
+
+  Future<void> _deleteIfExists(File file) async {
+    if (await file.exists()) {
+      await file.delete();
+    }
+  }
+
+  Future<void> installUpdateAndRestart(String downloadedPackagePath) async {
+    final packagePath = downloadedPackagePath.toLowerCase();
+    if (packagePath.endsWith('.exe')) {
+      await _runInstallerAndExit(downloadedPackagePath);
+      return;
+    }
+    if (packagePath.endsWith('.msi')) {
+      await _runMsiInstallerAndExit(downloadedPackagePath);
+      return;
+    }
+
     final currentExePath = Platform.resolvedExecutable;
     final appDir = File(currentExePath).parent.path;
 
@@ -49,7 +168,7 @@ class UpdaterService {
     final scriptContent = _generateUpdaterScript(
       currentExePath,
       appDir,
-      downloadedZipPath,
+      downloadedPackagePath,
     );
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -80,6 +199,27 @@ class UpdaterService {
         scriptPath,
       ]);
     }
+
+    exit(0);
+  }
+
+  Future<void> _runInstallerAndExit(String installerPath) async {
+    await Process.start(installerPath, [
+      '/VERYSILENT',
+      '/SUPPRESSMSGBOXES',
+      '/NORESTART',
+    ], mode: ProcessStartMode.detached);
+
+    exit(0);
+  }
+
+  Future<void> _runMsiInstallerAndExit(String installerPath) async {
+    await Process.start('msiexec', [
+      '/i',
+      installerPath,
+      '/quiet',
+      '/norestart',
+    ], mode: ProcessStartMode.detached);
 
     exit(0);
   }

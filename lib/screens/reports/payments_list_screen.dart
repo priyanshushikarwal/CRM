@@ -441,6 +441,7 @@ class PaymentsListScreen extends ConsumerWidget {
     );
     PaymentMode selectedMode = payment.paymentMode;
     PaymentType selectedType = payment.paymentType;
+    DateTime selectedPaymentDate = payment.paymentDate;
 
     await showDialog(
       context: context,
@@ -490,6 +491,34 @@ class PaymentsListScreen extends ConsumerWidget {
                       setDialogState(() => selectedMode = value!),
                 ),
                 const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: selectedPaymentDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (pickedDate == null) return;
+                    setDialogState(() {
+                      selectedPaymentDate = DateTime(
+                        pickedDate.year,
+                        pickedDate.month,
+                        pickedDate.day,
+                      );
+                    });
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Payment Date *',
+                      prefixIcon: Icon(Icons.calendar_today_outlined),
+                    ),
+                    child: Text(
+                      DateFormat('dd/MM/yyyy').format(selectedPaymentDate),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: transactionController,
                   decoration: const InputDecoration(
@@ -529,6 +558,7 @@ class PaymentsListScreen extends ConsumerWidget {
                     amount: amount,
                     paymentMode: selectedMode,
                     paymentType: selectedType,
+                    paymentDate: selectedPaymentDate,
                     transactionNumber: transactionController.text.trim(),
                     remarks: remarksController.text.trim(),
                   ),
