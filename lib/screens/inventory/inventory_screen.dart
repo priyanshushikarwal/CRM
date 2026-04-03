@@ -46,6 +46,30 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
     super.dispose();
   }
 
+  String _normalizeBrand(String brand) => brand.trim().toLowerCase();
+
+  String _displayBrandName(Iterable<String> brands) {
+    for (final brand in brands) {
+      final trimmed = brand.trim();
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return '';
+  }
+
+  List<String> _brandFilterItems(Iterable<String> brands) {
+    final displayByNormalized = <String, String>{};
+    for (final brand in brands) {
+      final normalized = _normalizeBrand(brand);
+      final trimmed = brand.trim();
+      if (normalized.isEmpty) continue;
+      displayByNormalized.putIfAbsent(normalized, () => trimmed);
+    }
+
+    final items = displayByNormalized.entries.toList()
+      ..sort((a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase()));
+    return items.map((entry) => entry.value).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final inventoryState = ref.watch(inventoryProvider);
@@ -250,7 +274,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           p.panelType.toLowerCase().contains(searchQuery) ||
           p.wattCapacity.toString().contains(searchQuery);
       final matchesBrand =
-          _panelBrandFilter == null || p.brand == _panelBrandFilter;
+          _panelBrandFilter == null ||
+          _normalizeBrand(p.brand) == _normalizeBrand(_panelBrandFilter!);
       final matchesType =
           _panelTypeFilter == null || p.panelType == _panelTypeFilter;
       final matchesStatus =
@@ -260,8 +285,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
 
     final Map<String, List<PanelItem>> groupedByBrand = {};
     for (var p in filteredPanels) {
-      groupedByBrand.putIfAbsent(p.brand, () => []);
-      groupedByBrand[p.brand]!.add(p);
+      final normalizedBrand = _normalizeBrand(p.brand);
+      groupedByBrand.putIfAbsent(normalizedBrand, () => []);
+      groupedByBrand[normalizedBrand]!.add(p);
     }
 
     if (groupedByBrand.isEmpty) {
@@ -280,8 +306,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
       spacing: 24,
       runSpacing: 24,
       children: groupedByBrand.entries.map((brandEntry) {
-        final brand = brandEntry.key;
         final panels = brandEntry.value;
+        final brand = _displayBrandName(panels.map((panel) => panel.brand));
         
         // Group by type and watt
         final Map<String, int> typeWattCounts = {};
@@ -432,8 +458,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
   }
 
   Widget _buildPanelInventory(InventoryState state) {
-    final brands =
-        state.panels.map((p) => p.brand).toSet().toList()..sort();
+    final brands = _brandFilterItems(state.panels.map((p) => p.brand));
     final types =
         state.panels.map((p) => p.panelType).toSet().toList()..sort();
 
@@ -492,8 +517,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
   }
 
   Widget _buildInverterInventory(InventoryState state) {
-    final brands =
-        state.inverters.map((i) => i.brand).toSet().toList()..sort();
+    final brands = _brandFilterItems(state.inverters.map((i) => i.brand));
     final types =
         state.inverters.map((i) => i.inverterType).toSet().toList()..sort();
 
@@ -562,7 +586,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           i.inverterType.toLowerCase().contains(searchQuery) ||
           i.capacityKw.toString().contains(searchQuery);
       final matchesBrand =
-          _inverterBrandFilter == null || i.brand == _inverterBrandFilter;
+          _inverterBrandFilter == null ||
+          _normalizeBrand(i.brand) == _normalizeBrand(_inverterBrandFilter!);
       final matchesType =
           _inverterTypeFilter == null || i.inverterType == _inverterTypeFilter;
       final matchesStatus =
@@ -572,8 +597,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
 
     final Map<String, List<InverterItem>> groupedByBrand = {};
     for (var i in filteredInverters) {
-      groupedByBrand.putIfAbsent(i.brand, () => []);
-      groupedByBrand[i.brand]!.add(i);
+      final normalizedBrand = _normalizeBrand(i.brand);
+      groupedByBrand.putIfAbsent(normalizedBrand, () => []);
+      groupedByBrand[normalizedBrand]!.add(i);
     }
 
     if (groupedByBrand.isEmpty) {
@@ -592,13 +618,16 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
       spacing: 24,
       runSpacing: 24,
       children: groupedByBrand.entries.map((brandEntry) {
-        final brand = brandEntry.key;
         final inverters = brandEntry.value;
+        final brand = _displayBrandName(
+          inverters.map((inverter) => inverter.brand),
+        );
         
         final Map<String, int> typeCapCounts = {};
         for (var i in inverters) {
           if (i.status == 'available') {
-            final key = '${i.inverterType} (${i.capacityKw} kW)';
+            final key =
+                '${i.inverterType} / ${i.inverterPhase} (${i.capacityKw} kW)';
             typeCapCounts[key] = (typeCapCounts[key] ?? 0) + 1;
           }
         }
@@ -670,7 +699,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
     bool canAllotInventory,
   ) {
     final canEditInventory = ref.watch(currentUserProvider).value?.canEdit ?? false;
-    final brands = state.meters.map((m) => m.brand).toSet().toList()..sort();
+    final brands = _brandFilterItems(state.meters.map((m) => m.brand));
     final categories =
         state.meters.map((m) => m.meterCategory).toSet().toList()..sort();
     final phases =
@@ -759,7 +788,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           m.meterType.toLowerCase().contains(searchQuery) ||
           m.meterPhase.toLowerCase().contains(searchQuery);
       final matchesBrand =
-          _meterBrandFilter == null || m.brand == _meterBrandFilter;
+          _meterBrandFilter == null ||
+          _normalizeBrand(m.brand) == _normalizeBrand(_meterBrandFilter!);
       final matchesCategory =
           _meterCategoryFilter == null ||
           m.meterCategory == _meterCategoryFilter;
@@ -776,8 +806,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
 
     final Map<String, List<MeterItem>> groupedByBrand = {};
     for (final meter in filteredMeters) {
-      groupedByBrand.putIfAbsent(meter.brand, () => []);
-      groupedByBrand[meter.brand]!.add(meter);
+      final normalizedBrand = _normalizeBrand(meter.brand);
+      groupedByBrand.putIfAbsent(normalizedBrand, () => []);
+      groupedByBrand[normalizedBrand]!.add(meter);
     }
 
     if (groupedByBrand.isEmpty) {
@@ -801,8 +832,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
       spacing: 24,
       runSpacing: 24,
       children: groupedByBrand.entries.map((brandEntry) {
-        final brand = brandEntry.key;
         final meters = brandEntry.value;
+        final brand = _displayBrandName(meters.map((meter) => meter.brand));
         final availableMeters =
             meters.where((meter) => meter.status == 'available').toList();
 
@@ -1293,6 +1324,7 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
   // Item Specifics
   String _inverterTypeSelection = 'On Grid';
   double _inverterCapacitySelection = 5.0;
+  String _inverterPhaseSelection = 'Single Phase';
   String _meterFullTypeSelection = 'Normal Net Meter';
   String _meterPhaseSelection = 'Single Phase';
 
@@ -1355,6 +1387,7 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
           brand: _brandController.text,
           capacityKw: _inverterCapacitySelection,
           inverterType: _inverterTypeSelection,
+          inverterPhase: _inverterPhaseSelection,
         );
       } else if (_selectedType == InventoryItemType.meter) {
         if (_meterSerials.isEmpty) return;
@@ -1497,6 +1530,15 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
             items: ['On Grid', 'Hybrid', 'Off Grid'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
             onChanged: (v) => setState(() => _inverterTypeSelection = v!),
             decoration: const InputDecoration(labelText: 'Inverter Type'),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _inverterPhaseSelection,
+            items: ['Single Phase', 'Three Phase']
+                .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                .toList(),
+            onChanged: (v) => setState(() => _inverterPhaseSelection = v!),
+            decoration: const InputDecoration(labelText: 'Inverter Phase'),
           ),
           const SizedBox(height: 12),
           TextFormField(

@@ -29,6 +29,8 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
   String? _selectedPhase;
   String? _selectedStatus;
 
+  String _normalizeBrand(String brand) => brand.trim().toLowerCase();
+
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).value;
@@ -37,7 +39,9 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
     final canEditInventory = currentUser?.canEdit ?? false;
     final currentMeters =
         inventoryState.meters
-            .where((m) => m.brand == widget.brandName)
+            .where(
+              (m) => _normalizeBrand(m.brand) == _normalizeBrand(widget.brandName),
+            )
             .toList();
 
     final filteredMeters =
@@ -381,94 +385,192 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
   }
 
   Future<void> _showEditMeterDialog(MeterItem meter) async {
+    final inventoryState = ref.read(inventoryProvider);
+    final linkedInvoice =
+        meter.invoiceId == null
+            ? null
+            : inventoryState.invoices
+                .cast<InventoryInvoice?>()
+                .firstWhere(
+                  (invoice) => invoice?.id == meter.invoiceId,
+                  orElse: () => null,
+                );
     final brandController = TextEditingController(text: meter.brand);
+    final partyController = TextEditingController(text: linkedInvoice?.partyName ?? '');
+    final invoiceNumberController = TextEditingController(
+      text: linkedInvoice?.invoiceNumber ?? '',
+    );
+    final receivedByController = TextEditingController(
+      text: linkedInvoice?.receivedBy ?? '',
+    );
+    final priceController = TextEditingController(
+      text: linkedInvoice?.price?.toString() ?? '',
+    );
     String selectedCategory = meter.meterCategory;
     String selectedType = _displayMeterType(meter.meterType);
     String selectedPhase = meter.meterPhase;
     String selectedStatus = meter.status;
+    DateTime selectedInvoiceDate = linkedInvoice?.invoiceDate ?? DateTime.now();
 
-    final updated = await showDialog<MeterItem>(
+    final shouldSave = await showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
             backgroundColor: const Color(0xFFFFFBF5),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             title: const Text('Edit Meter'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: brandController,
-                  decoration: const InputDecoration(labelText: 'Brand'),
+            content: StatefulBuilder(
+              builder: (context, setDialogState) => SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: brandController,
+                      decoration: const InputDecoration(labelText: 'Brand'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedCategory,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                      items: const ['Net Meter', 'Solar Meter']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                      onChanged:
+                          (value) => selectedCategory = value ?? selectedCategory,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedType,
+                      decoration: const InputDecoration(labelText: 'Type'),
+                      items: const ['Normal', 'LT CT', 'HT CT']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                      onChanged: (value) => selectedType = value ?? selectedType,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedPhase,
+                      decoration: const InputDecoration(labelText: 'Phase'),
+                      items: const ['Single Phase', 'Three Phase']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                      onChanged: (value) => selectedPhase = value ?? selectedPhase,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      decoration: const InputDecoration(labelText: 'Status'),
+                      items: const ['available', 'allotted']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                      onChanged: (value) => selectedStatus = value ?? selectedStatus,
+                    ),
+                    if (linkedInvoice != null) ...[
+                      const SizedBox(height: 18),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Purchase Details',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: partyController,
+                        decoration: const InputDecoration(labelText: 'Party Name'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: invoiceNumberController,
+                        decoration: const InputDecoration(labelText: 'Invoice Number'),
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedInvoiceDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now().add(
+                              const Duration(days: 365),
+                            ),
+                          );
+                          if (picked != null) {
+                            setDialogState(() => selectedInvoiceDate = picked);
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(labelText: 'Invoice Date'),
+                          child: Text(
+                            '${selectedInvoiceDate.day}/${selectedInvoiceDate.month}/${selectedInvoiceDate.year}',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: receivedByController,
+                        decoration: const InputDecoration(labelText: 'Received By'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: priceController,
+                        decoration: const InputDecoration(labelText: 'Price'),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Purchase details update all inventory items linked to this invoice.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: const InputDecoration(labelText: 'Category'),
-                  items: const ['Net Meter', 'Solar Meter']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (value) => selectedCategory = value ?? selectedCategory,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedType,
-                  decoration: const InputDecoration(labelText: 'Type'),
-                  items: const ['Normal', 'LT CT', 'HT CT']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (value) => selectedType = value ?? selectedType,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedPhase,
-                  decoration: const InputDecoration(labelText: 'Phase'),
-                  items: const ['Single Phase', 'Three Phase']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (value) => selectedPhase = value ?? selectedPhase,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedStatus,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                  items: const ['available', 'allotted']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (value) => selectedStatus = value ?? selectedStatus,
-                ),
-              ],
+              ),
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(context, false),
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(
-                    context,
-                    meter.copyWith(
-                      brand: brandController.text.trim(),
-                      meterCategory: selectedCategory,
-                      meterType:
-                          selectedType == 'LT CT'
-                              ? 'LTCT'
-                              : selectedType == 'HT CT'
-                                  ? 'HTCT'
-                                  : selectedType,
-                      meterPhase: selectedPhase,
-                      status: selectedStatus,
-                    ),
-                  );
-                },
+                onPressed: () => Navigator.pop(context, true),
                 child: const Text('Save'),
               ),
             ],
           ),
     );
 
-    if (updated == null) return;
+    if (shouldSave != true) return;
+    final updated = meter.copyWith(
+      brand: brandController.text.trim(),
+      meterCategory: selectedCategory,
+      meterType:
+          selectedType == 'LT CT'
+              ? 'LTCT'
+              : selectedType == 'HT CT'
+                  ? 'HTCT'
+                  : selectedType,
+      meterPhase: selectedPhase,
+      status: selectedStatus,
+    );
+    if (linkedInvoice != null) {
+      await ref.read(inventoryProvider.notifier).updateInvoice(
+        linkedInvoice.copyWith(
+          partyName: partyController.text.trim(),
+          invoiceNumber: invoiceNumberController.text.trim(),
+          invoiceDate: selectedInvoiceDate,
+          receivedBy: receivedByController.text.trim(),
+          clearReceivedBy: receivedByController.text.trim().isEmpty,
+          price: double.tryParse(priceController.text.trim()),
+          clearPrice: priceController.text.trim().isEmpty,
+        ),
+      );
+    }
     await ref.read(inventoryProvider.notifier).updateMeter(updated);
   }
 

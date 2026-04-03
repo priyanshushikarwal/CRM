@@ -25,7 +25,10 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
   String _searchSerial = '';
   String? _selectedCapacity;
   String? _selectedType; // On Grid, Hybrid, Off Grid
+  String? _selectedPhase; // Single Phase, Three Phase
   String? _selectedStatus; // available, allotted
+
+  String _normalizeBrand(String brand) => brand.trim().toLowerCase();
 
   @override
   Widget build(BuildContext context) {
@@ -35,14 +38,17 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
     final canEditInventory = currentUser?.canEdit ?? false;
     final currentInverters =
         inventoryState.inverters
-            .where((i) => i.brand == widget.brandName)
+            .where(
+              (i) => _normalizeBrand(i.brand) == _normalizeBrand(widget.brandName),
+            )
             .toList();
     final filteredInverters = currentInverters.where((i) {
       final matchesSerial = i.serialNumber.toLowerCase().contains(_searchSerial.toLowerCase());
       final matchesCapacity = _selectedCapacity == null || i.capacityKw.toString() == _selectedCapacity;
       final matchesType = _selectedType == null || i.inverterType == _selectedType;
+      final matchesPhase = _selectedPhase == null || i.inverterPhase == _selectedPhase;
       final matchesStatus = _selectedStatus == null || i.status == _selectedStatus;
-      return matchesSerial && matchesCapacity && matchesType && matchesStatus;
+      return matchesSerial && matchesCapacity && matchesType && matchesPhase && matchesStatus;
     }).toList()
       ..sort((a, b) {
         int c = a.inverterType.compareTo(b.inverterType);
@@ -55,6 +61,7 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
 
     final capacities = currentInverters.map((i) => i.capacityKw.toString()).toSet().toList()..sort();
     final types = currentInverters.map((i) => i.inverterType).toSet().toList()..sort();
+    final phases = currentInverters.map((i) => i.inverterPhase).toSet().toList()..sort();
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -209,6 +216,12 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
                         onChanged: (v) => setState(() => _selectedType = v),
                       ),
                       _buildFilterDropdown(
+                        hint: 'Phase',
+                        value: _selectedPhase,
+                        items: phases,
+                        onChanged: (v) => setState(() => _selectedPhase = v),
+                      ),
+                      _buildFilterDropdown(
                         hint: 'Status',
                         value: _selectedStatus,
                         items: const ['available', 'allotted'],
@@ -225,6 +238,7 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
                             _searchSerial = '';
                             _selectedCapacity = null;
                             _selectedType = null;
+                            _selectedPhase = null;
                             _selectedStatus = null;
                           }),
                           icon: const Icon(Icons.refresh_rounded),
@@ -259,6 +273,7 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
                             DataColumn(label: Text('Serial No.', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Capacity', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Phase', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Purchase From', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Invoice / Date', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -270,6 +285,7 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
                               DataCell(Text(i.serialNumber, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
                               DataCell(Text('${i.capacityKw}kW')),
                               DataCell(Text(i.inverterType)),
+                              DataCell(Text(i.inverterPhase)),
                               DataCell(_StatusBadge(status: i.status)),
                               DataCell(Text(invoice?.partyName ?? 'N/A')),
                               DataCell(
@@ -324,60 +340,175 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
   }
 
   Future<void> _showEditInverterDialog(InverterItem inverter) async {
+    final inventoryState = ref.read(inventoryProvider);
+    final linkedInvoice =
+        inverter.invoiceId == null
+            ? null
+            : inventoryState.invoices
+                .cast<InventoryInvoice?>()
+                .firstWhere(
+                  (invoice) => invoice?.id == inverter.invoiceId,
+                  orElse: () => null,
+                );
     final brandController = TextEditingController(text: inverter.brand);
     final capacityController = TextEditingController(text: inverter.capacityKw.toString());
+    final partyController = TextEditingController(text: linkedInvoice?.partyName ?? '');
+    final invoiceNumberController = TextEditingController(
+      text: linkedInvoice?.invoiceNumber ?? '',
+    );
+    final receivedByController = TextEditingController(
+      text: linkedInvoice?.receivedBy ?? '',
+    );
+    final priceController = TextEditingController(
+      text: linkedInvoice?.price?.toString() ?? '',
+    );
     String selectedType = inverter.inverterType;
+    String selectedPhase = inverter.inverterPhase;
     String selectedStatus = inverter.status;
+    DateTime selectedInvoiceDate = linkedInvoice?.invoiceDate ?? DateTime.now();
 
-    final updated = await showDialog<InverterItem>(
+    final shouldSave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFFF7FCFC),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Edit Inverter'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: brandController, decoration: const InputDecoration(labelText: 'Brand')),
-            const SizedBox(height: 12),
-            TextField(controller: capacityController, decoration: const InputDecoration(labelText: 'Capacity (kW)'), keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: selectedType,
-              decoration: const InputDecoration(labelText: 'Type'),
-              items: const ['On Grid', 'Hybrid', 'Off Grid'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              onChanged: (value) => selectedType = value ?? selectedType,
+        content: StatefulBuilder(
+          builder: (context, setDialogState) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: brandController,
+                  decoration: const InputDecoration(labelText: 'Brand'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: capacityController,
+                  decoration: const InputDecoration(labelText: 'Capacity (kW)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  items: const ['On Grid', 'Hybrid', 'Off Grid']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => selectedType = value ?? selectedType,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedPhase,
+                  decoration: const InputDecoration(labelText: 'Phase'),
+                  items: const ['Single Phase', 'Three Phase']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => selectedPhase = value ?? selectedPhase,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const ['available', 'allotted']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => selectedStatus = value ?? selectedStatus,
+                ),
+                if (linkedInvoice != null) ...[
+                  const SizedBox(height: 18),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Purchase Details',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: partyController,
+                    decoration: const InputDecoration(labelText: 'Party Name'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: invoiceNumberController,
+                    decoration: const InputDecoration(labelText: 'Invoice Number'),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedInvoiceDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => selectedInvoiceDate = picked);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(labelText: 'Invoice Date'),
+                      child: Text(
+                        '${selectedInvoiceDate.day}/${selectedInvoiceDate.month}/${selectedInvoiceDate.year}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: receivedByController,
+                    decoration: const InputDecoration(labelText: 'Received By'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: priceController,
+                    decoration: const InputDecoration(labelText: 'Price'),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Purchase details update all inventory items linked to this invoice.',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: selectedStatus,
-              decoration: const InputDecoration(labelText: 'Status'),
-              items: const ['available', 'allotted'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              onChanged: (value) => selectedStatus = value ?? selectedStatus,
-            ),
-          ],
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(
-                context,
-                inverter.copyWith(
-                  brand: brandController.text.trim(),
-                  capacityKw: double.tryParse(capacityController.text.trim()) ?? inverter.capacityKw,
-                  inverterType: selectedType,
-                  status: selectedStatus,
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Save'),
           ),
         ],
       ),
     );
 
-    if (updated == null) return;
+    if (shouldSave != true) return;
+    final updated = inverter.copyWith(
+      brand: brandController.text.trim(),
+      capacityKw: double.tryParse(capacityController.text.trim()) ?? inverter.capacityKw,
+      inverterType: selectedType,
+      inverterPhase: selectedPhase,
+      status: selectedStatus,
+    );
+    if (linkedInvoice != null) {
+      await ref.read(inventoryProvider.notifier).updateInvoice(
+        linkedInvoice.copyWith(
+          partyName: partyController.text.trim(),
+          invoiceNumber: invoiceNumberController.text.trim(),
+          invoiceDate: selectedInvoiceDate,
+          receivedBy: receivedByController.text.trim(),
+          clearReceivedBy: receivedByController.text.trim().isEmpty,
+          price: double.tryParse(priceController.text.trim()),
+          clearPrice: priceController.text.trim().isEmpty,
+        ),
+      );
+    }
     await ref.read(inventoryProvider.notifier).updateInverter(updated);
   }
 

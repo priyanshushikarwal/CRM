@@ -896,7 +896,7 @@ class _ApplicationDetailsScreenState
         final item = inventoryState.inverters.firstWhere((i) => i.id == allotment.itemId);
         return {
           'serial': item.serialNumber,
-          'details': '${item.brand} - ${item.capacityKw}kW (${item.inverterType})',
+          'details': '${item.brand} - ${item.capacityKw}kW (${item.inverterType}, ${item.inverterPhase})',
         };
       }
       final item = inventoryState.meters.firstWhere((m) => m.id == allotment.itemId);
@@ -1302,7 +1302,7 @@ class _ApplicationDetailsScreenState
               Expanded(flex: 3, child: Text('FILE NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
               Expanded(child: Text('UPLOADED BY / DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
               Expanded(child: Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-              SizedBox(width: 120, child: Text('ACTIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary), textAlign: TextAlign.right)),
+              SizedBox(width: 160, child: Text('ACTIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary), textAlign: TextAlign.right)),
             ],
           ),
         ),
@@ -1360,7 +1360,7 @@ class _ApplicationDetailsScreenState
                   ),
                 ),
                 SizedBox(
-                  width: 120,
+                  width: 160,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -1370,6 +1370,15 @@ class _ApplicationDetailsScreenState
                       if (canEditApplication && doc.verificationStatus == 'pending') ...[
                         const SizedBox(width: 16),
                         IconButton(icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: Colors.green), onPressed: () => _updateDocumentStatus(doc.id, 'verified'), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                      ],
+                      if (canEditApplication) ...[
+                        const SizedBox(width: 16),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.errorColor),
+                          onPressed: () => _confirmDeleteDocument(doc),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       ],
                     ],
                   ),
@@ -1432,6 +1441,49 @@ class _ApplicationDetailsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.errorColor),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteDocument(DocumentModel doc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Document'),
+        content: Text('Delete "${doc.fileName}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await DocumentService.deleteDocument(doc);
+      ref.invalidate(documentsProvider(widget.applicationId));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Document deleted successfully.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Delete failed: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
         );
       }
     }

@@ -27,6 +27,8 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
   String? _selectedType; // DCR, NDCR
   String? _selectedStatus; // available, allotted
 
+  String _normalizeBrand(String brand) => brand.trim().toLowerCase();
+
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider).value;
@@ -35,7 +37,9 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
     final canEditInventory = currentUser?.canEdit ?? false;
     final currentPanels =
         inventoryState.panels
-            .where((p) => p.brand == widget.brandName)
+            .where(
+              (p) => _normalizeBrand(p.brand) == _normalizeBrand(widget.brandName),
+            )
             .toList();
     final filteredPanels = currentPanels.where((p) {
       final matchesSerial = p.serialNumber.toLowerCase().contains(_searchSerial.toLowerCase());
@@ -369,60 +373,164 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
   }
 
   Future<void> _showEditPanelDialog(PanelItem panel) async {
+    final inventoryState = ref.read(inventoryProvider);
+    final linkedInvoice =
+        panel.invoiceId == null
+            ? null
+            : inventoryState.invoices
+                .cast<InventoryInvoice?>()
+                .firstWhere(
+                  (invoice) => invoice?.id == panel.invoiceId,
+                  orElse: () => null,
+                );
     final brandController = TextEditingController(text: panel.brand);
     final wattController = TextEditingController(text: panel.wattCapacity.toString());
+    final partyController = TextEditingController(text: linkedInvoice?.partyName ?? '');
+    final invoiceNumberController = TextEditingController(
+      text: linkedInvoice?.invoiceNumber ?? '',
+    );
+    final receivedByController = TextEditingController(
+      text: linkedInvoice?.receivedBy ?? '',
+    );
+    final priceController = TextEditingController(
+      text: linkedInvoice?.price?.toString() ?? '',
+    );
     String selectedType = panel.panelType;
     String selectedStatus = panel.status;
+    DateTime selectedInvoiceDate = linkedInvoice?.invoiceDate ?? DateTime.now();
 
-    final updated = await showDialog<PanelItem>(
+    final shouldSave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFFF7F9FF),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Edit Panel'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: brandController, decoration: const InputDecoration(labelText: 'Brand')),
-            const SizedBox(height: 12),
-            TextField(controller: wattController, decoration: const InputDecoration(labelText: 'Watt Capacity'), keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: selectedType,
-              decoration: const InputDecoration(labelText: 'Type'),
-              items: const ['DCR', 'NDCR'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              onChanged: (value) => selectedType = value ?? selectedType,
+        content: StatefulBuilder(
+          builder: (context, setDialogState) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: brandController,
+                  decoration: const InputDecoration(labelText: 'Brand'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: wattController,
+                  decoration: const InputDecoration(labelText: 'Watt Capacity'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  items: const ['DCR', 'NDCR']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => selectedType = value ?? selectedType,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const ['available', 'allotted']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (value) => selectedStatus = value ?? selectedStatus,
+                ),
+                if (linkedInvoice != null) ...[
+                  const SizedBox(height: 18),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Purchase Details',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: partyController,
+                    decoration: const InputDecoration(labelText: 'Party Name'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: invoiceNumberController,
+                    decoration: const InputDecoration(labelText: 'Invoice Number'),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedInvoiceDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => selectedInvoiceDate = picked);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(labelText: 'Invoice Date'),
+                      child: Text(
+                        '${selectedInvoiceDate.day}/${selectedInvoiceDate.month}/${selectedInvoiceDate.year}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: receivedByController,
+                    decoration: const InputDecoration(labelText: 'Received By'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: priceController,
+                    decoration: const InputDecoration(labelText: 'Price'),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Purchase details update all inventory items linked to this invoice.',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: selectedStatus,
-              decoration: const InputDecoration(labelText: 'Status'),
-              items: const ['available', 'allotted'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              onChanged: (value) => selectedStatus = value ?? selectedStatus,
-            ),
-          ],
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(
-                context,
-                panel.copyWith(
-                  brand: brandController.text.trim(),
-                  wattCapacity: int.tryParse(wattController.text.trim()) ?? panel.wattCapacity,
-                  panelType: selectedType,
-                  status: selectedStatus,
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Save'),
           ),
         ],
       ),
     );
 
-    if (updated == null) return;
+    if (shouldSave != true) return;
+    final updated = panel.copyWith(
+      brand: brandController.text.trim(),
+      wattCapacity: int.tryParse(wattController.text.trim()) ?? panel.wattCapacity,
+      panelType: selectedType,
+      status: selectedStatus,
+    );
+    if (linkedInvoice != null) {
+      await ref.read(inventoryProvider.notifier).updateInvoice(
+        linkedInvoice.copyWith(
+          partyName: partyController.text.trim(),
+          invoiceNumber: invoiceNumberController.text.trim(),
+          invoiceDate: selectedInvoiceDate,
+          receivedBy: receivedByController.text.trim(),
+          clearReceivedBy: receivedByController.text.trim().isEmpty,
+          price: double.tryParse(priceController.text.trim()),
+          clearPrice: priceController.text.trim().isEmpty,
+        ),
+      );
+    }
     await ref.read(inventoryProvider.notifier).updatePanel(updated);
   }
 

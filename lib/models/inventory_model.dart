@@ -50,6 +50,30 @@ class InventoryInvoice {
     };
   }
 
+  InventoryInvoice copyWith({
+    String? id,
+    String? invoiceNumber,
+    DateTime? invoiceDate,
+    String? partyName,
+    double? price,
+    bool clearPrice = false,
+    String? receivedBy,
+    bool clearReceivedBy = false,
+    InventoryItemType? itemType,
+    DateTime? createdAt,
+  }) {
+    return InventoryInvoice(
+      id: id ?? this.id,
+      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
+      invoiceDate: invoiceDate ?? this.invoiceDate,
+      partyName: partyName ?? this.partyName,
+      price: clearPrice ? null : (price ?? this.price),
+      receivedBy: clearReceivedBy ? null : (receivedBy ?? this.receivedBy),
+      itemType: itemType ?? this.itemType,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
 }
 
 @immutable
@@ -129,6 +153,7 @@ class InverterItem {
   final String brand;
   final double capacityKw;
   final String inverterType; // On Grid, Hybrid, Off Grid
+  final String inverterPhase; // Single Phase, Three Phase
   final String status;
   final DateTime createdAt;
 
@@ -139,6 +164,7 @@ class InverterItem {
     required this.brand,
     required this.capacityKw,
     required this.inverterType,
+    required this.inverterPhase,
     required this.status,
     required this.createdAt,
   });
@@ -151,6 +177,7 @@ class InverterItem {
       brand: json['brand'] as String,
       capacityKw: (json['capacity_kw'] as num).toDouble(),
       inverterType: json['inverter_type'] as String,
+      inverterPhase: json['inverter_phase'] as String? ?? 'Single Phase',
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -163,6 +190,7 @@ class InverterItem {
       'brand': brand,
       'capacity_kw': capacityKw,
       'inverter_type': inverterType,
+      'inverter_phase': inverterPhase,
       'status': status,
     };
   }
@@ -174,6 +202,7 @@ class InverterItem {
     String? brand,
     double? capacityKw,
     String? inverterType,
+    String? inverterPhase,
     String? status,
     DateTime? createdAt,
   }) {
@@ -184,6 +213,7 @@ class InverterItem {
       brand: brand ?? this.brand,
       capacityKw: capacityKw ?? this.capacityKw,
       inverterType: inverterType ?? this.inverterType,
+      inverterPhase: inverterPhase ?? this.inverterPhase,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
     );

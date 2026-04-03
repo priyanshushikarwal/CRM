@@ -40,6 +40,12 @@ class InventoryService {
     return (response as List).map((e) => InventoryInvoice.fromJson(e)).toList();
   }
 
+  static Future<void> updateInvoice(InventoryInvoice invoice) async {
+    await SupabaseService.from(AppConstants.inventoryInvoicesTable)
+        .update(invoice.toJson())
+        .eq('id', invoice.id);
+  }
+
   // --- Panel Items ---
   static Future<void> addPanelItems(List<PanelItem> items) async {
     await SupabaseService.from(AppConstants.panelItemsTable)

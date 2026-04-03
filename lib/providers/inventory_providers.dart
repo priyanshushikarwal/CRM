@@ -189,6 +189,7 @@ class InventoryNotifier extends Notifier<InventoryState> {
     required String brand,
     required double capacityKw,
     required String inverterType,
+    required String inverterPhase,
   }) async {
     state = state.copyWith(isLoading: true);
     try {
@@ -214,6 +215,7 @@ class InventoryNotifier extends Notifier<InventoryState> {
         brand: brand,
         capacityKw: capacityKw,
         inverterType: inverterType,
+        inverterPhase: inverterPhase,
         status: 'available',
         createdAt: DateTime.now(),
       )).toList();
@@ -281,6 +283,16 @@ class InventoryNotifier extends Notifier<InventoryState> {
     state = state.copyWith(isLoading: true);
     try {
       await InventoryService.updatePanelItem(item);
+      await loadAll();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> updateInvoice(InventoryInvoice invoice) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      await InventoryService.updateInvoice(invoice);
       await loadAll();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

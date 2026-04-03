@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS inverter_items (
     brand TEXT NOT NULL,
     capacity_kw NUMERIC(8,2) NOT NULL,
     inverter_type TEXT NOT NULL CHECK (inverter_type IN ('On Grid', 'Hybrid', 'Off Grid')),
+    inverter_phase TEXT NOT NULL DEFAULT 'Single Phase' CHECK (inverter_phase IN ('Single Phase', 'Three Phase')),
     status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'allotted')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
