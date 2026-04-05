@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../core/config/app_mode.dart';
 import '../core/theme/app_theme.dart';
 import '../core/constants/app_constants.dart';
 
@@ -107,7 +108,9 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Solar Manager',
+                          AppModeConfig.isInventoryOnly
+                              ? 'Inventory'
+                              : 'Solar Manager',
                           style: AppTextStyles.heading3.copyWith(
                             color: Colors.white.withValues(alpha: 0.9),
                             fontWeight: FontWeight.w400,

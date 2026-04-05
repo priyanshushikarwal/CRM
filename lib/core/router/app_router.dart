@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../config/app_mode.dart';
 import '../../screens/splash_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
@@ -51,184 +52,176 @@ Future<UserModel?> _getCurrentUserAccess() async {
 }
 
 String _defaultRouteForUser(UserModel? user) {
-  if (user == null) return '/applications';
-  if (user.canViewDashboard) return '/dashboard';
-  if (user.canAccessApplications) return '/applications';
-  if (user.canAccessPayments) return '/payments';
-  if (user.canAccessInventory) {
-    return '/inventory';
-  }
-  return '/login';
+  return AppModeConfig.defaultRouteForUser(user);
 }
 
-final appRouter = GoRouter(
-  navigatorKey: _rootNavigatorKey,
-  initialLocation: '/',
-  redirect: (context, state) async {
-    final isLoggedIn = SupabaseService.isLoggedIn || DemoSession.isActive;
-    final isAuthRoute =
-        state.matchedLocation == '/login' ||
-        state.matchedLocation == '/register';
-    final isSplash = state.matchedLocation == '/';
+GoRouter createAppRouter() {
+  return GoRouter(
+    navigatorKey: _rootNavigatorKey,
+    initialLocation: '/',
+    redirect: (context, state) async {
+      final isLoggedIn = SupabaseService.isLoggedIn || DemoSession.isActive;
+      final isLoginRoute = state.matchedLocation == '/login';
+      final isRegisterRoute = state.matchedLocation == '/register';
+      final isAuthRoute = isLoginRoute || isRegisterRoute;
+      final isSplash = state.matchedLocation == '/';
 
-    if (isSplash) return null;
+      if (isSplash) return null;
 
-    if (!isLoggedIn && !isAuthRoute) {
-      return '/login';
-    }
-
-    if (DemoSession.isActive) {
-      if (isLoggedIn && isAuthRoute) {
-        return '/applications';
+      if (AppModeConfig.isInventoryOnly && isRegisterRoute) {
+        return '/login';
       }
-      return null;
-    }
 
-    final user = await _getCurrentUserAccess();
-    final defaultRoute = _defaultRouteForUser(user);
+      if (!isLoggedIn && !isAuthRoute) {
+        return '/login';
+      }
 
-    final hasAnyModuleAccess =
-        user == null ||
-        user.isAdmin ||
-        user.canAccessApplications ||
-        user.canAccessPayments ||
-        user.canAccessInventory;
-
-    if (isLoggedIn && isAuthRoute) {
-      if (!hasAnyModuleAccess) {
+      if (DemoSession.isActive) {
+        if (AppModeConfig.isInventoryOnly) {
+          return isLoggedIn && isAuthRoute ? '/inventory' : null;
+        }
+        if (isLoggedIn && isAuthRoute) {
+          return '/applications';
+        }
         return null;
       }
-      return defaultRoute;
-    }
 
-    if (user == null || user.isAdmin) {
+      final user = await _getCurrentUserAccess();
+      final defaultRoute = _defaultRouteForUser(user);
+
+      final hasAnyModuleAccess = AppModeConfig.hasAnyModuleAccess(user);
+
+      if (isLoggedIn && isAuthRoute) {
+        if (!hasAnyModuleAccess) {
+          return null;
+        }
+        return defaultRoute;
+      }
+
+      if (user == null || user.isAdmin) {
+        return null;
+      }
+
+      final allowedRoutes = AppModeConfig.allowedRoutesForUser(user);
+
+      if (allowedRoutes.isEmpty) {
+        return '/login';
+      }
+
+      if (!_matchesAllowedRoute(state.matchedLocation, allowedRoutes)) {
+        return defaultRoute;
+      }
+
       return null;
-    }
-
-    final allowedRoutes = <String>[];
-    if (user.canAccessApplications) {
-      allowedRoutes.add('/applications');
-    }
-    if (user.canAccessPayments) {
-      allowedRoutes.add('/payments');
-    }
-    if (user.canAccessInventory) {
-      allowedRoutes.add('/inventory');
-    }
-
-    if (allowedRoutes.isEmpty) {
-      return '/login';
-    }
-
-    if (!_matchesAllowedRoute(state.matchedLocation, allowedRoutes)) {
-      return defaultRoute;
-    }
-
-    return null;
-  },
-  routes: [
-    GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
-    GoRoute(
-      path: '/login',
-      name: 'login',
-      builder: (context, state) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/register',
-      name: 'register',
-      builder: (context, state) => const RegisterScreen(),
-    ),
-    ShellRoute(
-      builder: (context, state, child) => DashboardScreen(child: child),
-      routes: [
+    },
+    routes: [
+      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+      GoRoute(
+        path: '/login',
+        name: 'login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      if (!AppModeConfig.isInventoryOnly)
         GoRoute(
-          path: '/dashboard',
-          name: 'dashboard',
-          pageBuilder:
-              (context, state) =>
-                  const NoTransitionPage(child: DashboardOverviewContent()),
+          path: '/register',
+          name: 'register',
+          builder: (context, state) => const RegisterScreen(),
         ),
-        GoRoute(
-          path: '/applications',
-          name: 'applications',
-          pageBuilder:
-              (context, state) =>
-                  const NoTransitionPage(child: ApplicationsListScreen()),
-          routes: [
+      ShellRoute(
+        builder: (context, state, child) => DashboardScreen(child: child),
+        routes: [
+          if (!AppModeConfig.isInventoryOnly) ...[
             GoRoute(
-              path: 'add',
-              name: 'add-application',
-              builder: (context, state) => const AddApplicationScreen(),
+              path: '/dashboard',
+              name: 'dashboard',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: DashboardOverviewContent()),
             ),
             GoRoute(
-              path: ':id',
-              name: 'application-details',
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return ApplicationDetailsScreen(applicationId: id);
-              },
+              path: '/applications',
+              name: 'applications',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: ApplicationsListScreen()),
+              routes: [
+                GoRoute(
+                  path: 'add',
+                  name: 'add-application',
+                  builder: (context, state) => const AddApplicationScreen(),
+                ),
+                GoRoute(
+                  path: ':id',
+                  name: 'application-details',
+                  builder: (context, state) {
+                    final id = state.pathParameters['id']!;
+                    return ApplicationDetailsScreen(applicationId: id);
+                  },
+                ),
+                GoRoute(
+                  path: ':id/edit',
+                  name: 'edit-application',
+                  builder: (context, state) {
+                    final id = state.pathParameters['id']!;
+                    return AddApplicationScreen(applicationId: id);
+                  },
+                ),
+              ],
             ),
             GoRoute(
-              path: ':id/edit',
-              name: 'edit-application',
-              builder: (context, state) {
-                final id = state.pathParameters['id']!;
-                return AddApplicationScreen(applicationId: id);
-              },
+              path: '/users',
+              name: 'users',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: UserManagementScreen()),
+            ),
+            GoRoute(
+              path: '/pending-approvals',
+              name: 'pending-approvals',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: PendingApprovalsScreen()),
             ),
           ],
-        ),
-        GoRoute(
-          path: '/users',
-          name: 'users',
-          pageBuilder:
-              (context, state) =>
-                  const NoTransitionPage(child: UserManagementScreen()),
-        ),
-        GoRoute(
-          path: '/pending-approvals',
-          name: 'pending-approvals',
-          pageBuilder:
-              (context, state) =>
-                  const NoTransitionPage(child: PendingApprovalsScreen()),
-        ),
-        GoRoute(
-          path: '/inventory',
-          name: 'inventory',
-          pageBuilder:
-              (context, state) =>
-                  const NoTransitionPage(child: InventoryScreen()),
-        ),
-        GoRoute(
-          path: '/reports',
-          name: 'reports',
-          pageBuilder:
-              (context, state) => const NoTransitionPage(
-                child: ReportsScreen(),
-              ),
-        ),
-        GoRoute(
-          path: '/settings',
-          name: 'settings',
-          pageBuilder:
-              (context, state) =>
-                  const NoTransitionPage(child: SettingsScreen()),
-        ),
-        GoRoute(
-          path: '/installations',
-          name: 'installations',
-          pageBuilder:
-              (context, state) =>
-                  const NoTransitionPage(child: InstallationsListScreen()),
-        ),
-        GoRoute(
-          path: '/payments',
-          name: 'payments',
-          pageBuilder:
-              (context, state) =>
-                  const NoTransitionPage(child: PaymentsListScreen()),
-        ),
-      ],
-    ),
-  ],
-);
+          GoRoute(
+            path: '/inventory',
+            name: 'inventory',
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: InventoryScreen()),
+          ),
+          if (!AppModeConfig.isInventoryOnly) ...[
+            GoRoute(
+              path: '/reports',
+              name: 'reports',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: ReportsScreen()),
+            ),
+            GoRoute(
+              path: '/settings',
+              name: 'settings',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: SettingsScreen()),
+            ),
+            GoRoute(
+              path: '/installations',
+              name: 'installations',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: InstallationsListScreen()),
+            ),
+            GoRoute(
+              path: '/payments',
+              name: 'payments',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: PaymentsListScreen()),
+            ),
+          ],
+        ],
+      ),
+    ],
+  );
+}

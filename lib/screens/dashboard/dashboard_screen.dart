@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../core/config/app_mode.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/user_model.dart';
@@ -28,7 +29,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final currentUser = await ref.read(currentUserProvider.future);
       if (!mounted || currentUser == null) return;
-      if (currentUser.canAccessApplications || currentUser.canViewDashboard) {
+      if (!AppModeConfig.isInventoryOnly &&
+          (currentUser.canAccessApplications || currentUser.canViewDashboard)) {
         ref.read(applicationsProvider.notifier).loadApplications();
       }
     });
@@ -91,6 +93,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildSidebar(BuildContext context, bool isCollapsed) {
     final currentLocation = GoRouterState.of(context).matchedLocation;
+    final inventoryOnly = AppModeConfig.isInventoryOnly;
 
     return Container(
       color: Colors.white,
@@ -124,9 +127,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 if (!isCollapsed) ...[
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'DoonInfra',
+                      inventoryOnly ? 'Inventory' : 'DoonInfra',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
@@ -159,12 +162,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 final canAccessInventory =
                     currentUser?.canAccessInventory ?? false;
                 final isAdmin = currentUser?.isAdmin ?? false;
+                final inventoryOnly = AppModeConfig.isInventoryOnly;
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
                     children: [
-                      if (canViewDashboard) ...[
+                      if (!inventoryOnly && canViewDashboard) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.grid_view_rounded,
@@ -175,7 +179,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (canAccessApplications) ...[
+                      if (!inventoryOnly && canAccessApplications) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.layers_rounded,
@@ -186,7 +190,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (canManageInstallations) ...[
+                      if (!inventoryOnly && canManageInstallations) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.settings_input_component_rounded,
@@ -197,7 +201,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (canAccessPayments) ...[
+                      if (!inventoryOnly && canAccessPayments) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.receipt_long_rounded,
@@ -208,7 +212,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (canManageUsers) ...[
+                      if (!inventoryOnly && canManageUsers) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.verified_user_rounded,
@@ -239,7 +243,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (canViewDashboard) ...[
+                      if (!inventoryOnly && canViewDashboard) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.analytics_rounded,
@@ -250,7 +254,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (isAdmin) ...[
+                      if (!inventoryOnly && isAdmin) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.settings_rounded,
@@ -398,12 +402,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildTopBar(BuildContext context, bool isDesktop, bool isMobile) {
     final currentLocation = GoRouterState.of(context).matchedLocation;
-    String title = 'Dashboard';
+    String title = AppModeConfig.isInventoryOnly ? 'Inventory' : 'Dashboard';
 
-    if (currentLocation.startsWith('/applications')) {
+    if (!AppModeConfig.isInventoryOnly &&
+        currentLocation.startsWith('/applications')) {
       title = 'Applications';
     } else if (currentLocation == '/inventory') {
-      title = 'Inventory & Factory Management';
+      title = AppModeConfig.isInventoryOnly
+          ? 'Inventory Operations'
+          : 'Inventory & Factory Management';
     } else if (currentLocation == '/reports') {
       title = 'Reports';
     } else if (currentLocation == '/settings') {
@@ -442,11 +449,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.search_rounded, size: 20),
-            color: AppTheme.textSecondary,
-            onPressed: () {},
-          ),
-          IconButton(
             icon:
                 _isGlobalRefreshing
                     ? const SizedBox(
@@ -459,27 +461,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             tooltip: 'Refresh all data',
             onPressed: _isGlobalRefreshing ? null : () => _handleGlobalRefresh(context),
           ),
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined, size: 22),
-                color: AppTheme.textSecondary,
-                onPressed: () {},
-              ),
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.errorColor,
-                    shape: BoxShape.circle,
+          if (!AppModeConfig.isInventoryOnly) ...[
+            IconButton(
+              icon: const Icon(Icons.search_rounded, size: 20),
+              color: AppTheme.textSecondary,
+              onPressed: () {},
+            ),
+            Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined, size: 22),
+                  color: AppTheme.textSecondary,
+                  onPressed: () {},
+                ),
+                Positioned(
+                  right: 12,
+                  top: 12,
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.errorColor,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

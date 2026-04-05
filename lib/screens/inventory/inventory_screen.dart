@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/inventory_model.dart';
 import '../../providers/inventory_providers.dart';
@@ -1334,7 +1336,32 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
     _receivedByController.text = ref.read(currentUserProvider).value?.fullName ?? '';
   }
 
+  @override
+  void dispose() {
+    _invoiceController.dispose();
+    _partyController.dispose();
+    _brandController.dispose();
+    _receivedByController.dispose();
+    _serialController.dispose();
+    _capacityController.dispose();
+    super.dispose();
+  }
+
   String _normalizeSerial(String serial) => serial.trim().toUpperCase();
+
+  bool get _supportsBarcodeScan {
+    if (kIsWeb) return true;
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return true;
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        return false;
+    }
+  }
 
   bool _containsSerial(List<String> serials, String serial) {
     final normalizedSerial = _normalizeSerial(serial);
@@ -1354,6 +1381,54 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
         _serialController.clear();
       });
     }
+  }
+
+  void _showDuplicateSerialMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Duplicate serial number in list')),
+    );
+  }
+
+  void _addSimpleSerial(List<String> target, String serial) {
+    final sn = serial.trim();
+    if (sn.isEmpty) return;
+    if (_containsSerial(target, sn)) {
+      _showDuplicateSerialMessage();
+      return;
+    }
+    setState(() {
+      target.add(sn);
+      _serialController.clear();
+    });
+  }
+
+  Future<void> _scanAndHandleSerial({
+    required void Function(String serial) onScanned,
+  }) async {
+    if (!_supportsBarcodeScan) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Barcode scanning is supported on Android, iPhone, macOS, and Web only.')),
+      );
+      return;
+    }
+
+    final scannedValue = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => const _BarcodeScannerDialog(),
+    );
+
+    if (!mounted || scannedValue == null) return;
+
+    final normalized = scannedValue.trim();
+    if (normalized.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No serial number found in scanned code')),
+      );
+      return;
+    }
+
+    onScanned(normalized);
   }
 
 
@@ -1600,6 +1675,26 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
                 keyboardType: TextInputType.number,
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner, color: AppTheme.primaryColor),
+              tooltip: 'Scan barcode',
+              onPressed: () => _scanAndHandleSerial(
+                onScanned: (serial) {
+                  if (_panelEntries.any((e) => _normalizeSerial(e['serial'] as String) == _normalizeSerial(serial))) {
+                    _showDuplicateSerialMessage();
+                    return;
+                  }
+                  setState(() {
+                    _panelEntries.add({
+                      'serial': serial,
+                      'capacity': int.tryParse(_capacityController.text) ?? 540,
+                      'type': type,
+                    });
+                    _serialController.clear();
+                  });
+                },
+              ),
+            ),
             IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => _addPanelEntry(type)),
           ],
         ),
@@ -1634,32 +1729,19 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
               child: TextField(
                 controller: _serialController,
                 decoration: const InputDecoration(hintText: 'Enter Serial Number'),
-                onSubmitted: (_) {
-                  final sn = _serialController.text.trim();
-                  if (sn.isNotEmpty && !_containsSerial(target, sn)) {
-                    setState(() => target.add(sn));
-                    _serialController.clear();
-                  } else if (sn.isNotEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Duplicate serial number in list')),
-                    );
-                  }
-                },
+                onSubmitted: (_) => _addSimpleSerial(target, _serialController.text),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner, color: AppTheme.primaryColor),
+              tooltip: 'Scan barcode',
+              onPressed: () => _scanAndHandleSerial(
+                onScanned: (serial) => _addSimpleSerial(target, serial),
               ),
             ),
             IconButton(
               icon: const Icon(Icons.add), 
-              onPressed: () {
-                final sn = _serialController.text.trim();
-                if (sn.isNotEmpty && !_containsSerial(target, sn)) {
-                  setState(() => target.add(sn));
-                  _serialController.clear();
-                } else if (sn.isNotEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Duplicate serial number in list')),
-                  );
-                }
-              }
+              onPressed: () => _addSimpleSerial(target, _serialController.text),
             ),
           ],
         ),
@@ -1670,6 +1752,71 @@ class _AddInventoryDialogState extends ConsumerState<_AddInventoryDialog> {
             label: Text(sn, style: const TextStyle(fontSize: 10)),
             onDeleted: () => setState(() => target.remove(sn)),
           )).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _BarcodeScannerDialog extends StatefulWidget {
+  const _BarcodeScannerDialog();
+
+  @override
+  State<_BarcodeScannerDialog> createState() => _BarcodeScannerDialogState();
+}
+
+class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
+  bool _handled = false;
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+
+    for (final barcode in capture.barcodes) {
+      final value = barcode.rawValue?.trim();
+      if (value != null && value.isNotEmpty) {
+        _handled = true;
+        Navigator.of(context).pop(value);
+        return;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Scan Barcode'),
+      content: SizedBox(
+        width: 340,
+        height: 340,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              MobileScanner(
+                onDetect: _onDetect,
+              ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  width: double.infinity,
+                  color: Colors.black54,
+                  padding: const EdgeInsets.all(12),
+                  child: const Text(
+                    'Barcode ko frame ke andar layein. Scan hote hi serial number add ho jayega.',
+                    style: TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
         ),
       ],
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/config/app_mode.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/router/app_router.dart';
@@ -27,22 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   static const String _defaultPassword = '12345678';
 
   String _getLandingRouteForUser(UserModel? user) {
-    if (user == null) {
-      return '/applications';
-    }
-    if (user.canViewDashboard) {
-      return '/dashboard';
-    }
-    if (user.canAccessApplications) {
-      return '/applications';
-    }
-    if (user.canAccessPayments) {
-      return '/payments';
-    }
-    if (user.canAccessInventory) {
-      return '/inventory';
-    }
-    return '/login';
+    return AppModeConfig.defaultRouteForUser(user);
   }
 
   @override
@@ -70,7 +56,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final enteredEmail = _emailController.text.trim();
     final enteredPassword = _passwordController.text;
-    if (enteredEmail == _defaultEmail && enteredPassword == _defaultPassword) {
+    if (!AppModeConfig.isInventoryOnly &&
+        enteredEmail == _defaultEmail &&
+        enteredPassword == _defaultPassword) {
       await Future.delayed(const Duration(milliseconds: 500)); // brief UX pause
       DemoSession.start(); // mark demo session so router allows navigation
       if (mounted) {
@@ -111,6 +99,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               setState(() {
                 _errorMessage =
                     'Your account has been deactivated. Please contact the administrator.';
+              });
+              return;
+            }
+
+            if (AppModeConfig.isInventoryOnly &&
+                !loggedInUser.canAccessInventory) {
+              await SupabaseService.signOut();
+              setState(() {
+                _errorMessage =
+                    'Inventory app access is not enabled for your account. Please ask admin to grant inventory access.';
               });
               return;
             }
@@ -172,6 +170,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 800;
+    final isInventoryOnly = AppModeConfig.isInventoryOnly;
 
     return Scaffold(
       body: Row(
@@ -214,7 +213,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             const SizedBox(height: 32),
                             Text(
-                              'DoonInfra\nSolar Manager',
+                              AppModeConfig.appHeadline,
                               style: AppTextStyles.heading1.copyWith(
                                 color: Colors.white,
                                 fontSize: 42,
@@ -223,7 +222,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Manage your solar rooftop applications\nefficiently with our comprehensive solution.',
+                              AppModeConfig.appSubtitle,
                               style: AppTextStyles.bodyLarge.copyWith(
                                 color: Colors.white.withOpacity(0.8),
                                 height: 1.6,
@@ -231,13 +230,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             const SizedBox(height: 48),
                             _buildFeatureItem(
-                              Icons.dashboard_rounded,
-                              'Real-time Dashboard',
+                              isInventoryOnly
+                                  ? Icons.inventory_2_rounded
+                                  : Icons.dashboard_rounded,
+                              isInventoryOnly
+                                  ? 'Inventory Control'
+                                  : 'Real-time Dashboard',
                             ),
                             const SizedBox(height: 16),
                             _buildFeatureItem(
-                              Icons.track_changes_rounded,
-                              'Application Tracking',
+                              isInventoryOnly
+                                  ? Icons.qr_code_scanner_rounded
+                                  : Icons.track_changes_rounded,
+                              isInventoryOnly
+                                  ? 'Barcode Scanning'
+                                  : 'Application Tracking',
                             ),
                             const SizedBox(height: 16),
                             _buildFeatureItem(
@@ -247,7 +254,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             const SizedBox(height: 16),
                             _buildFeatureItem(
                               Icons.security_rounded,
-                              'Secure & Reliable',
+                              isInventoryOnly
+                                  ? 'Inventory Access Only'
+                                  : 'Secure & Reliable',
                             ),
                           ],
                         ),
@@ -310,7 +319,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Sign in to continue managing your applications',
+                            AppModeConfig.loginSubtitle,
                             style: AppTextStyles.bodyMedium.copyWith(
                               color: AppTheme.textSecondary,
                             ),
@@ -428,95 +437,97 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Don't have an account? ",
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => context.go('/register'),
-                                child: Text(
-                                  'Sign Up',
+                          if (!isInventoryOnly) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  "Don't have an account? ",
                                   style: AppTextStyles.bodySmall.copyWith(
-                                    color: AppTheme.primaryColor,
-                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textSecondary,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 32),
-                          GestureDetector(
-                            onTap: _fillDemoCredentials,
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AppTheme.primaryColor.withOpacity(0.3),
+                                TextButton(
+                                  onPressed: () => context.go('/register'),
+                                  child: Text(
+                                    'Sign Up',
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.admin_panel_settings_rounded,
-                                        size: 18,
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Admin Login',
-                                        style: AppTextStyles.bodySmall.copyWith(
+                              ],
+                            ),
+                            const SizedBox(height: 32),
+                            GestureDetector(
+                              onTap: _fillDemoCredentials,
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppTheme.primaryColor.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.admin_panel_settings_rounded,
+                                          size: 18,
                                           color: AppTheme.primaryColor,
-                                          fontWeight: FontWeight.w700,
                                         ),
-                                      ),
-                                      const Spacer(),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primaryColor,
-                                          borderRadius: BorderRadius.circular(
-                                            20,
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Admin Login',
+                                          style: AppTextStyles.bodySmall.copyWith(
+                                            color: AppTheme.primaryColor,
+                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
-                                        child: Text(
-                                          'Tap to fill',
-                                          style: AppTextStyles.caption.copyWith(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w600,
+                                        const Spacer(),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryColor,
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Tap to fill',
+                                            style: AppTextStyles.caption.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildCredentialRow(
-                                    Icons.email_outlined,
-                                    'Email',
-                                    _defaultEmail,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  _buildCredentialRow(
-                                    Icons.lock_outlined,
-                                    'Password',
-                                    _defaultPassword,
-                                  ),
-                                ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildCredentialRow(
+                                      Icons.email_outlined,
+                                      'Email',
+                                      _defaultEmail,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    _buildCredentialRow(
+                                      Icons.lock_outlined,
+                                      'Password',
+                                      _defaultPassword,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),

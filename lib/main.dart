@@ -1,28 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'core/config/app_mode.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
-import 'core/constants/app_constants.dart';
 import 'providers/app_providers.dart';
 import 'services/supabase_service.dart';
 
 void main() async {
+  await bootstrapApp(AppMode.full);
+}
+
+Future<void> bootstrapApp(AppMode mode) async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  AppModeConfig.setMode(mode);
   await SupabaseService.initialize();
-  runApp(const ProviderScope(child: DoonInfraApp()));
+  runApp(ProviderScope(child: DoonInfraApp()));
 }
 
 class DoonInfraApp extends ConsumerWidget {
-  const DoonInfraApp({super.key});
+  DoonInfraApp({super.key});
+
+  final router = createAppRouter();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(realtimeSyncProvider);
 
     return MaterialApp.router(
-      title: AppConstants.appName,
+      title: AppModeConfig.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme.copyWith(
         textTheme: GoogleFonts.interTextTheme(AppTheme.lightTheme.textTheme),
@@ -31,7 +38,7 @@ class DoonInfraApp extends ConsumerWidget {
         textTheme: GoogleFonts.interTextTheme(AppTheme.darkTheme.textTheme),
       ),
       themeMode: ThemeMode.light,
-      routerConfig: appRouter,
+      routerConfig: router,
     );
   }
 }
