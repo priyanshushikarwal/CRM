@@ -23,6 +23,7 @@ class BrandDetailsDialog extends ConsumerStatefulWidget {
 
 class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
   String _searchSerial = '';
+  bool _filtersExpanded = false;
   String? _selectedWatt;
   String? _selectedType; // DCR, NDCR
   String? _selectedStatus; // available, allotted
@@ -31,6 +32,7 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 720;
     final currentUser = ref.watch(currentUserProvider).value;
     final inventoryState = ref.watch(inventoryProvider);
     final canAllotInventory = currentUser?.canAllotInventory ?? false;
@@ -63,15 +65,18 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 10 : 20,
+        vertical: isCompact ? 12 : 28,
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
             width: 1080,
-            height: 680,
-            padding: const EdgeInsets.all(24),
+            height: isCompact ? MediaQuery.of(context).size.height * 0.88 : 680,
+            padding: EdgeInsets.all(isCompact ? 16 : 24),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(32),
               gradient: LinearGradient(
@@ -151,22 +156,42 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                _buildTotalBadge(
-                                  'Available Balance',
-                                  totalAvailable,
-                                  const Color(0xFF16A34A),
-                                ),
-                                _buildTotalBadge(
-                                  'Allotted',
-                                  totalAllotted,
-                                  const Color(0xFFF59E0B),
-                                ),
-                              ],
-                            ),
+                            isCompact
+                                ? Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildMobileStatTile(
+                                          count: totalAvailable,
+                                          label: 'AVAILABLE',
+                                          color: const Color(0xFF22C55E),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _buildMobileStatTile(
+                                          count: totalAllotted,
+                                          label: 'ALLOTTED',
+                                          color: const Color(0xFFFB923C),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      _buildTotalBadge(
+                                        'Available Balance',
+                                        totalAvailable,
+                                        const Color(0xFF16A34A),
+                                      ),
+                                      _buildTotalBadge(
+                                        'Allotted',
+                                        totalAllotted,
+                                        const Color(0xFFF59E0B),
+                                      ),
+                                    ],
+                                  ),
                           ],
                         ),
                       ),
@@ -192,78 +217,189 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                     color: Colors.white.withOpacity(0.32),
                     border: Border.all(color: Colors.white.withOpacity(0.42)),
                   ),
-                  child: Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 380,
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Search by serial number',
-                            prefixIcon: const Icon(Icons.search_rounded),
-                            isDense: true,
-                            filled: true,
-                            fillColor: Colors.white.withOpacity(0.7),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide.none,
+                  child: isCompact
+                      ? Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    decoration: InputDecoration(
+                                      hintText: 'Search by serial number',
+                                      prefixIcon: const Icon(Icons.search_rounded),
+                                      isDense: true,
+                                      filled: true,
+                                      fillColor: Colors.white.withOpacity(0.7),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: BorderSide(
+                                          color: Colors.white.withOpacity(0.35),
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF6366F1),
+                                        ),
+                                      ),
+                                    ),
+                                    onChanged: (v) => setState(() => _searchSerial = v),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.75),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: Colors.white.withOpacity(0.4)),
+                                  ),
+                                  child: IconButton(
+                                    onPressed: () => setState(() => _filtersExpanded = !_filtersExpanded),
+                                    icon: Icon(
+                                      _filtersExpanded
+                                          ? Icons.filter_alt_off_rounded
+                                          : Icons.filter_alt_rounded,
+                                    ),
+                                    color: const Color(0xFF4F46E5),
+                                  ),
+                                ),
+                              ],
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide(
-                                color: Colors.white.withOpacity(0.35),
+                            AnimatedCrossFade(
+                              duration: const Duration(milliseconds: 180),
+                              crossFadeState: _filtersExpanded
+                                  ? CrossFadeState.showFirst
+                                  : CrossFadeState.showSecond,
+                              firstChild: Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Column(
+                                  children: [
+                                    _buildFilterDropdown(
+                                      hint: 'Watt',
+                                      value: _selectedWatt,
+                                      items: watts,
+                                      onChanged: (v) => setState(() => _selectedWatt = v),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildFilterDropdown(
+                                      hint: 'Type (DCR/NDCR)',
+                                      value: _selectedType,
+                                      items: types,
+                                      onChanged: (v) => setState(() => _selectedType = v),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildFilterDropdown(
+                                      hint: 'Status',
+                                      value: _selectedStatus,
+                                      items: const ['available', 'allotted'],
+                                      onChanged: (v) => setState(() => _selectedStatus = v),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.75),
+                                          borderRadius: BorderRadius.circular(18),
+                                          border: Border.all(color: Colors.white.withOpacity(0.4)),
+                                        ),
+                                        child: IconButton(
+                                          onPressed: () => setState(() {
+                                            _searchSerial = '';
+                                            _selectedWatt = null;
+                                            _selectedType = null;
+                                            _selectedStatus = null;
+                                            _filtersExpanded = false;
+                                          }),
+                                          icon: const Icon(Icons.refresh_rounded),
+                                          tooltip: 'Clear Filters',
+                                          color: const Color(0xFF4F46E5),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              secondChild: const SizedBox.shrink(),
+                            ),
+                          ],
+                        )
+                      : Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 380,
+                              child: TextField(
+                                decoration: InputDecoration(
+                                  hintText: 'Search by serial number',
+                                  prefixIcon: const Icon(Icons.search_rounded),
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.7),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide(
+                                      color: Colors.white.withOpacity(0.35),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF6366F1),
+                                    ),
+                                  ),
+                                ),
+                                onChanged: (v) => setState(() => _searchSerial = v),
                               ),
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF6366F1),
+                            _buildFilterDropdown(
+                              hint: 'Watt',
+                              value: _selectedWatt,
+                              items: watts,
+                              onChanged: (v) => setState(() => _selectedWatt = v),
+                            ),
+                            _buildFilterDropdown(
+                              hint: 'Type (DCR/NDCR)',
+                              value: _selectedType,
+                              items: types,
+                              onChanged: (v) => setState(() => _selectedType = v),
+                            ),
+                            _buildFilterDropdown(
+                              hint: 'Status',
+                              value: _selectedStatus,
+                              items: const ['available', 'allotted'],
+                              onChanged: (v) => setState(() => _selectedStatus = v),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.75),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: Colors.white.withOpacity(0.4)),
+                              ),
+                              child: IconButton(
+                                onPressed: () => setState(() {
+                                  _searchSerial = '';
+                                  _selectedWatt = null;
+                                  _selectedType = null;
+                                  _selectedStatus = null;
+                                }),
+                                icon: const Icon(Icons.refresh_rounded),
+                                tooltip: 'Clear Filters',
+                                color: const Color(0xFF4F46E5),
                               ),
                             ),
-                          ),
-                          onChanged: (v) => setState(() => _searchSerial = v),
+                          ],
                         ),
-                      ),
-                      _buildFilterDropdown(
-                        hint: 'Watt',
-                        value: _selectedWatt,
-                        items: watts,
-                        onChanged: (v) => setState(() => _selectedWatt = v),
-                      ),
-                      _buildFilterDropdown(
-                        hint: 'Type (DCR/NDCR)',
-                        value: _selectedType,
-                        items: types,
-                        onChanged: (v) => setState(() => _selectedType = v),
-                      ),
-                      _buildFilterDropdown(
-                        hint: 'Status',
-                        value: _selectedStatus,
-                        items: const ['available', 'allotted'],
-                        onChanged: (v) => setState(() => _selectedStatus = v),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.75),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: Colors.white.withOpacity(0.4)),
-                        ),
-                        child: IconButton(
-                          onPressed: () => setState(() {
-                            _searchSerial = '';
-                            _selectedWatt = null;
-                            _selectedType = null;
-                            _selectedStatus = null;
-                          }),
-                          icon: const Icon(Icons.refresh_rounded),
-                          tooltip: 'Clear Filters',
-                          color: const Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
                 const SizedBox(height: 18),
                 Expanded(
@@ -282,9 +418,158 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(26),
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
-                        child: DataTable(
+                      child: isCompact
+                          ? ListView.builder(
+                              padding: const EdgeInsets.all(12),
+                              itemCount: filteredPanels.length,
+                              itemBuilder: (context, index) {
+                                final p = filteredPanels[index];
+                                final invoice = inventoryState.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == p.invoiceId, orElse: () => null);
+                                final isAvailable = p.status == 'available';
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.94),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(color: Colors.white.withOpacity(0.78)),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0x14172333),
+                                        blurRadius: 16,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'SERIAL NUMBER',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.8,
+                                          color: Color(0xFF9AA6B6),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              p.serialNumber,
+                                              style: const TextStyle(
+                                                fontSize: 17,
+                                                fontWeight: FontWeight.w800,
+                                                color: Color(0xFF1E293B),
+                                                height: 1.1,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          _buildCompactStatusBadge(
+                                            p.status.toUpperCase(),
+                                            isAvailable
+                                                ? const Color(0xFF4ADE80)
+                                                : const Color(0xFFFB923C),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildCompactDetail(
+                                              'Wattage',
+                                              '${p.wattCapacity}W',
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: _buildCompactDetail(
+                                              'Type',
+                                              p.panelType,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildCompactDetail(
+                                              'Purchase Date',
+                                              invoice != null
+                                                  ? '${invoice.invoiceDate.day} ${_monthShort(invoice.invoiceDate.month)} ${invoice.invoiceDate.year}'
+                                                  : '-',
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: _buildCompactDetail(
+                                              'Invoice #',
+                                              invoice?.invoiceNumber ?? '-',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.description_outlined,
+                                            size: 15,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          const Expanded(
+                                            child: Text(
+                                              'View Details',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF4B5563),
+                                              ),
+                                            ),
+                                          ),
+                                          if (isAvailable && canAllotInventory)
+                                            _buildActionIcon(
+                                              icon: Icons.assignment_ind_rounded,
+                                              color: const Color(0xFF4F46E5),
+                                              onTap: () => _showAllotmentDialog(
+                                                context,
+                                                p.id,
+                                                InventoryItemType.panel,
+                                              ),
+                                            ),
+                                          if (canEditInventory) ...[
+                                            const SizedBox(width: 8),
+                                            _buildActionIcon(
+                                              icon: Icons.edit_rounded,
+                                              color: const Color(0xFF6B7280),
+                                              onTap: () => _showEditPanelDialog(p),
+                                            ),
+                                          ],
+                                          if (canEditInventory) ...[
+                                            const SizedBox(width: 8),
+                                            _buildActionIcon(
+                                              icon: Icons.delete_outline_rounded,
+                                              color: AppTheme.errorColor,
+                                              onTap: () => _confirmDeletePanel(p),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            )
+                          : SingleChildScrollView(
+                              padding: const EdgeInsets.all(12),
+                              child: DataTable(
                           headingRowHeight: 56,
                           dataRowMinHeight: 60,
                           dataRowMaxHeight: 72,
@@ -347,8 +632,8 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                               ),
                             ]);
                           }).toList(),
-                        ),
-                      ),
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -370,6 +655,162 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
       context: context,
       builder: (context) => _AllotmentDialog(itemId: itemId, itemType: type),
     );
+  }
+
+  Widget _buildMetaRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 68,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileStatTile({
+    required int count,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withOpacity(0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactDetail(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.7,
+            color: Color(0xFF9AA6B6),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1F2937),
+            height: 1.2,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactStatusBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.16),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.7,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionIcon({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFFF3F4F6),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(icon, size: 17, color: color),
+        ),
+      ),
+    );
+  }
+
+  String _monthShort(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    if (month < 1 || month > 12) return '';
+    return months[month - 1];
   }
 
   Future<void> _showEditPanelDialog(PanelItem panel) async {

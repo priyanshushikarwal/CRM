@@ -1,0 +1,39 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Inventory App",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "run",
+        "--flavor",
+        "inventory",
+        "-t",
+        "lib/main_inventory.dart"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Inventory APK (Release)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "apk",
+        "--flavor",
+        "inventory",
+        "-t",
+        "lib/main_inventory.dart",
+        "--release"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -23,6 +23,7 @@ class InverterDetailsDialog extends ConsumerStatefulWidget {
 
 class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
   String _searchSerial = '';
+  bool _filtersExpanded = false;
   String? _selectedCapacity;
   String? _selectedType; // On Grid, Hybrid, Off Grid
   String? _selectedPhase; // Single Phase, Three Phase
@@ -32,6 +33,7 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 720;
     final currentUser = ref.watch(currentUserProvider).value;
     final inventoryState = ref.watch(inventoryProvider);
     final canAllotInventory = currentUser?.canAllotInventory ?? false;
@@ -72,8 +74,8 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
             width: 1080,
-            height: 680,
-            padding: const EdgeInsets.all(24),
+            height: isCompact ? MediaQuery.of(context).size.height * 0.82 : 680,
+            padding: EdgeInsets.all(isCompact ? 18 : 24),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(32),
               gradient: LinearGradient(
@@ -174,79 +176,193 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
                     color: Colors.white.withOpacity(0.32),
                     border: Border.all(color: Colors.white.withOpacity(0.42)),
                   ),
-                  child: Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      SizedBox(
-                        width: 380,
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Search by serial number',
-                            prefixIcon: const Icon(Icons.search_rounded),
-                            isDense: true,
-                            filled: true,
-                            fillColor: Colors.white.withOpacity(0.7),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide.none,
+                  child: isCompact
+                      ? Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    decoration: InputDecoration(
+                                      hintText: 'Search by serial number',
+                                      prefixIcon: const Icon(Icons.search_rounded),
+                                      isDense: true,
+                                      filled: true,
+                                      fillColor: Colors.white.withOpacity(0.7),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: BorderSide(color: Colors.white.withOpacity(0.35)),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                        borderSide: const BorderSide(color: Color(0xFF0F766E)),
+                                      ),
+                                    ),
+                                    onChanged: (v) => setState(() => _searchSerial = v),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.75),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: Colors.white.withOpacity(0.4)),
+                                  ),
+                                  child: IconButton(
+                                    onPressed: () => setState(() => _filtersExpanded = !_filtersExpanded),
+                                    icon: Icon(
+                                      _filtersExpanded
+                                          ? Icons.filter_alt_off_rounded
+                                          : Icons.filter_alt_rounded,
+                                    ),
+                                    color: const Color(0xFF0F766E),
+                                  ),
+                                ),
+                              ],
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide(color: Colors.white.withOpacity(0.35)),
+                            AnimatedCrossFade(
+                              duration: const Duration(milliseconds: 180),
+                              crossFadeState: _filtersExpanded
+                                  ? CrossFadeState.showFirst
+                                  : CrossFadeState.showSecond,
+                              firstChild: Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Column(
+                                  children: [
+                                    _buildFilterDropdown(
+                                      hint: 'Capacity (kW)',
+                                      value: _selectedCapacity,
+                                      items: capacities,
+                                      onChanged: (v) => setState(() => _selectedCapacity = v),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildFilterDropdown(
+                                      hint: 'Type',
+                                      value: _selectedType,
+                                      items: types,
+                                      onChanged: (v) => setState(() => _selectedType = v),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildFilterDropdown(
+                                      hint: 'Phase',
+                                      value: _selectedPhase,
+                                      items: phases,
+                                      onChanged: (v) => setState(() => _selectedPhase = v),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildFilterDropdown(
+                                      hint: 'Status',
+                                      value: _selectedStatus,
+                                      items: const ['available', 'allotted'],
+                                      onChanged: (v) => setState(() => _selectedStatus = v),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.75),
+                                          borderRadius: BorderRadius.circular(18),
+                                          border: Border.all(color: Colors.white.withOpacity(0.4)),
+                                        ),
+                                        child: IconButton(
+                                          onPressed: () => setState(() {
+                                            _searchSerial = '';
+                                            _selectedCapacity = null;
+                                            _selectedType = null;
+                                            _selectedPhase = null;
+                                            _selectedStatus = null;
+                                            _filtersExpanded = false;
+                                          }),
+                                          icon: const Icon(Icons.refresh_rounded),
+                                          color: const Color(0xFF0F766E),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              secondChild: const SizedBox.shrink(),
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: const BorderSide(color: Color(0xFF0F766E)),
+                          ],
+                        )
+                      : Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            SizedBox(
+                              width: 380,
+                              child: TextField(
+                                decoration: InputDecoration(
+                                  hintText: 'Search by serial number',
+                                  prefixIcon: const Icon(Icons.search_rounded),
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.7),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.35)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: const BorderSide(color: Color(0xFF0F766E)),
+                                  ),
+                                ),
+                                onChanged: (v) => setState(() => _searchSerial = v),
+                              ),
                             ),
-                          ),
-                          onChanged: (v) => setState(() => _searchSerial = v),
+                            _buildFilterDropdown(
+                              hint: 'Capacity (kW)',
+                              value: _selectedCapacity,
+                              items: capacities,
+                              onChanged: (v) => setState(() => _selectedCapacity = v),
+                            ),
+                            _buildFilterDropdown(
+                              hint: 'Type',
+                              value: _selectedType,
+                              items: types,
+                              onChanged: (v) => setState(() => _selectedType = v),
+                            ),
+                            _buildFilterDropdown(
+                              hint: 'Phase',
+                              value: _selectedPhase,
+                              items: phases,
+                              onChanged: (v) => setState(() => _selectedPhase = v),
+                            ),
+                            _buildFilterDropdown(
+                              hint: 'Status',
+                              value: _selectedStatus,
+                              items: const ['available', 'allotted'],
+                              onChanged: (v) => setState(() => _selectedStatus = v),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.75),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: Colors.white.withOpacity(0.4)),
+                              ),
+                              child: IconButton(
+                                onPressed: () => setState(() {
+                                  _searchSerial = '';
+                                  _selectedCapacity = null;
+                                  _selectedType = null;
+                                  _selectedPhase = null;
+                                  _selectedStatus = null;
+                                }),
+                                icon: const Icon(Icons.refresh_rounded),
+                                color: const Color(0xFF0F766E),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      _buildFilterDropdown(
-                        hint: 'Capacity (kW)',
-                        value: _selectedCapacity,
-                        items: capacities,
-                        onChanged: (v) => setState(() => _selectedCapacity = v),
-                      ),
-                      _buildFilterDropdown(
-                        hint: 'Type',
-                        value: _selectedType,
-                        items: types,
-                        onChanged: (v) => setState(() => _selectedType = v),
-                      ),
-                      _buildFilterDropdown(
-                        hint: 'Phase',
-                        value: _selectedPhase,
-                        items: phases,
-                        onChanged: (v) => setState(() => _selectedPhase = v),
-                      ),
-                      _buildFilterDropdown(
-                        hint: 'Status',
-                        value: _selectedStatus,
-                        items: const ['available', 'allotted'],
-                        onChanged: (v) => setState(() => _selectedStatus = v),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.75),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: Colors.white.withOpacity(0.4)),
-                        ),
-                        child: IconButton(
-                          onPressed: () => setState(() {
-                            _searchSerial = '';
-                            _selectedCapacity = null;
-                            _selectedType = null;
-                            _selectedPhase = null;
-                            _selectedStatus = null;
-                          }),
-                          icon: const Icon(Icons.refresh_rounded),
-                          color: const Color(0xFF0F766E),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
                 const SizedBox(height: 18),
                 Expanded(
@@ -258,9 +374,96 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(26),
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
-                        child: DataTable(
+                      child: isCompact
+                          ? ListView.builder(
+                              padding: const EdgeInsets.all(12),
+                              itemCount: filteredInverters.length,
+                              itemBuilder: (context, index) {
+                                final i = filteredInverters[index];
+                                final invoice = inventoryState.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == i.invoiceId, orElse: () => null);
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.78),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: Colors.white.withOpacity(0.5)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        i.serialNumber,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF1E293B),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      _buildMetaRow('Capacity', '${i.capacityKw}kW'),
+                                      _buildMetaRow('Type', i.inverterType),
+                                      _buildMetaRow('Phase', i.inverterPhase),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          const SizedBox(
+                                            width: 68,
+                                            child: Text(
+                                              'Status',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          _StatusBadge(status: i.status),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      _buildMetaRow('Purchase', invoice?.partyName ?? 'N/A'),
+                                      _buildMetaRow(
+                                        'Invoice',
+                                        invoice != null
+                                            ? '${invoice.invoiceNumber} • ${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'
+                                            : '-',
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
+                                          if (i.status == 'available' && canAllotInventory)
+                                            TextButton.icon(
+                                              onPressed: () => _showAllotmentDialog(context, i.id, InventoryItemType.inverter),
+                                              icon: const Icon(Icons.assignment_ind_rounded, size: 16),
+                                              label: const Text('Allot'),
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: const Color(0xFF0F766E),
+                                                backgroundColor: const Color(0xFFEAF7F5),
+                                              ),
+                                            ),
+                                          if (canEditInventory)
+                                            IconButton(
+                                              icon: const Icon(Icons.edit_rounded, size: 18),
+                                              onPressed: () => _showEditInverterDialog(i),
+                                            ),
+                                          if (canEditInventory)
+                                            IconButton(
+                                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.errorColor),
+                                              onPressed: () => _confirmDeleteInverter(i),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            )
+                          : SingleChildScrollView(
+                              padding: const EdgeInsets.all(12),
+                              child: DataTable(
                           headingRowHeight: 56,
                           dataRowMinHeight: 60,
                           dataRowMaxHeight: 72,
@@ -319,8 +522,8 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
                               ),
                             ]);
                           }).toList(),
-                        ),
-                      ),
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -336,6 +539,39 @@ class _InverterDetailsDialogState extends ConsumerState<InverterDetailsDialog> {
     showDialog(
       context: context,
       builder: (context) => _AllotmentDialog(itemId: itemId, itemType: type),
+    );
+  }
+
+  Widget _buildMetaRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 68,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

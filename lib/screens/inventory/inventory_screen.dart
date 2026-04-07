@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../core/config/app_mode.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/inventory_model.dart';
 import '../../providers/inventory_providers.dart';
@@ -21,6 +22,7 @@ class InventoryScreen extends ConsumerStatefulWidget {
 class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _searchController = TextEditingController();
+  bool _filtersExpanded = false;
   String? _panelBrandFilter;
   String? _panelTypeFilter;
   String? _panelStatusFilter;
@@ -74,6 +76,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 720;
+    final useEmbeddedAppBar = true;
     final inventoryState = ref.watch(inventoryProvider);
     final currentUserAsync = ref.watch(currentUserProvider);
     final currentUser = currentUserAsync.value;
@@ -110,67 +114,215 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text('Factory Inventory', style: AppTextStyles.heading2),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: IconButton(
-              onPressed: inventoryState.isLoading ? null : _refreshInventory,
-              tooltip: 'Refresh Inventory',
-              icon:
-                  inventoryState.isLoading
-                      ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.refresh_rounded),
-            ),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppTheme.primaryColor,
-          unselectedLabelColor: AppTheme.textSecondary,
-          indicatorColor: AppTheme.primaryColor,
-          isScrollable: true,
-          tabs: const [
-            Tab(text: 'Dashboard'),
-            Tab(text: 'Solar Panels'),
-            Tab(text: 'Inverters'),
-            Tab(text: 'Meters'),
-          ],
-        ),
-      ),
-      body: inventoryState.isLoading && inventoryState.panels.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : inventoryState.error != null
-              ? _buildErrorState(inventoryState.error!, ref)
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildDashboard(inventoryState),
-                    _buildPanelInventory(inventoryState),
-                    _buildInverterInventory(inventoryState),
-                    _buildMeterInventory(inventoryState, canAllotInventory),
-                  ],
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: useEmbeddedAppBar
+          ? AppBar(
+              backgroundColor: AppTheme.backgroundColor,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              titleSpacing: isCompact ? 20 : 24,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isCompact ? 'InventoryCreator' : 'Factory Inventory',
+                    style: (isCompact ? AppTextStyles.heading4 : AppTextStyles.heading2)
+                        .copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    isCompact
+                        ? 'Live warehouse inventory'
+                        : 'Panels, inverters, meters, and stock movement',
+                    style: AppTextStyles.caption,
+                  ),
+                ],
+              ),
+              actions: [
+                if (!isCompact)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: IconButton(
+                        onPressed: inventoryState.isLoading ? null : _refreshInventory,
+                        tooltip: 'Refresh Inventory',
+                        icon:
+                            inventoryState.isLoading
+                                ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                                : const Icon(Icons.sync_rounded),
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: EdgeInsets.only(right: isCompact ? 16 : 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        margin: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppTheme.borderColor),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: inventoryState.isLoading ? null : _refreshInventory,
+                            child: Center(
+                              child:
+                                  inventoryState.isLoading
+                                      ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                      : const Icon(
+                                        Icons.refresh_rounded,
+                                        size: 20,
+                                      ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (isCompact && AppModeConfig.isInventoryOnly) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 44,
+                          height: 44,
+                          margin: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppTheme.borderColor),
+                          ),
+                          child: PopupMenuButton<int>(
+                            tooltip: 'Sections',
+                            icon: const Icon(Icons.more_horiz_rounded),
+                            onSelected: (index) {
+                              _tabController.animateTo(index);
+                              setState(() {});
+                            },
+                            itemBuilder: (context) => const [
+                              PopupMenuItem<int>(
+                                value: 0,
+                                child: Text('Dashboard'),
+                              ),
+                              PopupMenuItem<int>(
+                                value: 1,
+                                child: Text('Solar Panels'),
+                              ),
+                              PopupMenuItem<int>(
+                                value: 2,
+                                child: Text('Inverters'),
+                              ),
+                              PopupMenuItem<int>(
+                                value: 3,
+                                child: Text('Meters'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
+              ],
+              bottom: isCompact
+                  ? null
+                  : PreferredSize(
+                      preferredSize: const Size.fromHeight(64),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            constraints: const BoxConstraints(maxWidth: 760),
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppTheme.borderColor),
+                            ),
+                            child: TabBar(
+                              controller: _tabController,
+                              isScrollable: true,
+                              tabAlignment: TabAlignment.start,
+                              labelPadding: const EdgeInsets.symmetric(horizontal: 20),
+                              labelColor: Colors.white,
+                              unselectedLabelColor: AppTheme.textSecondary,
+                              indicatorSize: TabBarIndicatorSize.tab,
+                              indicator: BoxDecoration(
+                                color: AppTheme.primaryColor,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              dividerColor: Colors.transparent,
+                              tabs: const [
+                                Tab(text: 'Dashboard'),
+                                Tab(text: 'Solar Panels'),
+                                Tab(text: 'Inverters'),
+                                Tab(text: 'Meters'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+            )
+          : null,
+      body: _buildBodyContent(
+        inventoryState,
+        ref,
+        canAllotInventory,
+      ),
       floatingActionButton:
           canAddInventoryStock
               ? FloatingActionButton.extended(
-                onPressed: () => _showAddInventoryDialog(context),
-                backgroundColor: AppTheme.primaryColor,
-                icon: const Icon(Icons.add_rounded, color: Colors.white),
-                label: const Text(
-                  'Add Stock',
-                  style: TextStyle(color: Colors.white),
-                ),
-              )
+                      onPressed: () => _showAddInventoryDialog(context),
+                      backgroundColor: AppTheme.primaryColor,
+                      icon: const Icon(Icons.add_rounded, color: Colors.white),
+                      label: const Text(
+                        'Add Stock',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    )
               : null,
+    );
+  }
+
+  Widget _buildBodyContent(
+    InventoryState inventoryState,
+    WidgetRef ref,
+    bool canAllotInventory,
+  ) {
+    if (inventoryState.isLoading && inventoryState.panels.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (inventoryState.error != null) {
+      return _buildErrorState(inventoryState.error!, ref);
+    }
+
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildDashboard(inventoryState),
+        _buildPanelInventory(inventoryState),
+        _buildInverterInventory(inventoryState),
+        _buildMeterInventory(inventoryState, canAllotInventory),
+      ],
     );
   }
 
@@ -229,36 +381,137 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
   }
 
   Widget _buildDashboard(InventoryState state) {
+    final totalStock = state.panels.length + state.inverters.length + state.meters.length;
+    final availablePanels = state.panels.where((item) => item.status == 'available').length;
+    final availableInverters = state.inverters.where((item) => item.status == 'available').length;
+    final availableMeters = state.meters.where((item) => item.status == 'available').length;
+    final isCompact = MediaQuery.of(context).size.width < 720;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.fromLTRB(isCompact ? 16 : 24, 16, isCompact ? 16 : 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Stock Overview', style: AppTextStyles.heading3),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              _buildStatCard('Total Panels', state.panels.length.toString(), Icons.solar_power_rounded, Colors.blue),
-              const SizedBox(width: 16),
-              _buildStatCard('Total Inverters', state.inverters.length.toString(), Icons.settings_input_component_rounded, Colors.teal),
-              const SizedBox(width: 16),
-              _buildStatCard('Total Meters', state.meters.length.toString(), Icons.speed_rounded, Colors.orange),
-            ],
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFDDE4FF), Color(0xFFF5F7FF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Stock Overview',
+                  style: AppTextStyles.heading3.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Real-time snapshot of industrial assets and scan-ready inventory.',
+                  style: AppTextStyles.bodySmall.copyWith(fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$totalStock',
+                            style: AppTextStyles.heading1.copyWith(
+                              fontSize: isCompact ? 42 : 48,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.primaryDark,
+                            ),
+                          ),
+                          Text(
+                            'Total Stock Units',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: AppTheme.primaryDark,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.75),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.inventory_2_rounded,
+                        color: AppTheme.primaryColor,
+                        size: 30,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _buildMiniBadge('$availablePanels panels available'),
+                    _buildMiniBadge('$availableInverters inverters available'),
+                    _buildMiniBadge('$availableMeters meters available'),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 32),
-          Text('Solar Panel Stock', style: AppTextStyles.heading3),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compactCards = constraints.maxWidth < 620;
+              final children = [
+                _buildStatCard('Total Panels', state.panels.length.toString(), Icons.solar_power_rounded, const Color(0xFF8BA8FF)),
+                _buildStatCard('Total Inverters', state.inverters.length.toString(), Icons.settings_input_component_rounded, const Color(0xFFB8C0FF)),
+                _buildStatCard('Total Meters', state.meters.length.toString(), Icons.speed_rounded, const Color(0xFFE2C6FF)),
+              ];
+              if (compactCards) {
+                return Column(
+                  children: [
+                    for (int i = 0; i < children.length; i++) ...[
+                      children[i],
+                      if (i != children.length - 1) const SizedBox(height: 12),
+                    ],
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  for (int i = 0; i < children.length; i++) ...[
+                    Expanded(child: children[i]),
+                    if (i != children.length - 1) const SizedBox(width: 16),
+                  ],
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 32),
+          _buildSectionHeader('Solar Panel Stock', 'Detailed inventory by manufacturer'),
           const SizedBox(height: 16),
           _buildBrandSummary(state),
           const SizedBox(height: 32),
-          Text('Inverter Stock', style: AppTextStyles.heading3),
+          _buildSectionHeader('Inverter Stock', 'Capacity and model mix by brand'),
           const SizedBox(height: 16),
           _buildInverterSummary(state),
           const SizedBox(height: 32),
-          Text('Meter Stock', style: AppTextStyles.heading3),
+          _buildSectionHeader('Meter Stock', 'Meter category and phase availability'),
           const SizedBox(height: 16),
           _buildMeterSummary(state, false, false),
           const SizedBox(height: 32),
-          Text('Recent Allotments', style: AppTextStyles.heading3),
+          _buildSectionHeader('Recent Allotments', 'Latest handovers and reserved stock'),
           const SizedBox(height: 16),
           _buildRecentAllotmentsTable(state),
         ],
@@ -294,10 +547,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
 
     if (groupedByBrand.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(color: AppTheme.borderColor),
         ),
         child: const Center(child: Text('No panels in stock.', style: TextStyle(color: AppTheme.textSecondary))),
@@ -328,12 +581,16 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           borderRadius: BorderRadius.circular(24),
           child: Container(
             width: 320,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.borderColor),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+              gradient: const LinearGradient(
+                colors: [Colors.white, Color(0xFFF8FAFF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: const Color(0xFFE7EBF5)),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 18, offset: const Offset(0, 8))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,39 +598,68 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(brand.toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textLight),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: typeWattCounts.isEmpty ? const Color(0xFFFEE2E2) : const Color(0xFFDBEAFE),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        (typeWattCounts.isEmpty ? 'Out of stock' : 'Healthy stock').toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                          color: typeWattCounts.isEmpty ? AppTheme.errorColor : AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_rounded, size: 18, color: AppTheme.textLight),
                   ],
                 ),
-                const Divider(height: 32),
-                ...typeWattCounts.entries.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-                      const Text(' = ', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.bold)),
-                      Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 14)),
-                      const SizedBox(width: 4),
-                      const Text('Panels', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                    ],
-                  ),
-                )).toList(),
-                if (typeWattCounts.isNotEmpty) ...[
-                  const Divider(height: 16),
-                  const Center(
-                    child: Text('IN STOCK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.green, letterSpacing: 1.2)),
-                  ),
-                ] else
-                  const Text('No available stock', style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic, fontSize: 12)),
-                const SizedBox(height: 12),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                const SizedBox(height: 18),
+                Text(
+                  brand.toUpperCase(),
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  panels.isNotEmpty ? '${panels.first.panelType} inventory lineup' : 'Panel inventory',
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                Row(
                   children: [
-                    Text('Click to view details', style: TextStyle(fontSize: 10, color: AppTheme.textLight, fontWeight: FontWeight.w500)),
-                    SizedBox(width: 4),
-                    Icon(Icons.open_in_new_rounded, size: 10, color: AppTheme.textLight),
+                    Expanded(
+                      child: _inventoryMetricBox(
+                        value: panels.isEmpty ? '0' : '${panels.first.wattCapacity}',
+                        label: 'Watt output avg',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _inventoryMetricBox(
+                        value: '${typeWattCounts.values.fold<int>(0, (sum, count) => sum + count)}',
+                        label: 'Units available',
+                      ),
+                    ),
                   ],
                 ),
+                const SizedBox(height: 18),
+                if (typeWattCounts.isNotEmpty)
+                  ...typeWattCounts.entries.take(3).map((e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _inventoryBreakdownRow(
+                          e.key,
+                          '${e.value} panels',
+                          const Color(0xFFECFDF5),
+                          const Color(0xFF059669),
+                        ),
+                      ))
+                else
+                  const Text('No available stock', style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic, fontSize: 12)),
+                const SizedBox(height: 10),
+                const Text('Click to view details', style: TextStyle(fontSize: 11, color: AppTheme.textLight, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -383,23 +669,54 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
   }
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 16),
-            Text(value, style: AppTextStyles.heading1.copyWith(color: color)),
-            Text(title, style: AppTextStyles.bodySmall),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  style: AppTextStyles.caption.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  value,
+                  style: AppTextStyles.heading2.copyWith(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.22),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: AppTheme.textPrimary, size: 22),
+          ),
+        ],
       ),
     );
   }
@@ -414,6 +731,84 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           border: Border.all(color: AppTheme.borderColor),
         ),
         child: const Center(child: Text('No allotments found.', style: TextStyle(color: AppTheme.textSecondary))),
+      );
+    }
+
+    final isCompact = MediaQuery.of(context).size.width < 720;
+
+    if (isCompact) {
+      return Column(
+        children: state.allotments.take(10).map((allotment) {
+          String serial = 'N/A';
+          try {
+            if (allotment.itemType == InventoryItemType.panel) {
+              serial = state.panels.firstWhere((p) => p.id == allotment.itemId).serialNumber;
+            } else if (allotment.itemType == InventoryItemType.inverter) {
+              serial = state.inverters.firstWhere((i) => i.id == allotment.itemId).serialNumber;
+            } else {
+              serial = state.meters.firstWhere((m) => m.id == allotment.itemId).serialNumber;
+            }
+          } catch (_) {}
+
+          final refText = allotment.applicationId != null
+              ? 'APP-${allotment.applicationId!.length > 5 ? allotment.applicationId!.substring(0, 5) : allotment.applicationId}'
+              : 'Manual';
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        allotment.customerName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundColor,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        allotment.itemType.name.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildAllotmentMetaRow('Ref', refText),
+                const SizedBox(height: 6),
+                _buildAllotmentMetaRow('Serial', serial),
+                const SizedBox(height: 6),
+                _buildAllotmentMetaRow(
+                  'Date',
+                  '${allotment.handoverDate.day}/${allotment.handoverDate.month}/${allotment.handoverDate.year}',
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       );
     }
 
@@ -456,6 +851,36 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           }).toList(),
         ),
       ),
+    );
+  }
+
+  Widget _buildAllotmentMetaRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 48,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -606,10 +1031,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
 
     if (groupedByBrand.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(color: AppTheme.borderColor),
         ),
         child: const Center(child: Text('No inverters in stock.', style: TextStyle(color: AppTheme.textSecondary))),
@@ -642,12 +1067,16 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           borderRadius: BorderRadius.circular(24),
           child: Container(
             width: 320,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.borderColor),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+              gradient: const LinearGradient(
+                colors: [Colors.white, Color(0xFFF8FAFF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: const Color(0xFFE7EBF5)),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 18, offset: const Offset(0, 8))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,38 +1084,55 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(brand.toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textLight),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDE9FE),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'PREMIUM RATED',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_rounded, size: 18, color: AppTheme.textLight),
                   ],
                 ),
-                const Divider(height: 32),
-                ...typeCapCounts.entries.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-                      const Text(' = ', style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.bold)),
-                      Text('${e.value}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 14)),
-                      const SizedBox(width: 4),
-                      const Text('Units', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                    ],
-                  ),
-                )).toList(),
-                if (typeCapCounts.isNotEmpty) ...[
-                  const Divider(height: 16),
-                  const Center(
-                    child: Text('STOCK AVAILABLE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppTheme.primaryColor, letterSpacing: 1.2)),
-                  ),
-                ] else
+                const SizedBox(height: 18),
+                Text(
+                  brand.toUpperCase(),
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppTheme.primaryColor),
+                ),
+                const SizedBox(height: 18),
+                if (typeCapCounts.isNotEmpty)
+                  ...typeCapCounts.entries.take(4).map((e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _inventoryBreakdownRow(
+                          e.key,
+                          '${e.value} in stock',
+                          const Color(0xFFF5F3FF),
+                          AppTheme.primaryColor,
+                        ),
+                      ))
+                else
                   const Text('No available stock', style: TextStyle(color: AppTheme.textSecondary, fontStyle: FontStyle.italic, fontSize: 12)),
-                const SizedBox(height: 12),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Click for Details', style: TextStyle(fontSize: 10, color: AppTheme.textLight, fontWeight: FontWeight.w500)),
-                    SizedBox(width: 4),
-                    Icon(Icons.open_in_new_rounded, size: 10, color: AppTheme.textLight),
-                  ],
+                const SizedBox(height: 14),
+                OutlinedButton(
+                  onPressed: () => showDialog(
+                    context: context,
+                    builder: (context) => InverterDetailsDialog(brandName: brand, inverters: inverters),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 46),
+                    side: const BorderSide(color: Color(0xFFE4E7EC)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('Stock Available'),
                 ),
               ],
             ),
@@ -815,10 +1261,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
 
     if (groupedByBrand.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(color: AppTheme.borderColor),
         ),
         child: const Center(
@@ -856,16 +1302,16 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
           borderRadius: BorderRadius.circular(24),
           child: Container(
             width: 320,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(28),
               border: Border.all(color: AppTheme.borderColor),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -1053,15 +1499,33 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
     String hintText = 'Search by serial number or brand...',
   }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: hintText,
-          prefixIcon: const Icon(Icons.search_rounded),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.borderColor),
         ),
-        onChanged: (v) => setState(() {}),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: hintText,
+            prefixIcon: const Icon(Icons.search_rounded),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
+            ),
+          ),
+          onChanged: (v) => setState(() {}),
+        ),
       ),
     );
   }
@@ -1070,28 +1534,142 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
     required List<_FilterConfig> filters,
     required VoidCallback onClear,
   }) {
+    final isCompact = MediaQuery.of(context).size.width < 720;
+    final hasActiveFilters = filters.any((filter) => filter.value != null);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-      child: Row(
-        children: [
-          ...filters.map(
-            (filter) => Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: _buildFilterDropdown(
-                hint: filter.hint,
-                value: filter.value,
-                items: filter.items,
-                onChanged: filter.onChanged,
-              ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: isCompact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                InkWell(
+                  onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: hasActiveFilters
+                            ? AppTheme.primaryColor.withOpacity(0.25)
+                            : AppTheme.borderColor,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.tune_rounded,
+                          size: 18,
+                          color: hasActiveFilters
+                              ? AppTheme.primaryColor
+                              : AppTheme.textSecondary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            hasActiveFilters ? 'Filters applied' : 'Filters',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: hasActiveFilters
+                                  ? AppTheme.primaryColor
+                                  : AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (hasActiveFilters)
+                          Container(
+                            margin: const EdgeInsets.only(right: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${filters.where((filter) => filter.value != null).length}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                        Icon(
+                          _filtersExpanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 180),
+                  crossFadeState: _filtersExpanded
+                      ? CrossFadeState.showFirst
+                      : CrossFadeState.showSecond,
+                  firstChild: Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ...filters.map(
+                          (filter) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _buildFilterDropdown(
+                              hint: filter.hint,
+                              value: filter.value,
+                              items: filter.items,
+                              onChanged: filter.onChanged,
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              onClear();
+                              setState(() => _filtersExpanded = false);
+                            },
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                            label: const Text('Clear'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  secondChild: const SizedBox.shrink(),
+                ),
+              ],
+            )
+          : Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                ...filters.map(
+                  (filter) => SizedBox(
+                    width: 160,
+                    child: _buildFilterDropdown(
+                      hint: filter.hint,
+                      value: filter.value,
+                      items: filter.items,
+                      onChanged: filter.onChanged,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: onClear,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Clear'),
+                ),
+              ],
             ),
-          ),
-          TextButton.icon(
-            onPressed: onClear,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Clear'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1102,11 +1680,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
     required ValueChanged<String?> onChanged,
   }) {
     return Container(
-      width: 160,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.borderColor),
       ),
       child: DropdownButtonHideUnderline(
@@ -1128,6 +1705,100 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> with SingleTi
                   .toList(),
           onChanged: onChanged,
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, String subtitle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: AppTextStyles.heading3.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        Text(subtitle, style: AppTextStyles.bodySmall.copyWith(fontSize: 13)),
+      ],
+    );
+  }
+
+  Widget _buildMiniBadge(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.72),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.caption.copyWith(
+          color: AppTheme.primaryDark,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _inventoryMetricBox({
+    required String value,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: AppTextStyles.caption),
+        ],
+      ),
+    );
+  }
+
+  Widget _inventoryBreakdownRow(
+    String title,
+    String value,
+    Color background,
+    Color accent,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: accent,
+            ),
+          ),
+        ],
       ),
     );
   }

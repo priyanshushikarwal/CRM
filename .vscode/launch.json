@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Inventory App (Debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_inventory.dart",
+      "flutterMode": "debug",
+      "args": [
+        "--flavor",
+        "inventory"
+      ]
+    },
+    {
+      "name": "Inventory App (Profile)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_inventory.dart",
+      "flutterMode": "profile",
+      "args": [
+        "--flavor",
+        "inventory"
+      ]
+    },
+    {
+      "name": "Full CRM App (Debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "args": [
+        "--flavor",
+        "full"
+      ]
+    }
+  ]
+}

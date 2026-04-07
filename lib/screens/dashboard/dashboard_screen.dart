@@ -402,6 +402,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildTopBar(BuildContext context, bool isDesktop, bool isMobile) {
     final currentLocation = GoRouterState.of(context).matchedLocation;
+    if (AppModeConfig.isInventoryOnly &&
+        isMobile &&
+        currentLocation == '/inventory') {
+      return const SizedBox.shrink();
+    }
+
     String title = AppModeConfig.isInventoryOnly ? 'Inventory' : 'Dashboard';
 
     if (!AppModeConfig.isInventoryOnly &&
@@ -422,97 +428,130 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
       color: AppTheme.backgroundColor,
-      child: Row(
-        children: [
-          if (!isDesktop)
-            IconButton(
-              icon: const Icon(Icons.menu_rounded),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textPrimary,
-                  letterSpacing: -0.5,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          IconButton(
-            icon:
-                _isGlobalRefreshing
-                    ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.sync_rounded, size: 20),
-            color: AppTheme.textSecondary,
-            tooltip: 'Refresh all data',
-            onPressed: _isGlobalRefreshing ? null : () => _handleGlobalRefresh(context),
-          ),
-          if (!AppModeConfig.isInventoryOnly) ...[
-            IconButton(
-              icon: const Icon(Icons.search_rounded, size: 20),
-              color: AppTheme.textSecondary,
-              onPressed: () {},
-            ),
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined, size: 22),
-                  color: AppTheme.textSecondary,
-                  onPressed: () {},
-                ),
-                Positioned(
-                  right: 12,
-                  top: 12,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.errorColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: AppModeConfig.isInventoryOnly && isMobile ? 68 : 80,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppModeConfig.isInventoryOnly && isMobile ? 10 : 24,
             ),
             child: Row(
               children: [
-                const Icon(Icons.business_rounded, size: 16, color: AppTheme.textSecondary),
-                const SizedBox(width: 8),
-                Text(
-                  AppConstants.companyName,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
+                if (!isDesktop)
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.menu_rounded),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppModeConfig.isInventoryOnly && isMobile
+                            ? 'InventoryCreator'
+                            : title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize:
+                              AppModeConfig.isInventoryOnly && isMobile ? 16 : 24,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      if (AppModeConfig.isInventoryOnly && isMobile)
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon:
+                      _isGlobalRefreshing
+                          ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Icon(Icons.sync_rounded, size: 20),
+                  color: AppTheme.textSecondary,
+                  tooltip: 'Refresh all data',
+                  onPressed:
+                      _isGlobalRefreshing ? null : () => _handleGlobalRefresh(context),
+                ),
+                if (!AppModeConfig.isInventoryOnly) ...[
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.search_rounded, size: 20),
+                    color: AppTheme.textSecondary,
+                    onPressed: () {},
+                  ),
+                  Stack(
+                    children: [
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.notifications_outlined, size: 22),
+                        color: AppTheme.textSecondary,
+                        onPressed: () {},
+                      ),
+                      Positioned(
+                        right: 12,
+                        top: 12,
+                        child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.errorColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (!(AppModeConfig.isInventoryOnly && isMobile)) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.business_rounded, size: 16, color: AppTheme.textSecondary),
+                        const SizedBox(width: 8),
+                        Text(
+                          AppConstants.companyName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
