@@ -22,8 +22,6 @@ final authStateProvider = StreamProvider<bool>((ref) {
 });
 
 final currentUserProvider = FutureProvider<UserModel?>((ref) async {
-  ref.watch(appDataRefreshProvider);
-
   final user = SupabaseService.currentUser;
   if (user == null) {
     print('DEBUG: No current user from Supabase');
@@ -81,16 +79,17 @@ final userByIdProvider = FutureProvider.family<UserModel?, String>((ref, userId)
 });
 
 final realtimeSyncProvider = Provider<void>((ref) {
-  Timer? refreshDebounce;
+  Timer? appRefreshDebounce;
+  Timer? inventoryRefreshDebounce;
+  Timer? userRefreshDebounce;
   final channels = <RealtimeChannel>[];
 
-  void scheduleRefresh() {
-    refreshDebounce?.cancel();
-    refreshDebounce = Timer(const Duration(milliseconds: 100), () {
+  void scheduleAppRefresh() {
+    appRefreshDebounce?.cancel();
+    appRefreshDebounce = Timer(const Duration(milliseconds: 100), () {
       ref.read(appDataRefreshProvider.notifier).bump();
 
       Future.microtask(() {
-        ref.invalidate(currentUserProvider);
         ref.invalidate(documentsProvider);
         ref.invalidate(applicationProvider);
         ref.invalidate(installationByAppProvider);
@@ -103,14 +102,32 @@ final realtimeSyncProvider = Provider<void>((ref) {
     });
   }
 
-  RealtimeChannel registerChannel(String name, List<String> tables) {
+  void scheduleCurrentUserRefresh() {
+    userRefreshDebounce?.cancel();
+    userRefreshDebounce = Timer(const Duration(milliseconds: 100), () {
+      ref.invalidate(currentUserProvider);
+    });
+  }
+
+  void scheduleInventoryRefresh() {
+    inventoryRefreshDebounce?.cancel();
+    inventoryRefreshDebounce = Timer(const Duration(milliseconds: 150), () {
+      ref.read(inventoryProvider.notifier).loadAll(showLoading: false);
+    });
+  }
+
+  RealtimeChannel registerChannel(
+    String name,
+    List<String> tables, {
+    required void Function() onChange,
+  }) {
     var channel = SupabaseService.channel(name);
     for (final table in tables) {
       channel = channel.onPostgresChanges(
         event: PostgresChangeEvent.all,
         schema: 'public',
         table: table,
-        callback: (_) => scheduleRefresh(),
+        callback: (_) => onChange(),
       );
     }
     channel.subscribe();
@@ -118,13 +135,16 @@ final realtimeSyncProvider = Provider<void>((ref) {
     return channel;
   }
 
-  registerChannel('crm-app-data', [
+  registerChannel('crm-user-data', [
     AppConstants.usersTable,
+  ], onChange: scheduleCurrentUserRefresh);
+
+  registerChannel('crm-app-data', [
     AppConstants.applicationsTable,
     AppConstants.documentsTable,
     'payments',
     'installations',
-  ]);
+  ], onChange: scheduleAppRefresh);
 
   registerChannel('crm-inventory-data', [
     AppConstants.inventoryInvoicesTable,
@@ -132,10 +152,12 @@ final realtimeSyncProvider = Provider<void>((ref) {
     AppConstants.inverterItemsTable,
     AppConstants.meterItemsTable,
     AppConstants.inventoryAllotmentsTable,
-  ]);
+  ], onChange: scheduleInventoryRefresh);
 
   ref.onDispose(() {
-    refreshDebounce?.cancel();
+    appRefreshDebounce?.cancel();
+    inventoryRefreshDebounce?.cancel();
+    userRefreshDebounce?.cancel();
     for (final channel in channels) {
       SupabaseService.client.removeChannel(channel);
     }
@@ -186,13 +208,17 @@ class ApplicationsNotifier extends Notifier<ApplicationsState> {
   @override
   ApplicationsState build() {
     ref.listen<int>(appDataRefreshProvider, (_, __) {
-      Future.microtask(loadApplications);
+      Future.microtask(() => loadApplications(showLoading: false));
     });
     return const ApplicationsState();
   }
 
-  Future<void> loadApplications() async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> loadApplications({bool showLoading = true}) async {
+    if (showLoading || state.applications.isEmpty) {
+      state = state.copyWith(isLoading: true, error: null);
+    } else if (state.error != null) {
+      state = state.copyWith(error: null);
+    }
 
     try {
       final results = await Future.wait<dynamic>([
@@ -348,13 +374,17 @@ class InstallationsNotifier extends Notifier<InstallationsState> {
   @override
   InstallationsState build() {
     ref.listen<int>(appDataRefreshProvider, (_, __) {
-      Future.microtask(loadInstallations);
+      Future.microtask(() => loadInstallations(showLoading: false));
     });
     return const InstallationsState();
   }
 
-  Future<void> loadInstallations() async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> loadInstallations({bool showLoading = true}) async {
+    if (showLoading || state.installations.isEmpty) {
+      state = state.copyWith(isLoading: true, error: null);
+    } else if (state.error != null) {
+      state = state.copyWith(error: null);
+    }
     try {
       final installations = await InstallationService.fetchAllInstallations();
       state = state.copyWith(installations: installations, isLoading: false);

@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/inventory_model.dart';
 import '../services/inventory_service.dart';
-import 'refresh_providers.dart';
 
 class InventoryState {
   final List<PanelItem> panels;
@@ -50,9 +49,6 @@ class InventoryState {
 class InventoryNotifier extends Notifier<InventoryState> {
   @override
   InventoryState build() {
-    ref.listen<int>(appDataRefreshProvider, (_, __) {
-      Future.microtask(loadAll);
-    });
     return const InventoryState();
   }
 
@@ -106,9 +102,15 @@ class InventoryNotifier extends Notifier<InventoryState> {
     }
   }
 
-  Future<void> loadAll() async {
-    print('Inventory: Starting loadAll...');
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> loadAll({bool showLoading = true}) async {
+    if (state.isLoading) return;
+
+    if (showLoading || (state.panels.isEmpty && state.inverters.isEmpty && state.meters.isEmpty)) {
+      state = state.copyWith(isLoading: true, error: null);
+    } else if (state.error != null) {
+      state = state.copyWith(error: null);
+    }
+
     try {
       final results = await Future.wait<dynamic>([
         InventoryService.fetchPanels(),

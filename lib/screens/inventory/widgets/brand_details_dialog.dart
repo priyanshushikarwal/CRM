@@ -54,8 +54,18 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
         // Sort by type then watt
         int c = a.panelType.compareTo(b.panelType);
         if (c != 0) return c;
-        return a.wattCapacity.compareTo(b.wattCapacity);
+      return a.wattCapacity.compareTo(b.wattCapacity);
       });
+
+    final panelAllotmentsByItemId = <String, InventoryAllotment>{};
+    for (final allotment in inventoryState.allotments.where(
+      (a) => a.itemType == InventoryItemType.panel,
+    )) {
+      final existing = panelAllotmentsByItemId[allotment.itemId];
+      if (existing == null || allotment.handoverDate.isAfter(existing.handoverDate)) {
+        panelAllotmentsByItemId[allotment.itemId] = allotment;
+      }
+    }
 
     final totalAvailable = currentPanels.where((p) => p.status == 'available').length;
     final totalAllotted = currentPanels.where((p) => p.status == 'allotted').length;
@@ -425,6 +435,7 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                               itemBuilder: (context, index) {
                                 final p = filteredPanels[index];
                                 final invoice = inventoryState.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == p.invoiceId, orElse: () => null);
+                                final allotment = panelAllotmentsByItemId[p.id];
                                 final isAvailable = p.status == 'available';
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 12),
@@ -495,6 +506,25 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                                           ),
                                         ],
                                       ),
+                                      if (allotment != null) ...[
+                                        const SizedBox(height: 10),
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF1F5FF),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            'Allotted: ${allotment.customerName} (${_formatApplicationRef(allotment.applicationId)})',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF334155),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                       const SizedBox(height: 10),
                                       Row(
                                         children: [
@@ -572,7 +602,7 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                               child: DataTable(
                           headingRowHeight: 56,
                           dataRowMinHeight: 60,
-                          dataRowMaxHeight: 72,
+                          dataRowMaxHeight: 96,
                           horizontalMargin: 18,
                           columnSpacing: 28,
                           headingRowColor: WidgetStateProperty.all(
@@ -583,18 +613,21 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                             DataColumn(label: Text('Wattage', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Allotted To / App', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Purchase From', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Invoice / Date', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
                           ],
                           rows: filteredPanels.map((p) {
                             final invoice = inventoryState.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == p.invoiceId, orElse: () => null);
+                            final allotment = panelAllotmentsByItemId[p.id];
 
                             return DataRow(cells: [
                               DataCell(Text(p.serialNumber, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
                               DataCell(Text('${p.wattCapacity}W')),
                               DataCell(Text(p.panelType)),
                               DataCell(_StatusBadge(status: p.status)),
+                              DataCell(_buildAllotmentSummaryCell(allotment)),
                               DataCell(Text(invoice?.partyName ?? 'N/A')),
                               DataCell(
                                 invoice != null
@@ -642,6 +675,33 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  String _formatApplicationRef(String? applicationId) {
+    if (applicationId == null || applicationId.trim().isEmpty) return 'Manual';
+    final trimmed = applicationId.trim();
+    final short = trimmed.length > 8 ? trimmed.substring(0, 8) : trimmed;
+    return 'APP-$short';
+  }
+
+  Widget _buildAllotmentSummaryCell(InventoryAllotment? allotment) {
+    if (allotment == null) return const Text('-', style: TextStyle(color: AppTheme.textSecondary));
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          allotment.customerName,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          _formatApplicationRef(allotment.applicationId),
+          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+        ),
+      ],
     );
   }
 
