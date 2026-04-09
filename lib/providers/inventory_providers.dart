@@ -103,9 +103,10 @@ class InventoryNotifier extends Notifier<InventoryState> {
   }
 
   Future<void> loadAll({bool showLoading = true}) async {
-    if (state.isLoading) return;
-
-    if (showLoading || (state.panels.isEmpty && state.inverters.isEmpty && state.meters.isEmpty)) {
+    if (showLoading ||
+        (state.panels.isEmpty &&
+            state.inverters.isEmpty &&
+            state.meters.isEmpty)) {
       state = state.copyWith(isLoading: true, error: null);
     } else if (state.error != null) {
       state = state.copyWith(error: null);
@@ -125,11 +126,40 @@ class InventoryNotifier extends Notifier<InventoryState> {
       final panels = results[0] as List<PanelItem>;
       final inverters = results[1] as List<InverterItem>;
       final meters = results[2] as List<MeterItem>;
-      final allotments = results[3] as List<InventoryAllotment>;
+      final fetchedAllotments = results[3] as List<InventoryAllotment>;
       final pInvoices = results[4] as List<InventoryInvoice>;
       final iInvoices = results[5] as List<InventoryInvoice>;
       final mInvoices = results[6] as List<InventoryInvoice>;
-      
+
+      final panelIds = panels.map((item) => item.id).toSet();
+      final inverterIds = inverters.map((item) => item.id).toSet();
+      final meterIds = meters.map((item) => item.id).toSet();
+
+      final latestAllotmentByItemKey = <String, InventoryAllotment>{};
+      for (final allotment in fetchedAllotments) {
+        final isActiveItem = switch (allotment.itemType) {
+          InventoryItemType.panel => panelIds.contains(allotment.itemId),
+          InventoryItemType.inverter => inverterIds.contains(allotment.itemId),
+          InventoryItemType.meter => meterIds.contains(allotment.itemId),
+          InventoryItemType.battery || InventoryItemType.other => false,
+        };
+
+        if (!isActiveItem) continue;
+
+        final key = '${allotment.itemType.name}:${allotment.itemId}';
+        final existing = latestAllotmentByItemKey[key];
+        if (existing == null ||
+            allotment.handoverDate.isAfter(existing.handoverDate) ||
+            (allotment.handoverDate.isAtSameMomentAs(existing.handoverDate) &&
+                allotment.createdAt.isAfter(existing.createdAt))) {
+          latestAllotmentByItemKey[key] = allotment;
+        }
+      }
+
+      final allotments =
+          latestAllotmentByItemKey.values.toList()
+            ..sort((a, b) => b.handoverDate.compareTo(a.handoverDate));
+
       state = state.copyWith(
         panels: panels,
         inverters: inverters,
@@ -145,10 +175,45 @@ class InventoryNotifier extends Notifier<InventoryState> {
     }
   }
 
+  Future<void> loadStockOnly({bool showLoading = true}) async {
+    if (showLoading ||
+        (state.panels.isEmpty &&
+            state.inverters.isEmpty &&
+            state.meters.isEmpty)) {
+      state = state.copyWith(isLoading: true, error: null);
+    } else if (state.error != null) {
+      state = state.copyWith(error: null);
+    }
+
+    try {
+      final results = await Future.wait<dynamic>([
+        InventoryService.fetchPanels(),
+        InventoryService.fetchInverters(),
+        InventoryService.fetchMeters(),
+      ]);
+
+      final panels = results[0] as List<PanelItem>;
+      final inverters = results[1] as List<InverterItem>;
+      final meters = results[2] as List<MeterItem>;
+
+      state = state.copyWith(
+        panels: panels,
+        inverters: inverters,
+        meters: meters,
+        isLoading: false,
+      );
+    } catch (e, stack) {
+      print('Inventory stock load error: $e');
+      print(stack);
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
   Future<void> addPanels({
     required InventoryInvoice invoice,
     required String brand,
-    required List<Map<String, dynamic>> panelEntries, // [{serial, capacity, type}]
+    required List<Map<String, dynamic>>
+    panelEntries, // [{serial, capacity, type}]
   }) async {
     state = state.copyWith(isLoading: true);
     try {
@@ -163,23 +228,29 @@ class InventoryNotifier extends Notifier<InventoryState> {
         itemType: InventoryItemType.panel,
       );
 
-      final items = panelEntries.map((e) => PanelItem(
-        id: '',
-        invoiceId: savedInvoice.id,
-        serialNumber: (e['serial'] as String).trim(),
-        brand: brand,
-        wattCapacity: e['capacity'] as int,
-        panelType: e['type'] as String,
-        status: 'available',
-        createdAt: DateTime.now(),
-      )).toList();
+      final items =
+          panelEntries
+              .map(
+                (e) => PanelItem(
+                  id: '',
+                  invoiceId: savedInvoice.id,
+                  serialNumber: (e['serial'] as String).trim(),
+                  brand: brand,
+                  wattCapacity: e['capacity'] as int,
+                  panelType: e['type'] as String,
+                  status: 'available',
+                  createdAt: DateTime.now(),
+                ),
+              )
+              .toList();
 
       await InventoryService.addPanelItems(items);
       await loadAll();
     } catch (e) {
       String errorMessage = e.toString();
       if (errorMessage.contains('23505')) {
-        errorMessage = 'Duplicate Serial Number: One or more panels already exist in inventory.';
+        errorMessage =
+            'Duplicate Serial Number: One or more panels already exist in inventory.';
       }
       state = state.copyWith(isLoading: false, error: errorMessage);
     }
@@ -197,7 +268,9 @@ class InventoryNotifier extends Notifier<InventoryState> {
     try {
       _ensureUniqueSimpleSerials(
         serialNumbers,
-        state.inverters.map((item) => _normalizeSerial(item.serialNumber)).toSet(),
+        state.inverters
+            .map((item) => _normalizeSerial(item.serialNumber))
+            .toSet(),
         'Inverter',
       );
 
@@ -210,24 +283,30 @@ class InventoryNotifier extends Notifier<InventoryState> {
         itemType: InventoryItemType.inverter,
       );
 
-      final items = serialNumbers.map((sn) => InverterItem(
-        id: '',
-        invoiceId: savedInvoice.id,
-        serialNumber: sn.trim(),
-        brand: brand,
-        capacityKw: capacityKw,
-        inverterType: inverterType,
-        inverterPhase: inverterPhase,
-        status: 'available',
-        createdAt: DateTime.now(),
-      )).toList();
+      final items =
+          serialNumbers
+              .map(
+                (sn) => InverterItem(
+                  id: '',
+                  invoiceId: savedInvoice.id,
+                  serialNumber: sn.trim(),
+                  brand: brand,
+                  capacityKw: capacityKw,
+                  inverterType: inverterType,
+                  inverterPhase: inverterPhase,
+                  status: 'available',
+                  createdAt: DateTime.now(),
+                ),
+              )
+              .toList();
 
       await InventoryService.addInverterItems(items);
       await loadAll();
     } catch (e) {
       String errorMessage = e.toString();
       if (errorMessage.contains('23505')) {
-        errorMessage = 'Duplicate Serial Number: One or more inverters already exist in inventory.';
+        errorMessage =
+            'Duplicate Serial Number: One or more inverters already exist in inventory.';
       }
       state = state.copyWith(isLoading: false, error: errorMessage);
     }
@@ -258,24 +337,30 @@ class InventoryNotifier extends Notifier<InventoryState> {
         itemType: InventoryItemType.meter,
       );
 
-      final items = serialNumbers.map((sn) => MeterItem(
-        id: '',
-        invoiceId: savedInvoice.id,
-        serialNumber: sn.trim(),
-        brand: brand,
-        meterCategory: category,
-        meterType: type,
-        meterPhase: phase,
-        status: 'available',
-        createdAt: DateTime.now(),
-      )).toList();
+      final items =
+          serialNumbers
+              .map(
+                (sn) => MeterItem(
+                  id: '',
+                  invoiceId: savedInvoice.id,
+                  serialNumber: sn.trim(),
+                  brand: brand,
+                  meterCategory: category,
+                  meterType: type,
+                  meterPhase: phase,
+                  status: 'available',
+                  createdAt: DateTime.now(),
+                ),
+              )
+              .toList();
 
       await InventoryService.addMeterItems(items);
       await loadAll();
     } catch (e) {
       String errorMessage = e.toString();
       if (errorMessage.contains('23505')) {
-        errorMessage = 'Duplicate Serial Number: One or more meters already exist in inventory.';
+        errorMessage =
+            'Duplicate Serial Number: One or more meters already exist in inventory.';
       }
       state = state.copyWith(isLoading: false, error: errorMessage);
     }
@@ -395,18 +480,23 @@ class InventoryNotifier extends Notifier<InventoryState> {
   }) async {
     state = state.copyWith(isLoading: true);
     try {
-      final allotments = itemIds.map((id) => InventoryAllotment(
-        id: '',
-        itemId: id,
-        itemType: itemType,
-        customerName: customerName,
-        customerAddress: customerAddress,
-        customerMobile: customerMobile,
-        applicationId: applicationId,
-        handoverBy: handoverBy,
-        handoverDate: handoverDate,
-        createdAt: DateTime.now(),
-      )).toList();
+      final allotments =
+          itemIds
+              .map(
+                (id) => InventoryAllotment(
+                  id: '',
+                  itemId: id,
+                  itemType: itemType,
+                  customerName: customerName,
+                  customerAddress: customerAddress,
+                  customerMobile: customerMobile,
+                  applicationId: applicationId,
+                  handoverBy: handoverBy,
+                  handoverDate: handoverDate,
+                  createdAt: DateTime.now(),
+                ),
+              )
+              .toList();
 
       await InventoryService.createMultipleAllotments(allotments);
       await loadAll();
@@ -416,7 +506,13 @@ class InventoryNotifier extends Notifier<InventoryState> {
   }
 }
 
-final inventoryProvider = NotifierProvider<InventoryNotifier, InventoryState>(() => InventoryNotifier());
-final inventoryInvoicesProvider = FutureProvider.family<List<InventoryInvoice>, InventoryItemType>((ref, type) async {
-  return await InventoryService.fetchInvoices(type);
-});
+final inventoryProvider = NotifierProvider<InventoryNotifier, InventoryState>(
+  () => InventoryNotifier(),
+);
+final inventoryInvoicesProvider =
+    FutureProvider.family<List<InventoryInvoice>, InventoryItemType>((
+      ref,
+      type,
+    ) async {
+      return await InventoryService.fetchInvoices(type);
+    });

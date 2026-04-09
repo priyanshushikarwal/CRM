@@ -2536,9 +2536,60 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
   final _mobileController = TextEditingController();
   final _handoverByController = TextEditingController();
   DateTime _handoverDate = DateTime.now();
+  bool _isSubmitting = false;
+
+  Future<void> _showBlockingLoader() {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Container(
+          color: Colors.black.withOpacity(0.35),
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: CircularProgressIndicator(strokeWidth: 4, color: Colors.white),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Allotting inventory...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Please wait, do not close the app.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _hideBlockingLoader() {
+    if (!mounted) return;
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    if (rootNavigator.canPop()) {
+      rootNavigator.pop();
+    }
+  }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    _showBlockingLoader();
 
     try {
       await ref.read(inventoryProvider.notifier).allotItem(
@@ -2550,13 +2601,17 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
         handoverBy: _handoverByController.text,
         handoverDate: _handoverDate,
       );
+      _hideBlockingLoader();
       if (mounted) Navigator.pop(context);
     } catch (e) {
+      _hideBlockingLoader();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -2616,8 +2671,14 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        ElevatedButton(onPressed: _submit, child: const Text('Confirm Handover')),
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: const Text('Confirm Handover'),
+        ),
       ],
     );
   }

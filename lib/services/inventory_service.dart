@@ -3,6 +3,31 @@ import '../core/constants/app_constants.dart';
 import 'supabase_service.dart';
 
 class InventoryService {
+  static String _tableForItemType(InventoryItemType itemType) {
+    switch (itemType) {
+      case InventoryItemType.panel:
+        return AppConstants.panelItemsTable;
+      case InventoryItemType.inverter:
+        return AppConstants.inverterItemsTable;
+      case InventoryItemType.meter:
+        return AppConstants.meterItemsTable;
+      case InventoryItemType.battery:
+        return 'battery_items';
+      case InventoryItemType.other:
+        return 'other_items';
+    }
+  }
+
+  static Future<void> clearAllotmentForItem({
+    required String itemId,
+    required InventoryItemType itemType,
+  }) async {
+    await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
+        .delete()
+        .eq('item_id', itemId)
+        .eq('item_type', itemType.toString().split('.').last);
+  }
+
   // --- Invoices ---
   static Future<InventoryInvoice> createInvoice({
     required String invoiceNumber,
@@ -23,33 +48,38 @@ class InventoryService {
       createdAt: DateTime.now(),
     );
 
-    final response = await SupabaseService.from(AppConstants.inventoryInvoicesTable)
-        .insert(invoice.toJson())
-        .select()
-        .single();
-    
+    final response =
+        await SupabaseService.from(
+          AppConstants.inventoryInvoicesTable,
+        ).insert(invoice.toJson()).select().single();
+
     return InventoryInvoice.fromJson(response);
   }
 
-  static Future<List<InventoryInvoice>> fetchInvoices(InventoryItemType type) async {
-    final response = await SupabaseService.from(AppConstants.inventoryInvoicesTable)
+  static Future<List<InventoryInvoice>> fetchInvoices(
+    InventoryItemType type,
+  ) async {
+    final response = await SupabaseService.from(
+          AppConstants.inventoryInvoicesTable,
+        )
         .select()
         .eq('item_type', type.toString().split('.').last)
         .order('created_at', ascending: false);
-    
+
     return (response as List).map((e) => InventoryInvoice.fromJson(e)).toList();
   }
 
   static Future<void> updateInvoice(InventoryInvoice invoice) async {
-    await SupabaseService.from(AppConstants.inventoryInvoicesTable)
-        .update(invoice.toJson())
-        .eq('id', invoice.id);
+    await SupabaseService.from(
+      AppConstants.inventoryInvoicesTable,
+    ).update(invoice.toJson()).eq('id', invoice.id);
   }
 
   // --- Panel Items ---
   static Future<void> addPanelItems(List<PanelItem> items) async {
-    await SupabaseService.from(AppConstants.panelItemsTable)
-        .insert(items.map((e) => e.toJson()).toList());
+    await SupabaseService.from(
+      AppConstants.panelItemsTable,
+    ).insert(items.map((e) => e.toJson()).toList());
   }
 
   static Future<List<PanelItem>> fetchPanels({String? status}) async {
@@ -62,23 +92,25 @@ class InventoryService {
   }
 
   static Future<void> updatePanelItem(PanelItem item) async {
-    await SupabaseService.from(AppConstants.panelItemsTable)
-        .update(item.toJson())
-        .eq('id', item.id);
+    await SupabaseService.from(
+      AppConstants.panelItemsTable,
+    ).update(item.toJson()).eq('id', item.id);
   }
 
   static Future<void> deletePanelItem(String id) async {
-    await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
-        .delete()
-        .eq('item_id', id)
-        .eq('item_type', 'panel');
-    await SupabaseService.from(AppConstants.panelItemsTable).delete().eq('id', id);
+    await SupabaseService.from(
+      AppConstants.inventoryAllotmentsTable,
+    ).delete().eq('item_id', id).eq('item_type', 'panel');
+    await SupabaseService.from(
+      AppConstants.panelItemsTable,
+    ).delete().eq('id', id);
   }
 
   // --- Inverter Items ---
   static Future<void> addInverterItems(List<InverterItem> items) async {
-    await SupabaseService.from(AppConstants.inverterItemsTable)
-        .insert(items.map((e) => e.toJson()).toList());
+    await SupabaseService.from(
+      AppConstants.inverterItemsTable,
+    ).insert(items.map((e) => e.toJson()).toList());
   }
 
   static Future<List<InverterItem>> fetchInverters({String? status}) async {
@@ -91,25 +123,25 @@ class InventoryService {
   }
 
   static Future<void> updateInverterItem(InverterItem item) async {
-    await SupabaseService.from(AppConstants.inverterItemsTable)
-        .update(item.toJson())
-        .eq('id', item.id);
+    await SupabaseService.from(
+      AppConstants.inverterItemsTable,
+    ).update(item.toJson()).eq('id', item.id);
   }
 
   static Future<void> deleteInverterItem(String id) async {
-    await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
-        .delete()
-        .eq('item_id', id)
-        .eq('item_type', 'inverter');
-    await SupabaseService.from(AppConstants.inverterItemsTable)
-        .delete()
-        .eq('id', id);
+    await SupabaseService.from(
+      AppConstants.inventoryAllotmentsTable,
+    ).delete().eq('item_id', id).eq('item_type', 'inverter');
+    await SupabaseService.from(
+      AppConstants.inverterItemsTable,
+    ).delete().eq('id', id);
   }
 
   // --- Meter Items ---
   static Future<void> addMeterItems(List<MeterItem> items) async {
-    await SupabaseService.from(AppConstants.meterItemsTable)
-        .insert(items.map((e) => e.toJson()).toList());
+    await SupabaseService.from(
+      AppConstants.meterItemsTable,
+    ).insert(items.map((e) => e.toJson()).toList());
   }
 
   static Future<List<MeterItem>> fetchMeters({String? status}) async {
@@ -122,70 +154,71 @@ class InventoryService {
   }
 
   static Future<void> updateMeterItem(MeterItem item) async {
-    await SupabaseService.from(AppConstants.meterItemsTable)
-        .update(item.toJson())
-        .eq('id', item.id);
+    await SupabaseService.from(
+      AppConstants.meterItemsTable,
+    ).update(item.toJson()).eq('id', item.id);
   }
 
   static Future<void> deleteMeterItem(String id) async {
-    await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
-        .delete()
-        .eq('item_id', id)
-        .eq('item_type', 'meter');
-    await SupabaseService.from(AppConstants.meterItemsTable).delete().eq('id', id);
+    await SupabaseService.from(
+      AppConstants.inventoryAllotmentsTable,
+    ).delete().eq('item_id', id).eq('item_type', 'meter');
+    await SupabaseService.from(
+      AppConstants.meterItemsTable,
+    ).delete().eq('id', id);
   }
 
   // --- Allotments ---
-  static Future<InventoryAllotment> createAllotment(InventoryAllotment allotment) async {
-    final response = await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
-        .insert(allotment.toJson())
-        .select()
-        .single();
-    
-    // Update item status
-    String table;
-    switch (allotment.itemType) {
-      case InventoryItemType.panel: table = AppConstants.panelItemsTable; break;
-      case InventoryItemType.inverter: table = AppConstants.inverterItemsTable; break;
-      case InventoryItemType.meter: table = AppConstants.meterItemsTable; break;
-      case InventoryItemType.battery: table = 'battery_items'; break;
-      case InventoryItemType.other: table = 'other_items'; break;
-    }
+  static Future<InventoryAllotment> createAllotment(
+    InventoryAllotment allotment,
+  ) async {
+    await clearAllotmentForItem(itemId: allotment.itemId, itemType: allotment.itemType);
 
-    await SupabaseService.from(table)
-        .update({'status': 'allotted'})
-        .eq('id', allotment.itemId);
+    final response =
+        await SupabaseService.from(
+          AppConstants.inventoryAllotmentsTable,
+        ).insert(allotment.toJson()).select().single();
+
+    // Update item status
+    final table = _tableForItemType(allotment.itemType);
+
+    await SupabaseService.from(
+      table,
+    ).update({'status': 'allotted'}).eq('id', allotment.itemId);
 
     return InventoryAllotment.fromJson(response);
   }
 
-  static Future<void> createMultipleAllotments(List<InventoryAllotment> allotments) async {
+  static Future<void> createMultipleAllotments(
+    List<InventoryAllotment> allotments,
+  ) async {
     if (allotments.isEmpty) return;
-    
+
     final itemIds = allotments.map((e) => e.itemId).toList();
     final itemType = allotments.first.itemType;
-    
-    await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
-        .insert(allotments.map((e) => e.toJson()).toList());
-    
-    String table;
-    switch (itemType) {
-      case InventoryItemType.panel: table = AppConstants.panelItemsTable; break;
-      case InventoryItemType.inverter: table = AppConstants.inverterItemsTable; break;
-      case InventoryItemType.meter: table = AppConstants.meterItemsTable; break;
-      case InventoryItemType.battery: table = 'battery_items'; break;
-      case InventoryItemType.other: table = 'other_items'; break;
-    }
+    final itemTypeName = itemType.toString().split('.').last;
 
-    await SupabaseService.from(table)
-        .update({'status': 'allotted'})
-        .filter('id', 'in', itemIds);
+    await SupabaseService.from(
+      AppConstants.inventoryAllotmentsTable,
+    ).delete().eq('item_type', itemTypeName).filter('item_id', 'in', itemIds);
+
+    await SupabaseService.from(
+      AppConstants.inventoryAllotmentsTable,
+    ).insert(allotments.map((e) => e.toJson()).toList());
+
+    final table = _tableForItemType(itemType);
+
+    await SupabaseService.from(
+      table,
+    ).update({'status': 'allotted'}).filter('id', 'in', itemIds);
   }
 
   static Future<List<InventoryAllotment>> fetchAllotments() async {
-    final response = await SupabaseService.from(AppConstants.inventoryAllotmentsTable)
-        .select()
-        .order('handover_date', ascending: false);
-    return (response as List).map((e) => InventoryAllotment.fromJson(e)).toList();
+    final response = await SupabaseService.from(
+      AppConstants.inventoryAllotmentsTable,
+    ).select().order('handover_date', ascending: false);
+    return (response as List)
+        .map((e) => InventoryAllotment.fromJson(e))
+        .toList();
   }
 }

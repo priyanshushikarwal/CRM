@@ -5,6 +5,7 @@ import 'core/config/app_mode.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'providers/app_providers.dart';
+import 'providers/refresh_providers.dart';
 import 'services/supabase_service.dart';
 
 void main() async {
@@ -27,6 +28,7 @@ class DoonInfraApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(realtimeSyncProvider);
+    ref.watch(periodicSyncProvider);
 
     return MaterialApp.router(
       title: AppModeConfig.appName,

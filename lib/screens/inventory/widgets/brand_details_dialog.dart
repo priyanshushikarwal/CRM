@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,7 +33,14 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isCompact = MediaQuery.of(context).size.width < 720;
+    final media = MediaQuery.of(context);
+    final screenSize = media.size;
+    final keyboardInset = media.viewInsets.bottom;
+    final isCompact = screenSize.width < 900 || screenSize.height < 760;
+    final compactHeight = math.min(
+      screenSize.height - 10,
+      math.max(320.0, screenSize.height - keyboardInset - 20),
+    );
     final currentUser = ref.watch(currentUserProvider).value;
     final inventoryState = ref.watch(inventoryProvider);
     final canAllotInventory = currentUser?.canAllotInventory ?? false;
@@ -40,73 +48,97 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
     final currentPanels =
         inventoryState.panels
             .where(
-              (p) => _normalizeBrand(p.brand) == _normalizeBrand(widget.brandName),
+              (p) =>
+                  _normalizeBrand(p.brand) == _normalizeBrand(widget.brandName),
             )
             .toList();
-    final filteredPanels = currentPanels.where((p) {
-      final matchesSerial = p.serialNumber.toLowerCase().contains(_searchSerial.toLowerCase());
-      final matchesWatt = _selectedWatt == null || p.wattCapacity.toString() == _selectedWatt;
-      final matchesType = _selectedType == null || p.panelType == _selectedType;
-      final matchesStatus = _selectedStatus == null || p.status == _selectedStatus;
-      return matchesSerial && matchesWatt && matchesType && matchesStatus;
-    }).toList()
-      ..sort((a, b) {
-        // Sort by type then watt
-        int c = a.panelType.compareTo(b.panelType);
-        if (c != 0) return c;
-      return a.wattCapacity.compareTo(b.wattCapacity);
-      });
+    final filteredPanels =
+        currentPanels.where((p) {
+            final matchesSerial = p.serialNumber.toLowerCase().contains(
+              _searchSerial.toLowerCase(),
+            );
+            final matchesWatt =
+                _selectedWatt == null ||
+                p.wattCapacity.toString() == _selectedWatt;
+            final matchesType =
+                _selectedType == null || p.panelType == _selectedType;
+            final matchesStatus =
+                _selectedStatus == null || p.status == _selectedStatus;
+            return matchesSerial && matchesWatt && matchesType && matchesStatus;
+          }).toList()
+          ..sort((a, b) {
+            // Sort by type then watt
+            int c = a.panelType.compareTo(b.panelType);
+            if (c != 0) return c;
+            return a.wattCapacity.compareTo(b.wattCapacity);
+          });
 
     final panelAllotmentsByItemId = <String, InventoryAllotment>{};
     for (final allotment in inventoryState.allotments.where(
       (a) => a.itemType == InventoryItemType.panel,
     )) {
       final existing = panelAllotmentsByItemId[allotment.itemId];
-      if (existing == null || allotment.handoverDate.isAfter(existing.handoverDate)) {
+      if (existing == null ||
+          allotment.handoverDate.isAfter(existing.handoverDate)) {
         panelAllotmentsByItemId[allotment.itemId] = allotment;
       }
     }
 
-    final totalAvailable = currentPanels.where((p) => p.status == 'available').length;
-    final totalAllotted = currentPanels.where((p) => p.status == 'allotted').length;
+    final totalAvailable =
+        currentPanels.where((p) => p.status == 'available').length;
+    final totalAllotted =
+        currentPanels.where((p) => p.status == 'allotted').length;
 
-    final watts = currentPanels.map((p) => p.wattCapacity.toString()).toSet().toList()..sort();
-    final types = currentPanels.map((p) => p.panelType).toSet().toList()..sort();
+    final watts =
+        currentPanels.map((p) => p.wattCapacity.toString()).toSet().toList()
+          ..sort();
+    final types =
+        currentPanels.map((p) => p.panelType).toSet().toList()..sort();
 
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: EdgeInsets.symmetric(
-        horizontal: isCompact ? 10 : 20,
-        vertical: isCompact ? 12 : 28,
+        horizontal: isCompact ? 8 : 20,
+        vertical: isCompact ? 8 : 28,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
-            width: 1080,
-            height: isCompact ? MediaQuery.of(context).size.height * 0.88 : 680,
-            padding: EdgeInsets.all(isCompact ? 16 : 24),
+            width: isCompact ? double.infinity : 1080,
+            height: isCompact ? compactHeight.toDouble() : 680,
+            padding: EdgeInsets.all(isCompact ? 12 : 24),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(32),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.78),
-                  const Color(0xFFF2F7FF).withOpacity(0.72),
-                  const Color(0xFFF9FBFF).withOpacity(0.7),
-                ],
+                colors:
+                    isCompact
+                        ? const [
+                          Color(0xFFF7FAFF),
+                          Color(0xFFF2F6FF),
+                          Color(0xFFEEF3FF),
+                        ]
+                        : [
+                          Colors.white.withOpacity(0.78),
+                          const Color(0xFFF2F7FF).withOpacity(0.72),
+                          const Color(0xFFF9FBFF).withOpacity(0.7),
+                        ],
               ),
               border: Border.all(
-                color: Colors.white.withOpacity(0.55),
+                color:
+                    isCompact
+                        ? const Color(0xFFDCE5F4)
+                        : Colors.white.withOpacity(0.55),
                 width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0x1A1F3B73),
-                  blurRadius: 28,
-                  offset: const Offset(0, 20),
+                  blurRadius: isCompact ? 18 : 28,
+                  offset: Offset(0, isCompact ? 12 : 20),
                 ),
               ],
             ),
@@ -119,8 +151,16 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                   ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),
-                    color: Colors.white.withOpacity(0.38),
-                    border: Border.all(color: Colors.white.withOpacity(0.45)),
+                    color:
+                        isCompact
+                            ? const Color(0xFFFDFEFF)
+                            : Colors.white.withOpacity(0.38),
+                    border: Border.all(
+                      color:
+                          isCompact
+                              ? const Color(0xFFE5EAF3)
+                              : Colors.white.withOpacity(0.45),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -168,40 +208,40 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                             const SizedBox(height: 12),
                             isCompact
                                 ? Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildMobileStatTile(
-                                          count: totalAvailable,
-                                          label: 'AVAILABLE',
-                                          color: const Color(0xFF22C55E),
-                                        ),
+                                  children: [
+                                    Expanded(
+                                      child: _buildMobileStatTile(
+                                        count: totalAvailable,
+                                        label: 'AVAILABLE',
+                                        color: const Color(0xFF22C55E),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _buildMobileStatTile(
-                                          count: totalAllotted,
-                                          label: 'ALLOTTED',
-                                          color: const Color(0xFFFB923C),
-                                        ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: _buildMobileStatTile(
+                                        count: totalAllotted,
+                                        label: 'ALLOTTED',
+                                        color: const Color(0xFFFB923C),
                                       ),
-                                    ],
-                                  )
+                                    ),
+                                  ],
+                                )
                                 : Wrap(
-                                    spacing: 10,
-                                    runSpacing: 10,
-                                    children: [
-                                      _buildTotalBadge(
-                                        'Available Balance',
-                                        totalAvailable,
-                                        const Color(0xFF16A34A),
-                                      ),
-                                      _buildTotalBadge(
-                                        'Allotted',
-                                        totalAllotted,
-                                        const Color(0xFFF59E0B),
-                                      ),
-                                    ],
-                                  ),
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    _buildTotalBadge(
+                                      'Available Balance',
+                                      totalAvailable,
+                                      const Color(0xFF16A34A),
+                                    ),
+                                    _buildTotalBadge(
+                                      'Allotted',
+                                      totalAllotted,
+                                      const Color(0xFFF59E0B),
+                                    ),
+                                  ],
+                                ),
                           ],
                         ),
                       ),
@@ -224,200 +264,268 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(22),
-                    color: Colors.white.withOpacity(0.32),
-                    border: Border.all(color: Colors.white.withOpacity(0.42)),
+                    color:
+                        isCompact
+                            ? const Color(0xFFF8FAFF)
+                            : Colors.white.withOpacity(0.32),
+                    border: Border.all(
+                      color:
+                          isCompact
+                              ? const Color(0xFFE2E8F2)
+                              : Colors.white.withOpacity(0.42),
+                    ),
                   ),
-                  child: isCompact
-                      ? Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    decoration: InputDecoration(
-                                      hintText: 'Search by serial number',
-                                      prefixIcon: const Icon(Icons.search_rounded),
-                                      isDense: true,
-                                      filled: true,
-                                      fillColor: Colors.white.withOpacity(0.7),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withOpacity(0.35),
+                  child:
+                      isCompact
+                          ? Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      decoration: InputDecoration(
+                                        hintText: 'Search by serial number',
+                                        prefixIcon: const Icon(
+                                          Icons.search_rounded,
+                                        ),
+                                        isDense: true,
+                                        filled: true,
+                                        fillColor: Colors.white.withOpacity(
+                                          0.7,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: Colors.white.withOpacity(
+                                              0.35,
+                                            ),
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFF6366F1),
+                                          ),
                                         ),
                                       ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFF6366F1),
-                                        ),
+                                      onChanged:
+                                          (v) =>
+                                              setState(() => _searchSerial = v),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.75),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.4),
                                       ),
                                     ),
-                                    onChanged: (v) => setState(() => _searchSerial = v),
+                                    child: IconButton(
+                                      onPressed:
+                                          () => setState(
+                                            () =>
+                                                _filtersExpanded =
+                                                    !_filtersExpanded,
+                                          ),
+                                      icon: Icon(
+                                        _filtersExpanded
+                                            ? Icons.filter_alt_off_rounded
+                                            : Icons.filter_alt_rounded,
+                                      ),
+                                      color: const Color(0xFF4F46E5),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 10),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.75),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(color: Colors.white.withOpacity(0.4)),
-                                  ),
-                                  child: IconButton(
-                                    onPressed: () => setState(() => _filtersExpanded = !_filtersExpanded),
-                                    icon: Icon(
-                                      _filtersExpanded
-                                          ? Icons.filter_alt_off_rounded
-                                          : Icons.filter_alt_rounded,
-                                    ),
-                                    color: const Color(0xFF4F46E5),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            AnimatedCrossFade(
-                              duration: const Duration(milliseconds: 180),
-                              crossFadeState: _filtersExpanded
-                                  ? CrossFadeState.showFirst
-                                  : CrossFadeState.showSecond,
-                              firstChild: Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: Column(
-                                  children: [
-                                    _buildFilterDropdown(
-                                      hint: 'Watt',
-                                      value: _selectedWatt,
-                                      items: watts,
-                                      onChanged: (v) => setState(() => _selectedWatt = v),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _buildFilterDropdown(
-                                      hint: 'Type (DCR/NDCR)',
-                                      value: _selectedType,
-                                      items: types,
-                                      onChanged: (v) => setState(() => _selectedType = v),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _buildFilterDropdown(
-                                      hint: 'Status',
-                                      value: _selectedStatus,
-                                      items: const ['available', 'allotted'],
-                                      onChanged: (v) => setState(() => _selectedStatus = v),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.75),
-                                          borderRadius: BorderRadius.circular(18),
-                                          border: Border.all(color: Colors.white.withOpacity(0.4)),
-                                        ),
-                                        child: IconButton(
-                                          onPressed: () => setState(() {
-                                            _searchSerial = '';
-                                            _selectedWatt = null;
-                                            _selectedType = null;
-                                            _selectedStatus = null;
-                                            _filtersExpanded = false;
-                                          }),
-                                          icon: const Icon(Icons.refresh_rounded),
-                                          tooltip: 'Clear Filters',
-                                          color: const Color(0xFF4F46E5),
+                                ],
+                              ),
+                              AnimatedCrossFade(
+                                duration: const Duration(milliseconds: 180),
+                                crossFadeState:
+                                    _filtersExpanded
+                                        ? CrossFadeState.showFirst
+                                        : CrossFadeState.showSecond,
+                                firstChild: Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Column(
+                                    children: [
+                                      _buildFilterDropdown(
+                                        hint: 'Watt',
+                                        value: _selectedWatt,
+                                        items: watts,
+                                        onChanged:
+                                            (v) => setState(
+                                              () => _selectedWatt = v,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildFilterDropdown(
+                                        hint: 'Type (DCR/NDCR)',
+                                        value: _selectedType,
+                                        items: types,
+                                        onChanged:
+                                            (v) => setState(
+                                              () => _selectedType = v,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildFilterDropdown(
+                                        hint: 'Status',
+                                        value: _selectedStatus,
+                                        items: const ['available', 'allotted'],
+                                        onChanged:
+                                            (v) => setState(
+                                              () => _selectedStatus = v,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(
+                                              0.75,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(
+                                                0.4,
+                                              ),
+                                            ),
+                                          ),
+                                          child: IconButton(
+                                            onPressed:
+                                                () => setState(() {
+                                                  _searchSerial = '';
+                                                  _selectedWatt = null;
+                                                  _selectedType = null;
+                                                  _selectedStatus = null;
+                                                  _filtersExpanded = false;
+                                                }),
+                                            icon: const Icon(
+                                              Icons.refresh_rounded,
+                                            ),
+                                            tooltip: 'Clear Filters',
+                                            color: const Color(0xFF4F46E5),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              secondChild: const SizedBox.shrink(),
-                            ),
-                          ],
-                        )
-                      : Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 380,
-                              child: TextField(
-                                decoration: InputDecoration(
-                                  hintText: 'Search by serial number',
-                                  prefixIcon: const Icon(Icons.search_rounded),
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: Colors.white.withOpacity(0.7),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withOpacity(0.35),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF6366F1),
-                                    ),
+                                    ],
                                   ),
                                 ),
-                                onChanged: (v) => setState(() => _searchSerial = v),
+                                secondChild: const SizedBox.shrink(),
                               ),
-                            ),
-                            _buildFilterDropdown(
-                              hint: 'Watt',
-                              value: _selectedWatt,
-                              items: watts,
-                              onChanged: (v) => setState(() => _selectedWatt = v),
-                            ),
-                            _buildFilterDropdown(
-                              hint: 'Type (DCR/NDCR)',
-                              value: _selectedType,
-                              items: types,
-                              onChanged: (v) => setState(() => _selectedType = v),
-                            ),
-                            _buildFilterDropdown(
-                              hint: 'Status',
-                              value: _selectedStatus,
-                              items: const ['available', 'allotted'],
-                              onChanged: (v) => setState(() => _selectedStatus = v),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.75),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: Colors.white.withOpacity(0.4)),
+                            ],
+                          )
+                          : Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 380,
+                                child: TextField(
+                                  decoration: InputDecoration(
+                                    hintText: 'Search by serial number',
+                                    prefixIcon: const Icon(
+                                      Icons.search_rounded,
+                                    ),
+                                    isDense: true,
+                                    filled: true,
+                                    fillColor: Colors.white.withOpacity(0.7),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: BorderSide(
+                                        color: Colors.white.withOpacity(0.35),
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF6366F1),
+                                      ),
+                                    ),
+                                  ),
+                                  onChanged:
+                                      (v) => setState(() => _searchSerial = v),
+                                ),
                               ),
-                              child: IconButton(
-                                onPressed: () => setState(() {
-                                  _searchSerial = '';
-                                  _selectedWatt = null;
-                                  _selectedType = null;
-                                  _selectedStatus = null;
-                                }),
-                                icon: const Icon(Icons.refresh_rounded),
-                                tooltip: 'Clear Filters',
-                                color: const Color(0xFF4F46E5),
+                              _buildFilterDropdown(
+                                hint: 'Watt',
+                                value: _selectedWatt,
+                                items: watts,
+                                onChanged:
+                                    (v) => setState(() => _selectedWatt = v),
                               ),
-                            ),
-                          ],
-                        ),
+                              _buildFilterDropdown(
+                                hint: 'Type (DCR/NDCR)',
+                                value: _selectedType,
+                                items: types,
+                                onChanged:
+                                    (v) => setState(() => _selectedType = v),
+                              ),
+                              _buildFilterDropdown(
+                                hint: 'Status',
+                                value: _selectedStatus,
+                                items: const ['available', 'allotted'],
+                                onChanged:
+                                    (v) => setState(() => _selectedStatus = v),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.75),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.4),
+                                  ),
+                                ),
+                                child: IconButton(
+                                  onPressed:
+                                      () => setState(() {
+                                        _searchSerial = '';
+                                        _selectedWatt = null;
+                                        _selectedType = null;
+                                        _selectedStatus = null;
+                                      }),
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  tooltip: 'Clear Filters',
+                                  color: const Color(0xFF4F46E5),
+                                ),
+                              ),
+                            ],
+                          ),
                 ),
                 const SizedBox(height: 18),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(26),
-                      color: Colors.white.withOpacity(0.44),
-                      border: Border.all(color: Colors.white.withOpacity(0.48)),
+                      color:
+                          isCompact
+                              ? const Color(0xFFF9FBFF)
+                              : Colors.white.withOpacity(0.44),
+                      border: Border.all(
+                        color:
+                            isCompact
+                                ? const Color(0xFFE0E7F3)
+                                : Colors.white.withOpacity(0.48),
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.white.withOpacity(0.25),
@@ -428,245 +536,396 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(26),
-                      child: isCompact
-                          ? ListView.builder(
-                              padding: const EdgeInsets.all(12),
-                              itemCount: filteredPanels.length,
-                              itemBuilder: (context, index) {
-                                final p = filteredPanels[index];
-                                final invoice = inventoryState.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == p.invoiceId, orElse: () => null);
-                                final allotment = panelAllotmentsByItemId[p.id];
-                                final isAvailable = p.status == 'available';
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.94),
-                                    borderRadius: BorderRadius.circular(24),
-                                    border: Border.all(color: Colors.white.withOpacity(0.78)),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0x14172333),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 6),
+                      child:
+                          isCompact
+                              ? ListView.builder(
+                                padding: const EdgeInsets.all(12),
+                                itemCount: filteredPanels.length,
+                                itemBuilder: (context, index) {
+                                  final p = filteredPanels[index];
+                                  final invoice = inventoryState.invoices
+                                      .cast<InventoryInvoice?>()
+                                      .firstWhere(
+                                        (inv) => inv?.id == p.invoiceId,
+                                        orElse: () => null,
+                                      );
+                                  final allotment =
+                                      panelAllotmentsByItemId[p.id];
+                                  final isAvailable = p.status == 'available';
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      14,
+                                      16,
+                                      14,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.94),
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.78),
                                       ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'SERIAL NUMBER',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.8,
-                                          color: Color(0xFF9AA6B6),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              p.serialNumber,
-                                              style: const TextStyle(
-                                                fontSize: 17,
-                                                fontWeight: FontWeight.w800,
-                                                color: Color(0xFF1E293B),
-                                                height: 1.1,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          _buildCompactStatusBadge(
-                                            p.status.toUpperCase(),
-                                            isAvailable
-                                                ? const Color(0xFF4ADE80)
-                                                : const Color(0xFFFB923C),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: _buildCompactDetail(
-                                              'Wattage',
-                                              '${p.wattCapacity}W',
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: _buildCompactDetail(
-                                              'Type',
-                                              p.panelType,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      if (allotment != null) ...[
-                                        const SizedBox(height: 10),
-                                        Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF1F5FF),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            'Allotted: ${allotment.customerName} (${_formatApplicationRef(allotment.applicationId)})',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF334155),
-                                            ),
-                                          ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0x14172333),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 6),
                                         ),
                                       ],
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: _buildCompactDetail(
-                                              'Purchase Date',
-                                              invoice != null
-                                                  ? '${invoice.invoiceDate.day} ${_monthShort(invoice.invoiceDate.month)} ${invoice.invoiceDate.year}'
-                                                  : '-',
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'SERIAL NUMBER',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.8,
+                                            color: Color(0xFF9AA6B6),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                p.serialNumber,
+                                                style: const TextStyle(
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Color(0xFF1E293B),
+                                                  height: 1.1,
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: _buildCompactDetail(
-                                              'Invoice #',
-                                              invoice?.invoiceNumber ?? '-',
+                                            const SizedBox(width: 10),
+                                            _buildCompactStatusBadge(
+                                              p.status.toUpperCase(),
+                                              isAvailable
+                                                  ? const Color(0xFF4ADE80)
+                                                  : const Color(0xFFFB923C),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 14),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.description_outlined,
-                                            size: 15,
-                                            color: Color(0xFF6B7280),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          const Expanded(
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: _buildCompactDetail(
+                                                'Wattage',
+                                                '${p.wattCapacity}W',
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: _buildCompactDetail(
+                                                'Type',
+                                                p.panelType,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        if (allotment != null) ...[
+                                          const SizedBox(height: 10),
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF1F5FF),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
                                             child: Text(
-                                              'View Details',
-                                              style: TextStyle(
-                                                fontSize: 12,
+                                              'Allotted: ${allotment.customerName} (${_formatApplicationRef(allotment.applicationId)})',
+                                              style: const TextStyle(
+                                                fontSize: 11,
                                                 fontWeight: FontWeight.w700,
-                                                color: Color(0xFF4B5563),
+                                                color: Color(0xFF334155),
                                               ),
                                             ),
                                           ),
-                                          if (isAvailable && canAllotInventory)
-                                            _buildActionIcon(
-                                              icon: Icons.assignment_ind_rounded,
-                                              color: const Color(0xFF4F46E5),
-                                              onTap: () => _showAllotmentDialog(
-                                                context,
-                                                p.id,
-                                                InventoryItemType.panel,
+                                        ],
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: _buildCompactDetail(
+                                                'Purchase Date',
+                                                invoice != null
+                                                    ? '${invoice.invoiceDate.day} ${_monthShort(invoice.invoiceDate.month)} ${invoice.invoiceDate.year}'
+                                                    : '-',
                                               ),
                                             ),
-                                          if (canEditInventory) ...[
-                                            const SizedBox(width: 8),
-                                            _buildActionIcon(
-                                              icon: Icons.edit_rounded,
-                                              color: const Color(0xFF6B7280),
-                                              onTap: () => _showEditPanelDialog(p),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: _buildCompactDetail(
+                                                'Invoice #',
+                                                invoice?.invoiceNumber ?? '-',
+                                              ),
                                             ),
                                           ],
-                                          if (canEditInventory) ...[
-                                            const SizedBox(width: 8),
-                                            _buildActionIcon(
-                                              icon: Icons.delete_outline_rounded,
-                                              color: AppTheme.errorColor,
-                                              onTap: () => _confirmDeletePanel(p),
+                                        ),
+                                        const SizedBox(height: 14),
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.description_outlined,
+                                              size: 15,
+                                              color: Color(0xFF6B7280),
                                             ),
+                                            const SizedBox(width: 6),
+                                            const Expanded(
+                                              child: Text(
+                                                'View Details',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF4B5563),
+                                                ),
+                                              ),
+                                            ),
+                                            if (isAvailable &&
+                                                canAllotInventory)
+                                              _buildActionIcon(
+                                                icon:
+                                                    Icons
+                                                        .assignment_ind_rounded,
+                                                color: const Color(0xFF4F46E5),
+                                                onTap:
+                                                    () => _showAllotmentDialog(
+                                                      context,
+                                                      p.id,
+                                                      InventoryItemType.panel,
+                                                    ),
+                                              ),
+                                            if (canEditInventory) ...[
+                                              const SizedBox(width: 8),
+                                              _buildActionIcon(
+                                                icon: Icons.edit_rounded,
+                                                color: const Color(0xFF6B7280),
+                                                onTap:
+                                                    () =>
+                                                        _showEditPanelDialog(p),
+                                              ),
+                                            ],
+                                            if (canEditInventory) ...[
+                                              const SizedBox(width: 8),
+                                              _buildActionIcon(
+                                                icon:
+                                                    Icons
+                                                        .delete_outline_rounded,
+                                                color: AppTheme.errorColor,
+                                                onTap:
+                                                    () =>
+                                                        _confirmDeletePanel(p),
+                                              ),
+                                            ],
                                           ],
-                                        ],
-                                      ),
-                                    ],
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              )
+                              : SingleChildScrollView(
+                                padding: const EdgeInsets.all(12),
+                                child: DataTable(
+                                  headingRowHeight: 56,
+                                  dataRowMinHeight: 60,
+                                  dataRowMaxHeight: 96,
+                                  horizontalMargin: 18,
+                                  columnSpacing: 28,
+                                  headingRowColor: WidgetStateProperty.all(
+                                    const Color(0xFFEFF4FB).withOpacity(0.95),
                                   ),
-                                );
-                              },
-                            )
-                          : SingleChildScrollView(
-                              padding: const EdgeInsets.all(12),
-                              child: DataTable(
-                          headingRowHeight: 56,
-                          dataRowMinHeight: 60,
-                          dataRowMaxHeight: 96,
-                          horizontalMargin: 18,
-                          columnSpacing: 28,
-                          headingRowColor: WidgetStateProperty.all(
-                            const Color(0xFFEFF4FB).withOpacity(0.95),
-                          ),
-                          columns: const [
-                            DataColumn(label: Text('Serial No.', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Wattage', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Allotted To / App', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Purchase From', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Invoice / Date', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                          ],
-                          rows: filteredPanels.map((p) {
-                            final invoice = inventoryState.invoices.cast<InventoryInvoice?>().firstWhere((inv) => inv?.id == p.invoiceId, orElse: () => null);
-                            final allotment = panelAllotmentsByItemId[p.id];
-
-                            return DataRow(cells: [
-                              DataCell(Text(p.serialNumber, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
-                              DataCell(Text('${p.wattCapacity}W')),
-                              DataCell(Text(p.panelType)),
-                              DataCell(_StatusBadge(status: p.status)),
-                              DataCell(_buildAllotmentSummaryCell(allotment)),
-                              DataCell(Text(invoice?.partyName ?? 'N/A')),
-                              DataCell(
-                                invoice != null
-                                    ? Text(
-                                      '${invoice.invoiceNumber}\n${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}',
-                                      style: const TextStyle(fontSize: 10, height: 1.4),
-                                    )
-                                    : const Text('-'),
-                              ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (p.status == 'available' && canAllotInventory)
-                                      TextButton.icon(
-                                        onPressed: () => _showAllotmentDialog(context, p.id, InventoryItemType.panel),
-                                        icon: const Icon(Icons.assignment_ind_rounded, size: 16),
-                                        label: const Text('Allot'),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: const Color(0xFF4F46E5),
+                                  columns: const [
+                                    DataColumn(
+                                      label: Text(
+                                        'Serial No.',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                    if (canEditInventory)
-                                      IconButton(
-                                        icon: const Icon(Icons.edit_rounded, size: 18),
-                                        onPressed: () => _showEditPanelDialog(p),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Wattage',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    if (canEditInventory)
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.errorColor),
-                                        onPressed: () => _confirmDeletePanel(p),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Type',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Status',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Allotted To / App',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Purchase From',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Invoice / Date',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Actions',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
                                   ],
+                                  rows:
+                                      filteredPanels.map((p) {
+                                        final invoice = inventoryState.invoices
+                                            .cast<InventoryInvoice?>()
+                                            .firstWhere(
+                                              (inv) => inv?.id == p.invoiceId,
+                                              orElse: () => null,
+                                            );
+                                        final allotment =
+                                            panelAllotmentsByItemId[p.id];
+
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(
+                                              Text(
+                                                p.serialNumber,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF1E293B),
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text('${p.wattCapacity}W'),
+                                            ),
+                                            DataCell(Text(p.panelType)),
+                                            DataCell(
+                                              _StatusBadge(status: p.status),
+                                            ),
+                                            DataCell(
+                                              _buildAllotmentSummaryCell(
+                                                allotment,
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(invoice?.partyName ?? 'N/A'),
+                                            ),
+                                            DataCell(
+                                              invoice != null
+                                                  ? Text(
+                                                    '${invoice.invoiceNumber}\n${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}',
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      height: 1.4,
+                                                    ),
+                                                  )
+                                                  : const Text('-'),
+                                            ),
+                                            DataCell(
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  if (p.status == 'available' &&
+                                                      canAllotInventory)
+                                                    TextButton.icon(
+                                                      onPressed:
+                                                          () =>
+                                                              _showAllotmentDialog(
+                                                                context,
+                                                                p.id,
+                                                                InventoryItemType
+                                                                    .panel,
+                                                              ),
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .assignment_ind_rounded,
+                                                        size: 16,
+                                                      ),
+                                                      label: const Text(
+                                                        'Allot',
+                                                      ),
+                                                      style:
+                                                          TextButton.styleFrom(
+                                                            foregroundColor:
+                                                                const Color(
+                                                                  0xFF4F46E5,
+                                                                ),
+                                                          ),
+                                                    ),
+                                                  if (canEditInventory)
+                                                    IconButton(
+                                                      icon: const Icon(
+                                                        Icons.edit_rounded,
+                                                        size: 18,
+                                                      ),
+                                                      onPressed:
+                                                          () =>
+                                                              _showEditPanelDialog(
+                                                                p,
+                                                              ),
+                                                    ),
+                                                  if (canEditInventory)
+                                                    IconButton(
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .delete_outline_rounded,
+                                                        size: 18,
+                                                        color:
+                                                            AppTheme.errorColor,
+                                                      ),
+                                                      onPressed:
+                                                          () =>
+                                                              _confirmDeletePanel(
+                                                                p,
+                                                              ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
                                 ),
                               ),
-                            ]);
-                          }).toList(),
-                              ),
-                            ),
                     ),
                   ),
                 ),
@@ -686,7 +945,8 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
   }
 
   Widget _buildAllotmentSummaryCell(InventoryAllotment? allotment) {
-    if (allotment == null) return const Text('-', style: TextStyle(color: AppTheme.textSecondary));
+    if (allotment == null)
+      return const Text('-', style: TextStyle(color: AppTheme.textSecondary));
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -705,7 +965,11 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
     );
   }
 
-  void _showAllotmentDialog(BuildContext context, String itemId, InventoryItemType type) {
+  void _showAllotmentDialog(
+    BuildContext context,
+    String itemId,
+    InventoryItemType type,
+  ) {
     // We need to access the parent's _showAllotmentDialog or redefine it.
     // For now, I'll assume the parent can call it or I'll implement a callback.
     // Since I'm in a separate file, I'll need to define it or pass it.
@@ -878,15 +1142,17 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
     final linkedInvoice =
         panel.invoiceId == null
             ? null
-            : inventoryState.invoices
-                .cast<InventoryInvoice?>()
-                .firstWhere(
-                  (invoice) => invoice?.id == panel.invoiceId,
-                  orElse: () => null,
-                );
+            : inventoryState.invoices.cast<InventoryInvoice?>().firstWhere(
+              (invoice) => invoice?.id == panel.invoiceId,
+              orElse: () => null,
+            );
     final brandController = TextEditingController(text: panel.brand);
-    final wattController = TextEditingController(text: panel.wattCapacity.toString());
-    final partyController = TextEditingController(text: linkedInvoice?.partyName ?? '');
+    final wattController = TextEditingController(
+      text: panel.wattCapacity.toString(),
+    );
+    final partyController = TextEditingController(
+      text: linkedInvoice?.partyName ?? '',
+    );
     final invoiceNumberController = TextEditingController(
       text: linkedInvoice?.invoiceNumber ?? '',
     );
@@ -902,135 +1168,180 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
 
     final shouldSave = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFF7F9FF),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Edit Panel'),
-        content: StatefulBuilder(
-          builder: (context, setDialogState) => SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: brandController,
-                  decoration: const InputDecoration(labelText: 'Brand'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: wattController,
-                  decoration: const InputDecoration(labelText: 'Watt Capacity'),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedType,
-                  decoration: const InputDecoration(labelText: 'Type'),
-                  items: const ['DCR', 'NDCR']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (value) => selectedType = value ?? selectedType,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedStatus,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                  items: const ['available', 'allotted']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (value) => selectedStatus = value ?? selectedStatus,
-                ),
-                if (linkedInvoice != null) ...[
-                  const SizedBox(height: 18),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Purchase Details',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: partyController,
-                    decoration: const InputDecoration(labelText: 'Party Name'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: invoiceNumberController,
-                    decoration: const InputDecoration(labelText: 'Invoice Number'),
-                  ),
-                  const SizedBox(height: 12),
-                  InkWell(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedInvoiceDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (picked != null) {
-                        setDialogState(() => selectedInvoiceDate = picked);
-                      }
-                    },
-                    child: InputDecorator(
-                      decoration: const InputDecoration(labelText: 'Invoice Date'),
-                      child: Text(
-                        '${selectedInvoiceDate.day}/${selectedInvoiceDate.month}/${selectedInvoiceDate.year}',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: receivedByController,
-                    decoration: const InputDecoration(labelText: 'Received By'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: priceController,
-                    decoration: const InputDecoration(labelText: 'Price'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Purchase details update all inventory items linked to this invoice.',
-                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                  ),
-                ],
-              ],
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFFF7F9FF),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
             ),
+            title: const Text('Edit Panel'),
+            content: StatefulBuilder(
+              builder:
+                  (context, setDialogState) => SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: brandController,
+                          decoration: const InputDecoration(labelText: 'Brand'),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: wattController,
+                          decoration: const InputDecoration(
+                            labelText: 'Watt Capacity',
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedType,
+                          decoration: const InputDecoration(labelText: 'Type'),
+                          items:
+                              const ['DCR', 'NDCR']
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (value) => selectedType = value ?? selectedType,
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedStatus,
+                          decoration: const InputDecoration(
+                            labelText: 'Status',
+                          ),
+                          items:
+                              const ['available', 'allotted']
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (value) =>
+                                  selectedStatus = value ?? selectedStatus,
+                        ),
+                        if (linkedInvoice != null) ...[
+                          const SizedBox(height: 18),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Purchase Details',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: partyController,
+                            decoration: const InputDecoration(
+                              labelText: 'Party Name',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: invoiceNumberController,
+                            decoration: const InputDecoration(
+                              labelText: 'Invoice Number',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: selectedInvoiceDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 365),
+                                ),
+                              );
+                              if (picked != null) {
+                                setDialogState(
+                                  () => selectedInvoiceDate = picked,
+                                );
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Invoice Date',
+                              ),
+                              child: Text(
+                                '${selectedInvoiceDate.day}/${selectedInvoiceDate.month}/${selectedInvoiceDate.year}',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: receivedByController,
+                            decoration: const InputDecoration(
+                              labelText: 'Received By',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: priceController,
+                            decoration: const InputDecoration(
+                              labelText: 'Price',
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Purchase details update all inventory items linked to this invoice.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Save'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
     );
 
     if (shouldSave != true) return;
     final updated = panel.copyWith(
       brand: brandController.text.trim(),
-      wattCapacity: int.tryParse(wattController.text.trim()) ?? panel.wattCapacity,
+      wattCapacity:
+          int.tryParse(wattController.text.trim()) ?? panel.wattCapacity,
       panelType: selectedType,
       status: selectedStatus,
     );
     if (linkedInvoice != null) {
-      await ref.read(inventoryProvider.notifier).updateInvoice(
-        linkedInvoice.copyWith(
-          partyName: partyController.text.trim(),
-          invoiceNumber: invoiceNumberController.text.trim(),
-          invoiceDate: selectedInvoiceDate,
-          receivedBy: receivedByController.text.trim(),
-          clearReceivedBy: receivedByController.text.trim().isEmpty,
-          price: double.tryParse(priceController.text.trim()),
-          clearPrice: priceController.text.trim().isEmpty,
-        ),
-      );
+      await ref
+          .read(inventoryProvider.notifier)
+          .updateInvoice(
+            linkedInvoice.copyWith(
+              partyName: partyController.text.trim(),
+              invoiceNumber: invoiceNumberController.text.trim(),
+              invoiceDate: selectedInvoiceDate,
+              receivedBy: receivedByController.text.trim(),
+              clearReceivedBy: receivedByController.text.trim().isEmpty,
+              price: double.tryParse(priceController.text.trim()),
+              clearPrice: priceController.text.trim().isEmpty,
+            ),
+          );
     }
     await ref.read(inventoryProvider.notifier).updatePanel(updated);
   }
@@ -1038,20 +1349,28 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
   Future<void> _confirmDeletePanel(PanelItem panel) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFFFFAFA),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Delete Panel'),
-        content: Text('Delete panel ${panel.serialNumber}?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
-            child: const Text('Delete'),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFFFFFAFA),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Text('Delete Panel'),
+            content: Text('Delete panel ${panel.serialNumber}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.errorColor,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
     if (confirmed == true) {
       await ref.read(inventoryProvider.notifier).deletePanel(panel.id);
@@ -1121,7 +1440,15 @@ class _BrandDetailsDialogState extends ConsumerState<BrandDetailsDialog> {
           ),
           isExpanded: true,
           borderRadius: BorderRadius.circular(18),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 12)))).toList(),
+          items:
+              items
+                  .map(
+                    (e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(e, style: const TextStyle(fontSize: 12)),
+                    ),
+                  )
+                  .toList(),
           onChanged: onChanged,
         ),
       ),
@@ -1184,27 +1511,88 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
   final _mobileController = TextEditingController();
   final _handoverByController = TextEditingController();
   DateTime _handoverDate = DateTime.now();
+  bool _isSubmitting = false;
+
+  Future<void> _showBlockingLoader() {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder:
+          (_) => PopScope(
+            canPop: false,
+            child: Container(
+              color: Colors.black.withOpacity(0.35),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 64,
+                      height: 64,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 4,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Allotting inventory...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Please wait, do not close the app.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+    );
+  }
+
+  void _hideBlockingLoader() {
+    if (!mounted) return;
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    if (rootNavigator.canPop()) {
+      rootNavigator.pop();
+    }
+  }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    _showBlockingLoader();
 
     try {
-      await ref.read(inventoryProvider.notifier).allotItem(
-        itemId: widget.itemId,
-        itemType: widget.itemType,
-        customerName: _customerController.text,
-        customerAddress: _addressController.text,
-        customerMobile: _mobileController.text,
-        handoverBy: _handoverByController.text,
-        handoverDate: _handoverDate,
-      );
+      await ref
+          .read(inventoryProvider.notifier)
+          .allotItem(
+            itemId: widget.itemId,
+            itemType: widget.itemType,
+            customerName: _customerController.text,
+            customerAddress: _addressController.text,
+            customerMobile: _mobileController.text,
+            handoverBy: _handoverByController.text,
+            handoverDate: _handoverDate,
+          );
+      _hideBlockingLoader();
       if (mounted) Navigator.pop(context);
     } catch (e) {
+      _hideBlockingLoader();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -1213,7 +1601,10 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
     return AlertDialog(
       backgroundColor: const Color(0xFFF7F9FF),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: const Text('New Allotment / Handover', style: AppTextStyles.heading3),
+      title: const Text(
+        'New Allotment / Handover',
+        style: AppTextStyles.heading3,
+      ),
       content: SizedBox(
         width: 500,
         child: SingleChildScrollView(
@@ -1242,7 +1633,9 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _handoverByController,
-                  decoration: const InputDecoration(labelText: 'Handover By (Staff)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Handover By (Staff)',
+                  ),
                 ),
                 const SizedBox(height: 16),
                 InkWell(
@@ -1256,8 +1649,12 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
                     if (date != null) setState(() => _handoverDate = date);
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Handover Date'),
-                    child: Text('${_handoverDate.day}/${_handoverDate.month}/${_handoverDate.year}'),
+                    decoration: const InputDecoration(
+                      labelText: 'Handover Date',
+                    ),
+                    child: Text(
+                      '${_handoverDate.day}/${_handoverDate.month}/${_handoverDate.year}',
+                    ),
                   ),
                 ),
               ],
@@ -1266,8 +1663,14 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        ElevatedButton(onPressed: _submit, child: const Text('Confirm Handover')),
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: const Text('Confirm Handover'),
+        ),
       ],
     );
   }

@@ -3466,11 +3466,63 @@ class _ApplicationDetailsScreenState
     String? selectedBrand;
     String? selectedCategory;
     List<String> selectedItemIds = [];
+    bool isSubmitting = false;
 
     // Ensure inventory is loaded
     final currentInventory = ref.read(inventoryProvider);
-    if (currentInventory.panels.isEmpty && !currentInventory.isLoading) {
-      ref.read(inventoryProvider.notifier).loadAll();
+    final hasAnyStockSnapshot =
+        currentInventory.panels.isNotEmpty ||
+        currentInventory.inverters.isNotEmpty ||
+        currentInventory.meters.isNotEmpty;
+    if (!hasAnyStockSnapshot && !currentInventory.isLoading) {
+      ref.read(inventoryProvider.notifier).loadStockOnly();
+    }
+
+    Future<void> showBlockingLoader() {
+      return showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (_) => PopScope(
+          canPop: false,
+          child: Container(
+            color: Colors.black.withOpacity(0.35),
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: CircularProgressIndicator(strokeWidth: 4, color: Colors.white),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Allotting selected items...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Please wait, do not close the app.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    void hideBlockingLoader() {
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      if (rootNavigator.canPop()) {
+        rootNavigator.pop();
+      }
     }
 
     showDialog(
@@ -3478,6 +3530,10 @@ class _ApplicationDetailsScreenState
       builder: (context) => Consumer(
         builder: (context, ref, child) {
           final inventoryState = ref.watch(inventoryProvider);
+          final hasAnyStockSnapshot =
+              inventoryState.panels.isNotEmpty ||
+              inventoryState.inverters.isNotEmpty ||
+              inventoryState.meters.isNotEmpty;
           
           return StatefulBuilder(
             builder: (context, setDialogState) {
@@ -3520,7 +3576,7 @@ class _ApplicationDetailsScreenState
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (inventoryState.isLoading)
+                        if (inventoryState.isLoading && !hasAnyStockSnapshot)
                           const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
                         else if (currentStep == 0) ...[
                           DropdownButtonFormField<InventoryItemType>(
@@ -3612,22 +3668,42 @@ class _ApplicationDetailsScreenState
                   ),
                 ),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                  TextButton(
+                    onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
                   if (currentStep > 0)
-                    TextButton(onPressed: () => setDialogState(() => currentStep--), child: const Text('Back')),
+                    TextButton(
+                      onPressed: isSubmitting ? null : () => setDialogState(() => currentStep--),
+                      child: const Text('Back'),
+                    ),
                   if (currentStep == 2)
                     ElevatedButton(
-                      onPressed: selectedItemIds.isEmpty ? null : () async {
+                      onPressed: (selectedItemIds.isEmpty || isSubmitting) ? null : () async {
+                        setDialogState(() => isSubmitting = true);
+                        showBlockingLoader();
                         final user = ref.read(currentUserProvider).value;
-                        await ref.read(inventoryProvider.notifier).allotMultipleItems(
-                          itemIds: selectedItemIds,
-                          itemType: selectedType,
-                          customerName: app.fullName,
-                          applicationId: app.id,
-                          handoverBy: user?.fullName ?? 'System',
-                          handoverDate: DateTime.now(),
-                        );
-                        if (mounted) Navigator.pop(context);
+                        try {
+                          await ref.read(inventoryProvider.notifier).allotMultipleItems(
+                            itemIds: selectedItemIds,
+                            itemType: selectedType,
+                            customerName: app.fullName,
+                            applicationId: app.id,
+                            handoverBy: user?.fullName ?? 'System',
+                            handoverDate: DateTime.now(),
+                          );
+                          hideBlockingLoader();
+                          if (mounted) Navigator.pop(context);
+                        } catch (e) {
+                          hideBlockingLoader();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setDialogState(() => isSubmitting = false);
+                        }
                       },
                       child: const Text('Allot Selected'),
                     ),

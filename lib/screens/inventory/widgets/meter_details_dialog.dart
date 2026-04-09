@@ -42,7 +42,8 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
     final currentMeters =
         inventoryState.meters
             .where(
-              (m) => _normalizeBrand(m.brand) == _normalizeBrand(widget.brandName),
+              (m) =>
+                  _normalizeBrand(m.brand) == _normalizeBrand(widget.brandName),
             )
             .toList();
 
@@ -54,7 +55,8 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
                   _searchSerial.toLowerCase(),
                 );
             final matchesCategory =
-                _selectedCategory == null || m.meterCategory == _selectedCategory;
+                _selectedCategory == null ||
+                m.meterCategory == _selectedCategory;
             final matchesType =
                 _selectedType == null || m.meterType == _selectedType;
             final matchesPhase =
@@ -69,13 +71,25 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
           }).toList()
           ..sort((a, b) => a.serialNumber.compareTo(b.serialNumber));
 
+    final meterAllotmentsByItemId = <String, InventoryAllotment>{};
+    for (final allotment in inventoryState.allotments.where(
+      (a) => a.itemType == InventoryItemType.meter,
+    )) {
+      final existing = meterAllotmentsByItemId[allotment.itemId];
+      if (existing == null ||
+          allotment.handoverDate.isAfter(existing.handoverDate)) {
+        meterAllotmentsByItemId[allotment.itemId] = allotment;
+      }
+    }
+
     final totalAvailable =
         currentMeters.where((m) => m.status == 'available').length;
     final totalAllotted =
         currentMeters.where((m) => m.status == 'allotted').length;
     final categories =
         currentMeters.map((m) => m.meterCategory).toSet().toList()..sort();
-    final types = currentMeters.map((m) => m.meterType).toSet().toList()..sort();
+    final types =
+        currentMeters.map((m) => m.meterType).toSet().toList()..sort();
     final phases =
         currentMeters.map((m) => m.meterPhase).toSet().toList()..sort();
 
@@ -104,7 +118,10 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
                   const Color(0xFFFDFBFF).withOpacity(0.7),
                 ],
               ),
-              border: Border.all(color: Colors.white.withOpacity(0.55), width: 1.2),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.55),
+                width: 1.2,
+              ),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x1A1F3B73),
@@ -116,7 +133,10 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 18,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),
                     color: Colors.white.withOpacity(0.38),
@@ -200,201 +220,258 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
                     color: Colors.white.withOpacity(0.32),
                     border: Border.all(color: Colors.white.withOpacity(0.42)),
                   ),
-                  child: isCompact
-                      ? Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    decoration: InputDecoration(
-                                      hintText: 'Search by serial number',
-                                      prefixIcon: const Icon(Icons.search_rounded),
-                                      isDense: true,
-                                      filled: true,
-                                      fillColor: Colors.white.withOpacity(0.7),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withOpacity(0.35),
+                  child:
+                      isCompact
+                          ? Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      decoration: InputDecoration(
+                                        hintText: 'Search by serial number',
+                                        prefixIcon: const Icon(
+                                          Icons.search_rounded,
+                                        ),
+                                        isDense: true,
+                                        filled: true,
+                                        fillColor: Colors.white.withOpacity(
+                                          0.7,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: Colors.white.withOpacity(
+                                              0.35,
+                                            ),
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFFF59E0B),
+                                          ),
                                         ),
                                       ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFFF59E0B),
-                                        ),
+                                      onChanged:
+                                          (v) =>
+                                              setState(() => _searchSerial = v),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.75),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.4),
                                       ),
                                     ),
-                                    onChanged: (v) => setState(() => _searchSerial = v),
+                                    child: IconButton(
+                                      onPressed:
+                                          () => setState(
+                                            () =>
+                                                _filtersExpanded =
+                                                    !_filtersExpanded,
+                                          ),
+                                      icon: Icon(
+                                        _filtersExpanded
+                                            ? Icons.filter_alt_off_rounded
+                                            : Icons.filter_alt_rounded,
+                                      ),
+                                      color: const Color(0xFFF59E0B),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 10),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.75),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(color: Colors.white.withOpacity(0.4)),
-                                  ),
-                                  child: IconButton(
-                                    onPressed: () => setState(() => _filtersExpanded = !_filtersExpanded),
-                                    icon: Icon(
-                                      _filtersExpanded
-                                          ? Icons.filter_alt_off_rounded
-                                          : Icons.filter_alt_rounded,
-                                    ),
-                                    color: const Color(0xFFF59E0B),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            AnimatedCrossFade(
-                              duration: const Duration(milliseconds: 180),
-                              crossFadeState: _filtersExpanded
-                                  ? CrossFadeState.showFirst
-                                  : CrossFadeState.showSecond,
-                              firstChild: Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: Column(
-                                  children: [
-                                    _buildFilterDropdown(
-                                      hint: 'Category',
-                                      value: _selectedCategory,
-                                      items: categories,
-                                      onChanged: (v) => setState(() => _selectedCategory = v),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _buildFilterDropdown(
-                                      hint: 'Type',
-                                      value: _selectedType,
-                                      items: types,
-                                      onChanged: (v) => setState(() => _selectedType = v),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _buildFilterDropdown(
-                                      hint: 'Phase',
-                                      value: _selectedPhase,
-                                      items: phases,
-                                      onChanged: (v) => setState(() => _selectedPhase = v),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _buildFilterDropdown(
-                                      hint: 'Status',
-                                      value: _selectedStatus,
-                                      items: const ['available', 'allotted'],
-                                      onChanged: (v) => setState(() => _selectedStatus = v),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.75),
-                                          borderRadius: BorderRadius.circular(18),
-                                          border: Border.all(color: Colors.white.withOpacity(0.4)),
-                                        ),
-                                        child: IconButton(
-                                          onPressed: () => setState(() {
-                                            _searchSerial = '';
-                                            _selectedCategory = null;
-                                            _selectedType = null;
-                                            _selectedPhase = null;
-                                            _selectedStatus = null;
-                                            _filtersExpanded = false;
-                                          }),
-                                          icon: const Icon(Icons.refresh_rounded),
-                                          color: const Color(0xFFF59E0B),
+                                ],
+                              ),
+                              AnimatedCrossFade(
+                                duration: const Duration(milliseconds: 180),
+                                crossFadeState:
+                                    _filtersExpanded
+                                        ? CrossFadeState.showFirst
+                                        : CrossFadeState.showSecond,
+                                firstChild: Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Column(
+                                    children: [
+                                      _buildFilterDropdown(
+                                        hint: 'Category',
+                                        value: _selectedCategory,
+                                        items: categories,
+                                        onChanged:
+                                            (v) => setState(
+                                              () => _selectedCategory = v,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildFilterDropdown(
+                                        hint: 'Type',
+                                        value: _selectedType,
+                                        items: types,
+                                        onChanged:
+                                            (v) => setState(
+                                              () => _selectedType = v,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildFilterDropdown(
+                                        hint: 'Phase',
+                                        value: _selectedPhase,
+                                        items: phases,
+                                        onChanged:
+                                            (v) => setState(
+                                              () => _selectedPhase = v,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildFilterDropdown(
+                                        hint: 'Status',
+                                        value: _selectedStatus,
+                                        items: const ['available', 'allotted'],
+                                        onChanged:
+                                            (v) => setState(
+                                              () => _selectedStatus = v,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(
+                                              0.75,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(
+                                                0.4,
+                                              ),
+                                            ),
+                                          ),
+                                          child: IconButton(
+                                            onPressed:
+                                                () => setState(() {
+                                                  _searchSerial = '';
+                                                  _selectedCategory = null;
+                                                  _selectedType = null;
+                                                  _selectedPhase = null;
+                                                  _selectedStatus = null;
+                                                  _filtersExpanded = false;
+                                                }),
+                                            icon: const Icon(
+                                              Icons.refresh_rounded,
+                                            ),
+                                            color: const Color(0xFFF59E0B),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              secondChild: const SizedBox.shrink(),
-                            ),
-                          ],
-                        )
-                      : Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            SizedBox(
-                              width: 300,
-                              child: TextField(
-                                decoration: InputDecoration(
-                                  hintText: 'Search by serial number',
-                                  prefixIcon: const Icon(Icons.search_rounded),
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: Colors.white.withOpacity(0.7),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withOpacity(0.35),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFF59E0B),
-                                    ),
+                                    ],
                                   ),
                                 ),
-                                onChanged: (v) => setState(() => _searchSerial = v),
+                                secondChild: const SizedBox.shrink(),
                               ),
-                            ),
-                            _buildFilterDropdown(
-                              hint: 'Category',
-                              value: _selectedCategory,
-                              items: categories,
-                              onChanged: (v) => setState(() => _selectedCategory = v),
-                            ),
-                            _buildFilterDropdown(
-                              hint: 'Type',
-                              value: _selectedType,
-                              items: types,
-                              onChanged: (v) => setState(() => _selectedType = v),
-                            ),
-                            _buildFilterDropdown(
-                              hint: 'Phase',
-                              value: _selectedPhase,
-                              items: phases,
-                              onChanged: (v) => setState(() => _selectedPhase = v),
-                            ),
-                            _buildFilterDropdown(
-                              hint: 'Status',
-                              value: _selectedStatus,
-                              items: const ['available', 'allotted'],
-                              onChanged: (v) => setState(() => _selectedStatus = v),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.75),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: Colors.white.withOpacity(0.4)),
+                            ],
+                          )
+                          : Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              SizedBox(
+                                width: 300,
+                                child: TextField(
+                                  decoration: InputDecoration(
+                                    hintText: 'Search by serial number',
+                                    prefixIcon: const Icon(
+                                      Icons.search_rounded,
+                                    ),
+                                    isDense: true,
+                                    filled: true,
+                                    fillColor: Colors.white.withOpacity(0.7),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: BorderSide(
+                                        color: Colors.white.withOpacity(0.35),
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFF59E0B),
+                                      ),
+                                    ),
+                                  ),
+                                  onChanged:
+                                      (v) => setState(() => _searchSerial = v),
+                                ),
                               ),
-                              child: IconButton(
-                                onPressed: () => setState(() {
-                                  _searchSerial = '';
-                                  _selectedCategory = null;
-                                  _selectedType = null;
-                                  _selectedPhase = null;
-                                  _selectedStatus = null;
-                                }),
-                                icon: const Icon(Icons.refresh_rounded),
-                                color: const Color(0xFFF59E0B),
+                              _buildFilterDropdown(
+                                hint: 'Category',
+                                value: _selectedCategory,
+                                items: categories,
+                                onChanged:
+                                    (v) =>
+                                        setState(() => _selectedCategory = v),
                               ),
-                            ),
-                          ],
-                        ),
+                              _buildFilterDropdown(
+                                hint: 'Type',
+                                value: _selectedType,
+                                items: types,
+                                onChanged:
+                                    (v) => setState(() => _selectedType = v),
+                              ),
+                              _buildFilterDropdown(
+                                hint: 'Phase',
+                                value: _selectedPhase,
+                                items: phases,
+                                onChanged:
+                                    (v) => setState(() => _selectedPhase = v),
+                              ),
+                              _buildFilterDropdown(
+                                hint: 'Status',
+                                value: _selectedStatus,
+                                items: const ['available', 'allotted'],
+                                onChanged:
+                                    (v) => setState(() => _selectedStatus = v),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.75),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.4),
+                                  ),
+                                ),
+                                child: IconButton(
+                                  onPressed:
+                                      () => setState(() {
+                                        _searchSerial = '';
+                                        _selectedCategory = null;
+                                        _selectedType = null;
+                                        _selectedPhase = null;
+                                        _selectedStatus = null;
+                                      }),
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  color: const Color(0xFFF59E0B),
+                                ),
+                              ),
+                            ],
+                          ),
                 ),
                 const SizedBox(height: 18),
                 Expanded(
@@ -406,186 +483,355 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(26),
-                      child: isCompact
-                          ? ListView.builder(
-                              padding: const EdgeInsets.all(12),
-                              itemCount: filteredMeters.length,
-                              itemBuilder: (context, index) {
-                                final meter = filteredMeters[index];
-                                final invoice = inventoryState.invoices
-                                    .cast<InventoryInvoice?>()
-                                    .firstWhere(
-                                      (inv) => inv?.id == meter.invoiceId,
-                                      orElse: () => null,
-                                    );
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.78),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(color: Colors.white.withOpacity(0.5)),
+                      child:
+                          isCompact
+                              ? ListView.builder(
+                                padding: const EdgeInsets.all(12),
+                                itemCount: filteredMeters.length,
+                                itemBuilder: (context, index) {
+                                  final meter = filteredMeters[index];
+                                  final invoice = inventoryState.invoices
+                                      .cast<InventoryInvoice?>()
+                                      .firstWhere(
+                                        (inv) => inv?.id == meter.invoiceId,
+                                        orElse: () => null,
+                                      );
+                                  final allotment =
+                                      meterAllotmentsByItemId[meter.id];
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.78),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.5),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          meter.serialNumber,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF1E293B),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        _buildMetaRow(
+                                          'Category',
+                                          meter.meterCategory,
+                                        ),
+                                        _buildMetaRow(
+                                          'Type',
+                                          _displayMeterType(meter.meterType),
+                                        ),
+                                        _buildMetaRow(
+                                          'Phase',
+                                          meter.meterPhase,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Row(
+                                          children: [
+                                            const SizedBox(
+                                              width: 68,
+                                              child: Text(
+                                                'Status',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: AppTheme.textSecondary,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _StatusBadge(status: meter.status),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        _buildMetaRow(
+                                          'Purchase',
+                                          invoice?.partyName ?? 'N/A',
+                                        ),
+                                        _buildMetaRow(
+                                          'Invoice',
+                                          invoice != null
+                                              ? '${invoice.invoiceNumber} • ${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'
+                                              : '-',
+                                        ),
+                                        if (allotment != null)
+                                          _buildMetaRow(
+                                            'Allotted To',
+                                            '${allotment.customerName} (${_formatApplicationRef(allotment.applicationId)})',
+                                          ),
+                                        const SizedBox(height: 10),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            if (meter.status == 'available' &&
+                                                canAllotInventory)
+                                              TextButton.icon(
+                                                onPressed:
+                                                    () => _showAllotmentDialog(
+                                                      context,
+                                                      meter.id,
+                                                      InventoryItemType.meter,
+                                                    ),
+                                                icon: const Icon(
+                                                  Icons.assignment_ind_rounded,
+                                                  size: 16,
+                                                ),
+                                                label: const Text('Allot'),
+                                                style: TextButton.styleFrom(
+                                                  foregroundColor: const Color(
+                                                    0xFFF59E0B,
+                                                  ),
+                                                  backgroundColor: const Color(
+                                                    0xFFFFF5E6,
+                                                  ),
+                                                ),
+                                              ),
+                                            if (canEditInventory)
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.edit_rounded,
+                                                  size: 18,
+                                                ),
+                                                onPressed:
+                                                    () => _showEditMeterDialog(
+                                                      meter,
+                                                    ),
+                                              ),
+                                            if (canEditInventory)
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  size: 18,
+                                                  color: AppTheme.errorColor,
+                                                ),
+                                                onPressed:
+                                                    () => _confirmDeleteMeter(
+                                                      meter,
+                                                    ),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              )
+                              : SingleChildScrollView(
+                                padding: const EdgeInsets.all(12),
+                                child: DataTable(
+                                  headingRowHeight: 56,
+                                  dataRowMinHeight: 60,
+                                  dataRowMaxHeight: 96,
+                                  horizontalMargin: 18,
+                                  columnSpacing: 24,
+                                  headingRowColor: WidgetStateProperty.all(
+                                    const Color(0xFFFFF1D9).withOpacity(0.95),
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        meter.serialNumber,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF1E293B),
+                                  columns: const [
+                                    DataColumn(
+                                      label: Text(
+                                        'Serial No.',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
-                                      _buildMetaRow('Category', meter.meterCategory),
-                                      _buildMetaRow('Type', _displayMeterType(meter.meterType)),
-                                      _buildMetaRow('Phase', meter.meterPhase),
-                                      const SizedBox(height: 2),
-                                      Row(
-                                        children: [
-                                          const SizedBox(
-                                            width: 68,
-                                            child: Text(
-                                              'Status',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                color: AppTheme.textSecondary,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          _StatusBadge(status: meter.status),
-                                        ],
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Category',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                      const SizedBox(height: 6),
-                                      _buildMetaRow('Purchase', invoice?.partyName ?? 'N/A'),
-                                      _buildMetaRow(
-                                        'Invoice',
-                                        invoice != null
-                                            ? '${invoice.invoiceNumber} • ${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}'
-                                            : '-',
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Type',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                      const SizedBox(height: 10),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          if (meter.status == 'available' && canAllotInventory)
-                                            TextButton.icon(
-                                              onPressed: () => _showAllotmentDialog(
-                                                context,
-                                                meter.id,
-                                                InventoryItemType.meter,
-                                              ),
-                                              icon: const Icon(Icons.assignment_ind_rounded, size: 16),
-                                              label: const Text('Allot'),
-                                              style: TextButton.styleFrom(
-                                                foregroundColor: const Color(0xFFF59E0B),
-                                                backgroundColor: const Color(0xFFFFF5E6),
-                                              ),
-                                            ),
-                                          if (canEditInventory)
-                                            IconButton(
-                                              icon: const Icon(Icons.edit_rounded, size: 18),
-                                              onPressed: () => _showEditMeterDialog(meter),
-                                            ),
-                                          if (canEditInventory)
-                                            IconButton(
-                                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.errorColor),
-                                              onPressed: () => _confirmDeleteMeter(meter),
-                                            ),
-                                        ],
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Phase',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            )
-                          : SingleChildScrollView(
-                              padding: const EdgeInsets.all(12),
-                              child: DataTable(
-                          headingRowHeight: 56,
-                          dataRowMinHeight: 60,
-                          dataRowMaxHeight: 72,
-                          horizontalMargin: 18,
-                          columnSpacing: 24,
-                          headingRowColor: WidgetStateProperty.all(
-                            const Color(0xFFFFF1D9).withOpacity(0.95),
-                          ),
-                          columns: const [
-                            DataColumn(label: Text('Serial No.', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Phase', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Purchase From', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Invoice / Date', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
-                          ],
-                          rows: filteredMeters.map((meter) {
-                            final invoice = inventoryState.invoices
-                                .cast<InventoryInvoice?>()
-                                .firstWhere(
-                                  (inv) => inv?.id == meter.invoiceId,
-                                  orElse: () => null,
-                                );
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Status',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Allotted To / App',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Purchase From',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Invoice / Date',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    DataColumn(
+                                      label: Text(
+                                        'Actions',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  rows:
+                                      filteredMeters.map((meter) {
+                                        final invoice = inventoryState.invoices
+                                            .cast<InventoryInvoice?>()
+                                            .firstWhere(
+                                              (inv) =>
+                                                  inv?.id == meter.invoiceId,
+                                              orElse: () => null,
+                                            );
+                                        final allotment =
+                                            meterAllotmentsByItemId[meter.id];
 
-                            return DataRow(
-                              cells: [
-                                DataCell(Text(meter.serialNumber, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
-                                DataCell(Text(meter.meterCategory)),
-                                DataCell(Text(_displayMeterType(meter.meterType))),
-                                DataCell(Text(meter.meterPhase)),
-                                DataCell(_StatusBadge(status: meter.status)),
-                                DataCell(Text(invoice?.partyName ?? 'N/A')),
-                                DataCell(
-                                  invoice != null
-                                      ? Text(
-                                        '${invoice.invoiceNumber}\n${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}',
-                                        style: const TextStyle(fontSize: 10, height: 1.4),
-                                      )
-                                      : const Text('-'),
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(
+                                              Text(
+                                                meter.serialNumber,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF1E293B),
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(Text(meter.meterCategory)),
+                                            DataCell(
+                                              Text(
+                                                _displayMeterType(
+                                                  meter.meterType,
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(Text(meter.meterPhase)),
+                                            DataCell(
+                                              _StatusBadge(
+                                                status: meter.status,
+                                              ),
+                                            ),
+                                            DataCell(
+                                              _buildAllotmentSummaryCell(
+                                                allotment,
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(invoice?.partyName ?? 'N/A'),
+                                            ),
+                                            DataCell(
+                                              invoice != null
+                                                  ? Text(
+                                                    '${invoice.invoiceNumber}\n${invoice.invoiceDate.day}/${invoice.invoiceDate.month}/${invoice.invoiceDate.year}',
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      height: 1.4,
+                                                    ),
+                                                  )
+                                                  : const Text('-'),
+                                            ),
+                                            DataCell(
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  if (meter.status ==
+                                                          'available' &&
+                                                      canAllotInventory)
+                                                    TextButton.icon(
+                                                      onPressed:
+                                                          () =>
+                                                              _showAllotmentDialog(
+                                                                context,
+                                                                meter.id,
+                                                                InventoryItemType
+                                                                    .meter,
+                                                              ),
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .assignment_ind_rounded,
+                                                        size: 16,
+                                                      ),
+                                                      label: const Text(
+                                                        'Allot',
+                                                      ),
+                                                      style:
+                                                          TextButton.styleFrom(
+                                                            foregroundColor:
+                                                                const Color(
+                                                                  0xFFF59E0B,
+                                                                ),
+                                                          ),
+                                                    ),
+                                                  if (canEditInventory)
+                                                    IconButton(
+                                                      icon: const Icon(
+                                                        Icons.edit_rounded,
+                                                        size: 18,
+                                                      ),
+                                                      onPressed:
+                                                          () =>
+                                                              _showEditMeterDialog(
+                                                                meter,
+                                                              ),
+                                                    ),
+                                                  if (canEditInventory)
+                                                    IconButton(
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .delete_outline_rounded,
+                                                        size: 18,
+                                                        color:
+                                                            AppTheme.errorColor,
+                                                      ),
+                                                      onPressed:
+                                                          () =>
+                                                              _confirmDeleteMeter(
+                                                                meter,
+                                                              ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
                                 ),
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (meter.status == 'available' && canAllotInventory)
-                                        TextButton.icon(
-                                          onPressed: () => _showAllotmentDialog(
-                                            context,
-                                            meter.id,
-                                            InventoryItemType.meter,
-                                          ),
-                                          icon: const Icon(Icons.assignment_ind_rounded, size: 16),
-                                          label: const Text('Allot'),
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: const Color(0xFFF59E0B),
-                                          ),
-                                        ),
-                                      if (canEditInventory)
-                                        IconButton(
-                                          icon: const Icon(Icons.edit_rounded, size: 18),
-                                          onPressed: () => _showEditMeterDialog(meter),
-                                        ),
-                                      if (canEditInventory)
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.delete_outline_rounded,
-                                            size: 18,
-                                            color: AppTheme.errorColor,
-                                          ),
-                                          onPressed: () => _confirmDeleteMeter(meter),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
                               ),
-                            ),
                     ),
                   ),
                 ),
@@ -608,14 +854,14 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
     final linkedInvoice =
         meter.invoiceId == null
             ? null
-            : inventoryState.invoices
-                .cast<InventoryInvoice?>()
-                .firstWhere(
-                  (invoice) => invoice?.id == meter.invoiceId,
-                  orElse: () => null,
-                );
+            : inventoryState.invoices.cast<InventoryInvoice?>().firstWhere(
+              (invoice) => invoice?.id == meter.invoiceId,
+              orElse: () => null,
+            );
     final brandController = TextEditingController(text: meter.brand);
-    final partyController = TextEditingController(text: linkedInvoice?.partyName ?? '');
+    final partyController = TextEditingController(
+      text: linkedInvoice?.partyName ?? '',
+    );
     final invoiceNumberController = TextEditingController(
       text: linkedInvoice?.invoiceNumber ?? '',
     );
@@ -636,120 +882,168 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
       builder:
           (context) => AlertDialog(
             backgroundColor: const Color(0xFFFFFBF5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
             title: const Text('Edit Meter'),
             content: StatefulBuilder(
-              builder: (context, setDialogState) => SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: brandController,
-                      decoration: const InputDecoration(labelText: 'Brand'),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedCategory,
-                      decoration: const InputDecoration(labelText: 'Category'),
-                      items: const ['Net Meter', 'Solar Meter']
-                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                          .toList(),
-                      onChanged:
-                          (value) => selectedCategory = value ?? selectedCategory,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedType,
-                      decoration: const InputDecoration(labelText: 'Type'),
-                      items: const ['Normal', 'LT CT', 'HT CT']
-                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                          .toList(),
-                      onChanged: (value) => selectedType = value ?? selectedType,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedPhase,
-                      decoration: const InputDecoration(labelText: 'Phase'),
-                      items: const ['Single Phase', 'Three Phase']
-                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                          .toList(),
-                      onChanged: (value) => selectedPhase = value ?? selectedPhase,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: selectedStatus,
-                      decoration: const InputDecoration(labelText: 'Status'),
-                      items: const ['available', 'allotted']
-                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                          .toList(),
-                      onChanged: (value) => selectedStatus = value ?? selectedStatus,
-                    ),
-                    if (linkedInvoice != null) ...[
-                      const SizedBox(height: 18),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Purchase Details',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+              builder:
+                  (context, setDialogState) => SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: brandController,
+                          decoration: const InputDecoration(labelText: 'Brand'),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: partyController,
-                        decoration: const InputDecoration(labelText: 'Party Name'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: invoiceNumberController,
-                        decoration: const InputDecoration(labelText: 'Invoice Number'),
-                      ),
-                      const SizedBox(height: 12),
-                      InkWell(
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: selectedInvoiceDate,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime.now().add(
-                              const Duration(days: 365),
-                            ),
-                          );
-                          if (picked != null) {
-                            setDialogState(() => selectedInvoiceDate = picked);
-                          }
-                        },
-                        child: InputDecorator(
-                          decoration: const InputDecoration(labelText: 'Invoice Date'),
-                          child: Text(
-                            '${selectedInvoiceDate.day}/${selectedInvoiceDate.month}/${selectedInvoiceDate.year}',
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedCategory,
+                          decoration: const InputDecoration(
+                            labelText: 'Category',
                           ),
+                          items:
+                              const ['Net Meter', 'Solar Meter']
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (value) =>
+                                  selectedCategory = value ?? selectedCategory,
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: receivedByController,
-                        decoration: const InputDecoration(labelText: 'Received By'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: priceController,
-                        decoration: const InputDecoration(labelText: 'Price'),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedType,
+                          decoration: const InputDecoration(labelText: 'Type'),
+                          items:
+                              const ['Normal', 'LT CT', 'HT CT']
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (value) => selectedType = value ?? selectedType,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Purchase details update all inventory items linked to this invoice.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedPhase,
+                          decoration: const InputDecoration(labelText: 'Phase'),
+                          items:
+                              const ['Single Phase', 'Three Phase']
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (value) => selectedPhase = value ?? selectedPhase,
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: selectedStatus,
+                          decoration: const InputDecoration(
+                            labelText: 'Status',
+                          ),
+                          items:
+                              const ['available', 'allotted']
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (value) =>
+                                  selectedStatus = value ?? selectedStatus,
+                        ),
+                        if (linkedInvoice != null) ...[
+                          const SizedBox(height: 18),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Purchase Details',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: partyController,
+                            decoration: const InputDecoration(
+                              labelText: 'Party Name',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: invoiceNumberController,
+                            decoration: const InputDecoration(
+                              labelText: 'Invoice Number',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: selectedInvoiceDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 365),
+                                ),
+                              );
+                              if (picked != null) {
+                                setDialogState(
+                                  () => selectedInvoiceDate = picked,
+                                );
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Invoice Date',
+                              ),
+                              child: Text(
+                                '${selectedInvoiceDate.day}/${selectedInvoiceDate.month}/${selectedInvoiceDate.year}',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: receivedByController,
+                            decoration: const InputDecoration(
+                              labelText: 'Received By',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: priceController,
+                            decoration: const InputDecoration(
+                              labelText: 'Price',
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Purchase details update all inventory items linked to this invoice.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
             ),
             actions: [
               TextButton(
@@ -772,23 +1066,25 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
           selectedType == 'LT CT'
               ? 'LTCT'
               : selectedType == 'HT CT'
-                  ? 'HTCT'
-                  : selectedType,
+              ? 'HTCT'
+              : selectedType,
       meterPhase: selectedPhase,
       status: selectedStatus,
     );
     if (linkedInvoice != null) {
-      await ref.read(inventoryProvider.notifier).updateInvoice(
-        linkedInvoice.copyWith(
-          partyName: partyController.text.trim(),
-          invoiceNumber: invoiceNumberController.text.trim(),
-          invoiceDate: selectedInvoiceDate,
-          receivedBy: receivedByController.text.trim(),
-          clearReceivedBy: receivedByController.text.trim().isEmpty,
-          price: double.tryParse(priceController.text.trim()),
-          clearPrice: priceController.text.trim().isEmpty,
-        ),
-      );
+      await ref
+          .read(inventoryProvider.notifier)
+          .updateInvoice(
+            linkedInvoice.copyWith(
+              partyName: partyController.text.trim(),
+              invoiceNumber: invoiceNumberController.text.trim(),
+              invoiceDate: selectedInvoiceDate,
+              receivedBy: receivedByController.text.trim(),
+              clearReceivedBy: receivedByController.text.trim().isEmpty,
+              price: double.tryParse(priceController.text.trim()),
+              clearPrice: priceController.text.trim().isEmpty,
+            ),
+          );
     }
     await ref.read(inventoryProvider.notifier).updateMeter(updated);
   }
@@ -832,7 +1128,9 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
       builder:
           (context) => AlertDialog(
             backgroundColor: const Color(0xFFFFFAFA),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
             title: const Text('Delete Meter'),
             content: Text('Delete meter ${meter.serialNumber}?'),
             actions: [
@@ -842,7 +1140,9 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.errorColor,
+                ),
                 child: const Text('Delete'),
               ),
             ],
@@ -931,6 +1231,34 @@ class _MeterDetailsDialogState extends ConsumerState<MeterDetailsDialog> {
     );
   }
 
+  String _formatApplicationRef(String? applicationId) {
+    if (applicationId == null || applicationId.trim().isEmpty) return 'Manual';
+    final trimmed = applicationId.trim();
+    final short = trimmed.length > 8 ? trimmed.substring(0, 8) : trimmed;
+    return 'APP-$short';
+  }
+
+  Widget _buildAllotmentSummaryCell(InventoryAllotment? allotment) {
+    if (allotment == null)
+      return const Text('-', style: TextStyle(color: AppTheme.textSecondary));
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          allotment.customerName,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          _formatApplicationRef(allotment.applicationId),
+          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+        ),
+      ],
+    );
+  }
+
   void _showAllotmentDialog(
     BuildContext context,
     String itemId,
@@ -989,27 +1317,80 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
   final _mobileController = TextEditingController();
   final _handoverByController = TextEditingController();
   DateTime _handoverDate = DateTime.now();
+  bool _isSubmitting = false;
+
+  Future<void> _showBlockingLoader() {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Container(
+          color: Colors.black.withOpacity(0.35),
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: CircularProgressIndicator(strokeWidth: 4, color: Colors.white),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Allotting inventory...',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Please wait, do not close the app.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _hideBlockingLoader() {
+    if (!mounted) return;
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    if (rootNavigator.canPop()) {
+      rootNavigator.pop();
+    }
+  }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    _showBlockingLoader();
 
     try {
-      await ref.read(inventoryProvider.notifier).allotItem(
-        itemId: widget.itemId,
-        itemType: widget.itemType,
-        customerName: _customerController.text,
-        customerAddress: _addressController.text,
-        customerMobile: _mobileController.text,
-        handoverBy: _handoverByController.text,
-        handoverDate: _handoverDate,
-      );
+      await ref
+          .read(inventoryProvider.notifier)
+          .allotItem(
+            itemId: widget.itemId,
+            itemType: widget.itemType,
+            customerName: _customerController.text,
+            customerAddress: _addressController.text,
+            customerMobile: _mobileController.text,
+            handoverBy: _handoverByController.text,
+            handoverDate: _handoverDate,
+          );
+      _hideBlockingLoader();
       if (mounted) Navigator.pop(context);
     } catch (e) {
+      _hideBlockingLoader();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -1018,7 +1399,10 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
     return AlertDialog(
       backgroundColor: const Color(0xFFFFFBF5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: const Text('New Allotment / Handover', style: AppTextStyles.heading3),
+      title: const Text(
+        'New Allotment / Handover',
+        style: AppTextStyles.heading3,
+      ),
       content: SizedBox(
         width: 500,
         child: SingleChildScrollView(
@@ -1076,11 +1460,11 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: _submit,
+          onPressed: _isSubmitting ? null : _submit,
           child: const Text('Allot'),
         ),
       ],
