@@ -64,9 +64,7 @@ class ApplicationService {
         .order('created_at', ascending: false)
         .timeout(const Duration(seconds: 10));
 
-    return response
-        .map((json) => ApplicationModel.fromJson(json as Map<String, dynamic>))
-        .toList();
+    return response.map((json) => ApplicationModel.fromJson(json)).toList();
   }
 
   static Future<ApplicationModel?> fetchApplication(String id) async {
@@ -100,11 +98,9 @@ class ApplicationService {
   static Future<ApplicationModel> updateApplication(
     ApplicationModel application,
   ) async {
-
     final updatedApplication = application.copyWith(updatedAt: DateTime.now());
 
     try {
-  
       final response =
           await SupabaseService.from(AppConstants.applicationsTable)
               .update(updatedApplication.toJson())
@@ -112,7 +108,6 @@ class ApplicationService {
               .select()
               .single();
 
-  
       return ApplicationModel.fromJson(response);
     } catch (e) {
       rethrow;
@@ -135,12 +130,10 @@ class ApplicationService {
     required StageStatus stageStatus,
     String? remarks,
   }) async {
-
     final application = await fetchApplication(applicationId);
     if (application == null) {
       throw Exception('Application not found');
     }
-
 
     final updatedBy = await SupabaseService.currentUserDisplayName();
     final historyItem = StatusHistoryItem(
@@ -154,12 +147,10 @@ class ApplicationService {
 
     final updatedHistory = [...application.statusHistory, historyItem];
 
-
     final updatedApplication = application.copyWith(
       currentStatus: newStatus,
       statusHistory: updatedHistory,
     );
-
 
     final result = await updateApplication(updatedApplication);
 
@@ -182,9 +173,10 @@ class ApplicationService {
   }
 
   static Future<Map<String, dynamic>> getApplicationStats() async {
-    final applications = (await fetchAllApplications())
-        .where((app) => app.approvalStatus == ApprovalStatus.approved)
-        .toList();
+    final applications =
+        (await fetchAllApplications())
+            .where((app) => app.approvalStatus == ApprovalStatus.approved)
+            .toList();
     final now = DateTime.now();
 
     double totalRevenue = 0;
@@ -204,13 +196,15 @@ class ApplicationService {
       if (app.currentStatus == ApplicationStatus.applicationReceived) {
         pending++;
       }
-      
-      if (app.currentStatus == ApplicationStatus.installationCompleted || 
-          app.currentStatus == ApplicationStatus.subsidyProcess) {
+
+      if (app.currentStatus == ApplicationStatus.installationCompleted ||
+          app.currentStatus == ApplicationStatus.subsidyProcess ||
+          app.currentStatus == ApplicationStatus.completeWorkDone) {
         completedInstallations++;
         totalRevenue += app.finalAmount ?? 0;
-        
-        if (app.updatedAt.month == now.month && app.updatedAt.year == now.year) {
+
+        if (app.updatedAt.month == now.month &&
+            app.updatedAt.year == now.year) {
           monthlyInstallations++;
         }
       }
@@ -227,7 +221,6 @@ class ApplicationService {
       'commercialKw': commercialKw,
     };
   }
-
 
   static Future<ApplicationModel> submitForApproval(
     ApplicationModel application,
@@ -380,9 +373,8 @@ class DocumentService {
     required String status,
   }) async {
     final verifiedBy = await SupabaseService.currentUserDisplayName();
-    await SupabaseService.from(AppConstants.documentsTable).update({
-      'verification_status': status,
-      'verified_by': verifiedBy,
-    }).eq('id', documentId);
+    await SupabaseService.from(AppConstants.documentsTable)
+        .update({'verification_status': status, 'verified_by': verifiedBy})
+        .eq('id', documentId);
   }
 }

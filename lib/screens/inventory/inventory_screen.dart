@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/config/app_mode.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/application_model.dart';
 import '../../models/inventory_model.dart';
 import '../../providers/inventory_providers.dart';
 import '../../providers/app_providers.dart';
@@ -2535,8 +2536,36 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
   final _addressController = TextEditingController();
   final _mobileController = TextEditingController();
   final _handoverByController = TextEditingController();
+  String? _selectedApplicationId;
   DateTime _handoverDate = DateTime.now();
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(
+      () =>
+          ref
+              .read(applicationsProvider.notifier)
+              .loadApplications(showLoading: false),
+    );
+  }
+
+  @override
+  void dispose() {
+    _customerController.dispose();
+    _addressController.dispose();
+    _mobileController.dispose();
+    _handoverByController.dispose();
+    super.dispose();
+  }
+
+  void _applyApplicationDetails(ApplicationModel? application) {
+    if (application == null) return;
+    _customerController.text = application.fullName;
+    _addressController.text = application.address;
+    _mobileController.text = application.mobile;
+  }
 
   Future<void> _showBlockingLoader() {
     return showDialog<void>(
@@ -2598,6 +2627,7 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
         customerName: _customerController.text,
         customerAddress: _addressController.text,
         customerMobile: _mobileController.text,
+        applicationId: _selectedApplicationId,
         handoverBy: _handoverByController.text,
         handoverDate: _handoverDate,
       );
@@ -2617,6 +2647,11 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final applicationsState = ref.watch(applicationsProvider);
+    final applications =
+        [...applicationsState.applications]
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
     return AlertDialog(
       title: const Text('New Allotment / Handover', style: AppTextStyles.heading3),
       content: SizedBox(
@@ -2627,10 +2662,42 @@ class _AllotmentDialogState extends ConsumerState<_AllotmentDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  value: _selectedApplicationId,
+                  decoration: const InputDecoration(
+                    labelText: 'Customer Name (From Application)',
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('Manual Entry'),
+                    ),
+                    ...applications.map(
+                      (app) => DropdownMenuItem<String>(
+                        value: app.id,
+                        child: Text('${app.fullName} (${app.applicationNumber})'),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _selectedApplicationId = value);
+                    if (value == null) return;
+                    ApplicationModel? selected;
+                    for (final app in applications) {
+                      if (app.id == value) {
+                        selected = app;
+                        break;
+                      }
+                    }
+                    _applyApplicationDetails(selected);
+                  },
+                ),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: _customerController,
                   decoration: const InputDecoration(labelText: 'Customer Name'),
-                  validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
+                  validator: (v) => v?.trim().isEmpty ?? true ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

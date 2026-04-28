@@ -190,7 +190,9 @@ class _ApplicationDetailsScreenState
             onPressed: () => context.go('/applications'),
             style: IconButton.styleFrom(
               backgroundColor: AppTheme.backgroundColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
           const SizedBox(width: 24),
@@ -202,15 +204,32 @@ class _ApplicationDetailsScreenState
                   children: [
                     Text(
                       app.applicationNumber,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textPrimary, letterSpacing: -0.5),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: _getStatusColor(app.currentStatus).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(
+                          app.currentStatus,
+                        ).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       child: Text(
                         app.statusDisplayName.toUpperCase(),
-                        style: TextStyle(fontSize: 10, color: _getStatusColor(app.currentStatus), fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _getStatusColor(app.currentStatus),
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ],
@@ -218,23 +237,53 @@ class _ApplicationDetailsScreenState
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.person_outline_rounded, size: 14, color: AppTheme.textSecondary),
+                    const Icon(
+                      Icons.person_outline_rounded,
+                      size: 14,
+                      color: AppTheme.textSecondary,
+                    ),
                     const SizedBox(width: 4),
-                    Text(app.fullName, style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+                    Text(
+                      app.fullName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                     const SizedBox(width: 16),
-                    const Icon(Icons.calendar_today_rounded, size: 14, color: AppTheme.textSecondary),
+                    const Icon(
+                      Icons.calendar_today_rounded,
+                      size: 14,
+                      color: AppTheme.textSecondary,
+                    ),
                     const SizedBox(width: 4),
-                    Text('Submitted: ${DateFormat('dd MMM yyyy').format(app.applicationSubmissionDate)}', style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+                    Text(
+                      'Submitted: ${DateFormat('dd MMM yyyy').format(app.applicationSubmissionDate)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
           ),
           OutlinedButton.icon(
-            onPressed: () => setState(() => _showTrackingPanel = !_showTrackingPanel),
-            icon: Icon(_showTrackingPanel ? Icons.visibility_off_rounded : Icons.track_changes_rounded, size: 18),
+            onPressed:
+                () => setState(() => _showTrackingPanel = !_showTrackingPanel),
+            icon: Icon(
+              _showTrackingPanel
+                  ? Icons.visibility_off_rounded
+                  : Icons.track_changes_rounded,
+              size: 18,
+            ),
             label: Text(_showTrackingPanel ? 'Hide Timeline' : 'Timeline'),
-            style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
           if (canAccessInventory) ...[
             ElevatedButton.icon(
@@ -244,8 +293,13 @@ class _ApplicationDetailsScreenState
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -259,7 +313,11 @@ class _ApplicationDetailsScreenState
                     ? 'Update & Resubmit'
                     : 'Edit',
               ),
-              style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
             const SizedBox(width: 12),
           ],
@@ -267,12 +325,19 @@ class _ApplicationDetailsScreenState
             builder: (context, ref, child) {
               final currentUser = ref.watch(currentUserProvider).value;
               final canApprove = currentUser?.canManageUsers ?? false;
-              if (!canApprove || app.approvalStatus != ApprovalStatus.pending) return const SizedBox.shrink();
+              if (!canApprove || app.approvalStatus != ApprovalStatus.pending)
+                return const SizedBox.shrink();
               return Row(
                 children: [
                   ElevatedButton.icon(
                     onPressed: () => _handleApproval(app, 'approve'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     icon: const Icon(Icons.check_rounded, size: 18),
                     label: const Text('Approve'),
                   ),
@@ -281,12 +346,21 @@ class _ApplicationDetailsScreenState
               );
             },
           ),
-          if (canEditApplication || canAccessPayments || canAccessInventory || currentUser?.canManageUsers == true)
+          if (canEditApplication ||
+              canAccessPayments ||
+              canAccessInventory ||
+              currentUser?.canManageUsers == true)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_horiz_rounded),
-              onSelected: (value) async => await _handleActionSelection(value, app),
+              onSelected:
+                  (value) async => await _handleActionSelection(value, app),
               itemBuilder: (context) => _buildActionMenuItems(app),
-              style: IconButton.styleFrom(backgroundColor: AppTheme.backgroundColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              style: IconButton.styleFrom(
+                backgroundColor: AppTheme.backgroundColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
         ],
       ),
@@ -315,7 +389,11 @@ class _ApplicationDetailsScreenState
                       'Application Details',
                       Icons.description_outlined,
                       [
-                        _buildDetailRow('Actual Name', app.fullName, highlight: true),
+                        _buildDetailRow(
+                          'Actual Name',
+                          app.fullName,
+                          highlight: true,
+                        ),
                         _buildDetailRow(
                           'Name As Per Bill',
                           _optionalText(app.nameAsPerBill),
@@ -324,9 +402,18 @@ class _ApplicationDetailsScreenState
                         _buildDetailRow('Phone Number', app.mobile),
                         _buildDetailRow('K No.', app.consumerAccountNumber),
                         _buildDetailRow('Full Address', app.address),
-                        _buildDetailRow('District / State', '${app.district} / ${app.state}'),
-                        _buildDetailRow('Discom', _optionalText(app.discomName)),
-                        _buildDetailRow('Plant Through', _optionalText(app.plantThrough)),
+                        _buildDetailRow(
+                          'District / State',
+                          '${app.district} / ${app.state}',
+                        ),
+                        _buildDetailRow(
+                          'Discom',
+                          _optionalText(app.discomName),
+                        ),
+                        _buildDetailRow(
+                          'Plant Through',
+                          _optionalText(app.plantThrough),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -334,12 +421,31 @@ class _ApplicationDetailsScreenState
                       'Bank & Settlement',
                       Icons.account_balance_outlined,
                       [
-                        _buildDetailRow('Scheme', app.schemeName, highlight: true),
-                        _buildDetailRow('Bank Name', _optionalText(app.bankName)),
-                        _buildDetailRow('IFSC Code', _optionalText(app.ifscCode)),
-                        _buildDetailRow('Account Holder', _optionalText(app.accountHolderName)),
-                        _buildDetailRow('Account No.', _optionalText(app.accountNumber)),
-                        _buildDetailRow('Subsidy Opt-out', app.giveUpSubsidy ? 'Yes' : 'No'),
+                        _buildDetailRow(
+                          'Scheme',
+                          app.schemeName,
+                          highlight: true,
+                        ),
+                        _buildDetailRow(
+                          'Bank Name',
+                          _optionalText(app.bankName),
+                        ),
+                        _buildDetailRow(
+                          'IFSC Code',
+                          _optionalText(app.ifscCode),
+                        ),
+                        _buildDetailRow(
+                          'Account Holder',
+                          _optionalText(app.accountHolderName),
+                        ),
+                        _buildDetailRow(
+                          'Account No.',
+                          _optionalText(app.accountNumber),
+                        ),
+                        _buildDetailRow(
+                          'Subsidy Opt-out',
+                          app.giveUpSubsidy ? 'Yes' : 'No',
+                        ),
                       ],
                     ),
                   ],
@@ -363,29 +469,52 @@ class _ApplicationDetailsScreenState
                               ? '${app.electricityBillLoad} kW'
                               : 'Option not available',
                         ),
-                        _buildDetailRow('Solar Plant Capacity', '${app.proposedCapacity} kWp', highlight: true),
-                        _buildDetailRow('Sanctioned Load', '${app.sanctionedLoad} kW'),
+                        _buildDetailRow(
+                          'Solar Plant Capacity',
+                          '${app.proposedCapacity} kWp',
+                          highlight: true,
+                        ),
+                        _buildDetailRow(
+                          'Sanctioned Load',
+                          '${app.sanctionedLoad} kW',
+                        ),
                         _buildDetailRow('Category', app.categoryName),
-                        _buildDetailRow('Vendor', _optionalText(app.vendorName), highlight: true),
+                        _buildDetailRow(
+                          'Vendor',
+                          _optionalText(app.vendorName),
+                          highlight: true,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
-                    _buildSectionCard(
-                      'Financial & Loan',
-                      Icons.payments_outlined,
-                      [
-                        _buildDetailRow('Loan Status', app.loanStatus, highlight: true),
-                        _buildDetailRow('Loan App #', _optionalText(app.loanApplicationNumber)),
-                        _buildDetailRow(
-                          'Sanction Date',
-                          app.sanctionDate != null
-                              ? DateFormat('dd MMM yyyy').format(app.sanctionDate!)
-                              : 'Option not available',
-                        ),
-                        _buildDetailRow('Sanction Amount', '₹${NumberFormat('#,##,###', 'en_IN').format(app.sanctionAmount ?? 0)}', highlight: true),
-                        _buildDetailRow('Processing Fees', '₹${NumberFormat('#,##,###', 'en_IN').format(app.processingFees ?? 0)}'),
-                      ],
-                    ),
+                    _buildSectionCard('Financial & Loan', Icons.payments_outlined, [
+                      _buildDetailRow(
+                        'Loan Status',
+                        app.loanStatus,
+                        highlight: true,
+                      ),
+                      _buildDetailRow(
+                        'Loan App #',
+                        _optionalText(app.loanApplicationNumber),
+                      ),
+                      _buildDetailRow(
+                        'Sanction Date',
+                        app.sanctionDate != null
+                            ? DateFormat(
+                              'dd MMM yyyy',
+                            ).format(app.sanctionDate!)
+                            : 'Option not available',
+                      ),
+                      _buildDetailRow(
+                        'Sanction Amount',
+                        '₹${NumberFormat('#,##,###', 'en_IN').format(app.sanctionAmount ?? 0)}',
+                        highlight: true,
+                      ),
+                      _buildDetailRow(
+                        'Processing Fees',
+                        '₹${NumberFormat('#,##,###', 'en_IN').format(app.processingFees ?? 0)}',
+                      ),
+                    ]),
                   ],
                 ),
               ),
@@ -453,7 +582,9 @@ class _ApplicationDetailsScreenState
               _buildMetaInfoItem(
                 'Approval Date',
                 app.approvalDate != null
-                    ? DateFormat('dd MMM yyyy, hh:mm a').format(app.approvalDate!)
+                    ? DateFormat(
+                      'dd MMM yyyy, hh:mm a',
+                    ).format(app.approvalDate!)
                     : '-',
               ),
               _buildMetaInfoItem(
@@ -497,7 +628,9 @@ class _ApplicationDetailsScreenState
   Widget _buildInventoryAllotmentSection(ApplicationModel app) {
     final inventoryState = ref.watch(inventoryProvider);
     final appAllotments =
-        inventoryState.allotments.where((a) => a.applicationId == app.id).toList();
+        inventoryState.allotments
+            .where((a) => a.applicationId == app.id)
+            .toList();
     final filteredAllotments =
         appAllotments.where((allotment) {
           if (_inventoryTypeFilter != 'all' &&
@@ -530,7 +663,10 @@ class _ApplicationDetailsScreenState
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.only(topLeft: Radius.circular(AppTheme.cardRadius), topRight: Radius.circular(AppTheme.cardRadius)),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(AppTheme.cardRadius),
+                topRight: Radius.circular(AppTheme.cardRadius),
+              ),
               border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: Row(
@@ -538,9 +674,20 @@ class _ApplicationDetailsScreenState
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.inventory_2_outlined, color: AppTheme.primaryColor, size: 18),
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      color: AppTheme.primaryColor,
+                      size: 18,
+                    ),
                     const SizedBox(width: 12),
-                    Text('Inventory Allotment', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                    Text(
+                      'Inventory Allotment',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
                   ],
                 ),
                 Row(
@@ -555,11 +702,22 @@ class _ApplicationDetailsScreenState
                                 inventoryState,
                               ),
                       style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                      label: const Text('Export PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Export PDF',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
@@ -567,11 +725,22 @@ class _ApplicationDetailsScreenState
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                       icon: const Icon(Icons.add_task_rounded, size: 16),
-                      label: const Text('Allot Item', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Allot Item',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -580,113 +749,148 @@ class _ApplicationDetailsScreenState
           ),
           Padding(
             padding: const EdgeInsets.all(24),
-            child: appAllotments.isEmpty
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('No inventory items allotted to this application', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                    ),
-                  )
-                : Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              onChanged:
-                                  (value) => setState(
-                                    () => _inventorySearchQuery = value,
-                                  ),
-                              decoration: InputDecoration(
-                                hintText: 'Search by serial no. or item details',
-                                prefixIcon: const Icon(Icons.search_rounded),
-                                isDense: true,
-                                filled: true,
-                                fillColor: AppTheme.backgroundColor,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                            ),
+            child:
+                appAllotments.isEmpty
+                    ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Text(
+                          'No inventory items allotted to this application',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 13,
                           ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            width: 180,
-                            child: DropdownButtonFormField<String>(
-                              value: _inventoryTypeFilter,
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: AppTheme.backgroundColor,
-                                isDense: true,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                              items: const [
-                                DropdownMenuItem(value: 'all', child: Text('All Items')),
-                                DropdownMenuItem(value: 'panel', child: Text('Panels')),
-                                DropdownMenuItem(value: 'inverter', child: Text('Inverters')),
-                                DropdownMenuItem(value: 'meter', child: Text('Meters')),
-                              ],
-                              onChanged:
-                                  (value) => setState(
-                                    () => _inventoryTypeFilter = value ?? 'all',
-                                  ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      if (filteredAllotments.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(
-                            'No allotments match the selected search or filter.',
-                            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-                          ),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: filteredAllotments.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final allotment = filteredAllotments[index];
-                            final resolved = _resolveAllotmentDisplay(allotment, inventoryState);
-
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                                child: Icon(
-                                  allotment.itemType == InventoryItemType.panel
-                                      ? Icons.solar_power_outlined
-                                      : allotment.itemType == InventoryItemType.inverter
-                                      ? Icons.electrical_services_outlined
-                                      : Icons.speed_outlined,
-                                  color: AppTheme.primaryColor,
-                                  size: 20,
-                                ),
-                              ),
-                              title: Text(
-                                'S/N: ${resolved['serial']}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Text(
-                                '${resolved['details']}\nAssigned by: ${allotment.handoverBy ?? '-'}',
-                              ),
-                              isThreeLine: true,
-                              trailing: Text(
-                                DateFormat('dd MMM yyyy').format(allotment.handoverDate),
-                                style: AppTextStyles.caption,
-                              ),
-                            );
-                          },
                         ),
-                    ],
-                  ),
+                      ),
+                    )
+                    : Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                onChanged:
+                                    (value) => setState(
+                                      () => _inventorySearchQuery = value,
+                                    ),
+                                decoration: InputDecoration(
+                                  hintText:
+                                      'Search by serial no. or item details',
+                                  prefixIcon: const Icon(Icons.search_rounded),
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: AppTheme.backgroundColor,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: 180,
+                              child: DropdownButtonFormField<String>(
+                                value: _inventoryTypeFilter,
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: AppTheme.backgroundColor,
+                                  isDense: true,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'all',
+                                    child: Text('All Items'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'panel',
+                                    child: Text('Panels'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'inverter',
+                                    child: Text('Inverters'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'meter',
+                                    child: Text('Meters'),
+                                  ),
+                                ],
+                                onChanged:
+                                    (value) => setState(
+                                      () =>
+                                          _inventoryTypeFilter = value ?? 'all',
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (filteredAllotments.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'No allotments match the selected search or filter.',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: filteredAllotments.length,
+                            separatorBuilder:
+                                (context, index) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final allotment = filteredAllotments[index];
+                              final resolved = _resolveAllotmentDisplay(
+                                allotment,
+                                inventoryState,
+                              );
+
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: AppTheme.primaryColor
+                                      .withOpacity(0.1),
+                                  child: Icon(
+                                    allotment.itemType ==
+                                            InventoryItemType.panel
+                                        ? Icons.solar_power_outlined
+                                        : allotment.itemType ==
+                                            InventoryItemType.inverter
+                                        ? Icons.electrical_services_outlined
+                                        : Icons.speed_outlined,
+                                    color: AppTheme.primaryColor,
+                                    size: 20,
+                                  ),
+                                ),
+                                title: Text(
+                                  'S/N: ${resolved['serial']}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${resolved['details']}\nAssigned by: ${allotment.handoverBy ?? '-'}',
+                                ),
+                                isThreeLine: true,
+                                trailing: Text(
+                                  DateFormat(
+                                    'dd MMM yyyy',
+                                  ).format(allotment.handoverDate),
+                                  style: AppTextStyles.caption,
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
           ),
         ],
       ),
@@ -707,46 +911,78 @@ class _ApplicationDetailsScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Application Progress', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+              const Text(
+                'Application Progress',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: Text('${(app.progressPercentage).toStringAsFixed(0)}% Complete', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.primaryColor)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${(app.progressPercentage).toStringAsFixed(0)}% Complete',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 32),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(value: app.progressPercentage / 100, minHeight: 8, backgroundColor: AppTheme.backgroundColor, valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor)),
+            child: LinearProgressIndicator(
+              value: app.progressPercentage / 100,
+              minHeight: 8,
+              backgroundColor: AppTheme.backgroundColor,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppTheme.primaryColor,
+              ),
+            ),
           ),
           const SizedBox(height: 32),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: ApplicationStatus.values.asMap().entries.map((entry) {
-                final index = entry.key;
-                final status = entry.value;
-                final isCompleted = app.statusIndex > index;
-                final isCurrent = app.statusIndex == index;
-                final isLast = index == ApplicationStatus.values.length - 1;
+              children:
+                  ApplicationStatus.values.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final status = entry.value;
+                    final isCompleted = app.statusIndex > index;
+                    final isCurrent = app.statusIndex == index;
+                    final isLast = index == ApplicationStatus.values.length - 1;
 
-                final historyItems = app.statusHistory.where((h) => h.status == status).toList();
-                DateTime? statusDate;
-                if (historyItems.isNotEmpty) {
-                  statusDate = historyItems.last.timestamp;
-                } else if (status == ApplicationStatus.applicationReceived) {
-                  statusDate = app.applicationSubmissionDate;
-                }
+                    final historyItems =
+                        app.statusHistory
+                            .where((h) => h.status == status)
+                            .toList();
+                    DateTime? statusDate;
+                    if (historyItems.isNotEmpty) {
+                      statusDate = historyItems.last.timestamp;
+                    } else if (status ==
+                        ApplicationStatus.applicationReceived) {
+                      statusDate = app.applicationSubmissionDate;
+                    }
 
-                return _buildProgressStep(
-                  _getStatusDisplayName(status),
-                  isCompleted: isCompleted,
-                  isCurrent: isCurrent,
-                  isLast: isLast,
-                  date: statusDate,
-                );
-              }).toList(),
+                    return _buildProgressStep(
+                      _getStatusDisplayName(status),
+                      isCompleted: isCompleted,
+                      isCurrent: isCurrent,
+                      isLast: isLast,
+                      date: statusDate,
+                    );
+                  }).toList(),
             ),
           ),
         ],
@@ -769,20 +1005,47 @@ class _ApplicationDetailsScreenState
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isCompleted ? Colors.green : (isCurrent ? AppTheme.primaryColor : AppTheme.backgroundColor),
+                color:
+                    isCompleted
+                        ? Colors.green
+                        : (isCurrent
+                            ? AppTheme.primaryColor
+                            : AppTheme.backgroundColor),
                 shape: BoxShape.circle,
-                border: isCurrent ? Border.all(color: AppTheme.primaryColor.withOpacity(0.2), width: 4) : null,
+                border:
+                    isCurrent
+                        ? Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.2),
+                          width: 4,
+                        )
+                        : null,
               ),
-              child: isCompleted
-                  ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
-                  : (isCurrent ? const Icon(Icons.more_horiz_rounded, color: Colors.white, size: 20) : null),
+              child:
+                  isCompleted
+                      ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      )
+                      : (isCurrent
+                          ? const Icon(
+                            Icons.more_horiz_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          )
+                          : null),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: 120,
               child: Text(
                 title,
-                style: TextStyle(fontSize: 11, fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w500, color: isCurrent ? AppTheme.textPrimary : AppTheme.textSecondary),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w500,
+                  color:
+                      isCurrent ? AppTheme.textPrimary : AppTheme.textSecondary,
+                ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
               ),
@@ -792,7 +1055,11 @@ class _ApplicationDetailsScreenState
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   DateFormat('dd/MM/yyyy').format(date),
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isCompleted ? Colors.green : AppTheme.textSecondary),
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: isCompleted ? Colors.green : AppTheme.textSecondary,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -823,14 +1090,24 @@ class _ApplicationDetailsScreenState
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.only(topLeft: Radius.circular(AppTheme.cardRadius), topRight: Radius.circular(AppTheme.cardRadius)),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(AppTheme.cardRadius),
+                topRight: Radius.circular(AppTheme.cardRadius),
+              ),
               border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: Row(
               children: [
                 Icon(icon, color: AppTheme.primaryColor, size: 18),
                 const SizedBox(width: 12),
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -853,7 +1130,11 @@ class _ApplicationDetailsScreenState
             flex: 2,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Expanded(
@@ -886,20 +1167,28 @@ class _ApplicationDetailsScreenState
   ) {
     try {
       if (allotment.itemType == InventoryItemType.panel) {
-        final item = inventoryState.panels.firstWhere((p) => p.id == allotment.itemId);
+        final item = inventoryState.panels.firstWhere(
+          (p) => p.id == allotment.itemId,
+        );
         return {
           'serial': item.serialNumber,
-          'details': '${item.brand} - ${item.wattCapacity}W (${item.panelType})',
+          'details':
+              '${item.brand} - ${item.wattCapacity}W (${item.panelType})',
         };
       }
       if (allotment.itemType == InventoryItemType.inverter) {
-        final item = inventoryState.inverters.firstWhere((i) => i.id == allotment.itemId);
+        final item = inventoryState.inverters.firstWhere(
+          (i) => i.id == allotment.itemId,
+        );
         return {
           'serial': item.serialNumber,
-          'details': '${item.brand} - ${item.capacityKw}kW (${item.inverterType}, ${item.inverterPhase})',
+          'details':
+              '${item.brand} - ${item.capacityKw}kW (${item.inverterType}, ${item.inverterPhase})',
         };
       }
-      final item = inventoryState.meters.firstWhere((m) => m.id == allotment.itemId);
+      final item = inventoryState.meters.firstWhere(
+        (m) => m.id == allotment.itemId,
+      );
       return {
         'serial': item.serialNumber,
         'details': '${item.brand} - ${item.meterCategory} (${item.meterPhase})',
@@ -928,7 +1217,10 @@ class _ApplicationDetailsScreenState
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.only(topLeft: Radius.circular(AppTheme.cardRadius), topRight: Radius.circular(AppTheme.cardRadius)),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(AppTheme.cardRadius),
+                topRight: Radius.circular(AppTheme.cardRadius),
+              ),
               border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: Row(
@@ -936,9 +1228,20 @@ class _ApplicationDetailsScreenState
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.folder_outlined, color: AppTheme.primaryColor, size: 18),
+                    Icon(
+                      Icons.folder_outlined,
+                      color: AppTheme.primaryColor,
+                      size: 18,
+                    ),
                     const SizedBox(width: 12),
-                    Text('Documentation', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                    Text(
+                      'Documentation',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
                   ],
                 ),
                 ElevatedButton.icon(
@@ -946,18 +1249,34 @@ class _ApplicationDetailsScreenState
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                   ),
                   icon: const Icon(Icons.upload_rounded, size: 16),
-                  label: const Text('Upload File', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Upload File',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
           ),
           documentsAsync.when(
-            loading: () => const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator())),
-            error: (error, stack) => const Padding(padding: EdgeInsets.all(48), child: Center(child: Text('Failed to load documents'))),
+            loading:
+                () => const Padding(
+                  padding: EdgeInsets.all(48),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+            error:
+                (error, stack) => const Padding(
+                  padding: EdgeInsets.all(48),
+                  child: Center(child: Text('Failed to load documents')),
+                ),
             data: (documents) {
               if (documents.isEmpty) {
                 return Center(
@@ -965,9 +1284,20 @@ class _ApplicationDetailsScreenState
                     padding: const EdgeInsets.all(48),
                     child: Column(
                       children: [
-                        Icon(Icons.folder_open_outlined, size: 48, color: AppTheme.textSecondary.withOpacity(0.3)),
+                        Icon(
+                          Icons.folder_open_outlined,
+                          size: 48,
+                          color: AppTheme.textSecondary.withOpacity(0.3),
+                        ),
                         const SizedBox(height: 16),
-                        const Text('No documents uploaded yet', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w500)),
+                        const Text(
+                          'No documents uploaded yet',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1285,7 +1615,8 @@ class _ApplicationDetailsScreenState
   }
 
   Widget _buildDocumentsTable(List<DocumentModel> documents) {
-    final canEditApplication = ref.watch(currentUserProvider).value?.canEdit ?? false;
+    final canEditApplication =
+        ref.watch(currentUserProvider).value?.canEdit ?? false;
 
     return Column(
       children: [
@@ -1297,12 +1628,71 @@ class _ApplicationDetailsScreenState
           ),
           child: const Row(
             children: [
-              SizedBox(width: 48, child: Text('SR.', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-              Expanded(flex: 2, child: Text('TYPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-              Expanded(flex: 3, child: Text('FILE NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-              Expanded(child: Text('UPLOADED BY / DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-              Expanded(child: Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-              SizedBox(width: 160, child: Text('ACTIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary), textAlign: TextAlign.right)),
+              SizedBox(
+                width: 48,
+                child: Text(
+                  'SR.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'TYPE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'FILE NAME',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'UPLOADED BY / DATE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'STATUS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 160,
+                child: Text(
+                  'ACTIONS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textSecondary,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
             ],
           ),
         ),
@@ -1311,18 +1701,55 @@ class _ApplicationDetailsScreenState
           final doc = entry.value;
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.borderColor))),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            ),
             child: Row(
               children: [
-                SizedBox(width: 48, child: Text('${index + 1}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary))),
-                Expanded(flex: 2, child: Text(doc.documentType, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary))),
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    '${index + 1}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    doc.documentType,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
                 Expanded(
                   flex: 3,
                   child: Row(
                     children: [
-                      Icon(doc.isPdf ? Icons.picture_as_pdf_outlined : Icons.image_outlined, size: 16, color: doc.isPdf ? Colors.red : AppTheme.primaryColor),
+                      Icon(
+                        doc.isPdf
+                            ? Icons.picture_as_pdf_outlined
+                            : Icons.image_outlined,
+                        size: 16,
+                        color: doc.isPdf ? Colors.red : AppTheme.primaryColor,
+                      ),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(doc.fileName, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        child: Text(
+                          doc.fileName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1330,9 +1757,21 @@ class _ApplicationDetailsScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(doc.uploadedBy ?? '-', style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                      Text(
+                        doc.uploadedBy ?? '-',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(DateFormat('dd MMM yyyy').format(doc.uploadedOn), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      Text(
+                        DateFormat('dd MMM yyyy').format(doc.uploadedOn),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1343,15 +1782,35 @@ class _ApplicationDetailsScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: _getDocStatusColor(doc.verificationStatus).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                            child: Text(doc.verificationStatus.toUpperCase(), style: TextStyle(fontSize: 10, color: _getDocStatusColor(doc.verificationStatus), fontWeight: FontWeight.w800)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getDocStatusColor(
+                                doc.verificationStatus,
+                              ).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              doc.verificationStatus.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: _getDocStatusColor(
+                                  doc.verificationStatus,
+                                ),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
                           if (doc.verifiedBy != null) ...[
                             const SizedBox(height: 4),
                             Text(
                               'By: ${doc.verifiedBy}',
-                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondary,
+                              ),
                             ),
                           ],
                         ],
@@ -1364,17 +1823,42 @@ class _ApplicationDetailsScreenState
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      IconButton(icon: const Icon(Icons.visibility_outlined, size: 18), onPressed: () => _viewDocument(doc), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                      IconButton(
+                        icon: const Icon(Icons.visibility_outlined, size: 18),
+                        onPressed: () => _viewDocument(doc),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
                       const SizedBox(width: 16),
-                      IconButton(icon: const Icon(Icons.download_outlined, size: 18), onPressed: () => _viewDocument(doc), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-                      if (canEditApplication && doc.verificationStatus == 'pending') ...[
+                      IconButton(
+                        icon: const Icon(Icons.download_outlined, size: 18),
+                        onPressed: () => _viewDocument(doc),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      if (canEditApplication &&
+                          doc.verificationStatus == 'pending') ...[
                         const SizedBox(width: 16),
-                        IconButton(icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: Colors.green), onPressed: () => _updateDocumentStatus(doc.id, 'verified'), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.check_circle_outline_rounded,
+                            size: 18,
+                            color: Colors.green,
+                          ),
+                          onPressed:
+                              () => _updateDocumentStatus(doc.id, 'verified'),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       ],
                       if (canEditApplication) ...[
                         const SizedBox(width: 16),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.errorColor),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                            color: AppTheme.errorColor,
+                          ),
                           onPressed: () => _confirmDeleteDocument(doc),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -1402,7 +1886,6 @@ class _ApplicationDetailsScreenState
     }
   }
 
-
   Future<void> _viewDocument(DocumentModel doc) async {
     final url = doc.fileUrl;
     if (url != null && url.isNotEmpty) {
@@ -1425,22 +1908,30 @@ class _ApplicationDetailsScreenState
         documentId: documentId,
         status: status,
       );
-      
+
       // Update the whole list or just the specific app
       ref.invalidate(documentsProvider(widget.applicationId));
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Document ${status == 'verified' ? 'verified' : 'rejected'}'),
-            backgroundColor: status == 'verified' ? AppTheme.successColor : AppTheme.errorColor,
+            content: Text(
+              'Document ${status == 'verified' ? 'verified' : 'rejected'}',
+            ),
+            backgroundColor:
+                status == 'verified'
+                    ? AppTheme.successColor
+                    : AppTheme.errorColor,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.errorColor),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
         );
       }
     }
@@ -1449,21 +1940,24 @@ class _ApplicationDetailsScreenState
   Future<void> _confirmDeleteDocument(DocumentModel doc) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Document'),
-        content: Text('Delete "${doc.fileName}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Delete Document'),
+            content: Text('Delete "${doc.fileName}"?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.errorColor,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
@@ -1556,7 +2050,8 @@ class _ApplicationDetailsScreenState
     required bool isCurrent,
     required bool isLast,
   }) {
-    final canEditApplication = ref.watch(currentUserProvider).value?.canEdit ?? false;
+    final canEditApplication =
+        ref.watch(currentUserProvider).value?.canEdit ?? false;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1698,6 +2193,8 @@ class _ApplicationDetailsScreenState
         return 'Installation Completed';
       case ApplicationStatus.subsidyProcess:
         return 'Subsidy Process';
+      case ApplicationStatus.completeWorkDone:
+        return 'Complete Work Done';
     }
   }
 
@@ -1713,6 +2210,7 @@ class _ApplicationDetailsScreenState
       case ApplicationStatus.installationScheduled:
       case ApplicationStatus.installationCompleted:
       case ApplicationStatus.subsidyProcess:
+      case ApplicationStatus.completeWorkDone:
         return 'Admin/Staff';
     }
   }
@@ -1730,8 +2228,9 @@ class _ApplicationDetailsScreenState
       case ApplicationStatus.meterTested:
       case ApplicationStatus.installationScheduled:
       case ApplicationStatus.installationCompleted:
-        return AppTheme.warningColor;
       case ApplicationStatus.subsidyProcess:
+        return AppTheme.warningColor;
+      case ApplicationStatus.completeWorkDone:
         return AppTheme.statusCompleted;
     }
   }
@@ -1741,8 +2240,7 @@ class _ApplicationDetailsScreenState
     final currentUser = ref.read(currentUserProvider).value;
     final canEditApplication = currentUser?.canEdit ?? false;
     final canAccessInventory = currentUser?.canAccessInventory ?? false;
-    final canManageInstallations =
-        currentUser?.canManageInstallations ?? false;
+    final canManageInstallations = currentUser?.canManageInstallations ?? false;
 
     final currentIndex = app.currentStatus.index;
     final canAdvance = currentIndex < ApplicationStatus.values.length - 1;
@@ -1779,6 +2277,7 @@ class _ApplicationDetailsScreenState
       case ApplicationStatus.installationScheduled:
       case ApplicationStatus.installationCompleted:
       case ApplicationStatus.subsidyProcess:
+      case ApplicationStatus.completeWorkDone:
         break;
     }
 
@@ -1811,7 +2310,7 @@ class _ApplicationDetailsScreenState
         ),
       ),
     );
-    
+
     if (canAccessInventory) {
       items.add(
         const PopupMenuItem(
@@ -1826,7 +2325,7 @@ class _ApplicationDetailsScreenState
         ),
       );
     }
-    
+
     if (canManageInstallations &&
         app.statusIndex >= ApplicationStatus.installationScheduled.index) {
       items.add(
@@ -2045,7 +2544,9 @@ class _ApplicationDetailsScreenState
   }
 
   Future<void> _updateStatus([ApplicationStatus? preSelectedStatus]) async {
-    final applicationAsync = ref.read(applicationProvider(widget.applicationId));
+    final applicationAsync = ref.read(
+      applicationProvider(widget.applicationId),
+    );
     final app = applicationAsync.value;
     if (app == null) return;
 
@@ -2501,9 +3002,12 @@ class _ApplicationDetailsScreenState
   }
 
   Widget _buildPaymentSection(ApplicationModel app) {
-    final paymentStatsAsync = ref.watch(paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)));
+    final paymentStatsAsync = ref.watch(
+      paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)),
+    );
     final paymentsAsync = ref.watch(paymentsProvider(app.id));
-    final canManagePayments = ref.watch(currentUserProvider).value?.canEdit ?? false;
+    final canManagePayments =
+        ref.watch(currentUserProvider).value?.canEdit ?? false;
 
     return Container(
       decoration: BoxDecoration(
@@ -2518,7 +3022,10 @@ class _ApplicationDetailsScreenState
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.only(topLeft: Radius.circular(AppTheme.cardRadius), topRight: Radius.circular(AppTheme.cardRadius)),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(AppTheme.cardRadius),
+                topRight: Radius.circular(AppTheme.cardRadius),
+              ),
               border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
             child: Row(
@@ -2526,24 +3033,48 @@ class _ApplicationDetailsScreenState
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.payments_outlined, color: AppTheme.primaryColor, size: 18),
+                    Icon(
+                      Icons.payments_outlined,
+                      color: AppTheme.primaryColor,
+                      size: 18,
+                    ),
                     const SizedBox(width: 12),
-                    Text('Payment Summary', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                    Text(
+                      'Payment Summary',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
                   ],
                 ),
                 Row(
                   children: [
                     OutlinedButton.icon(
                       onPressed: () async {
-                        final payments = await ref.read(paymentsProvider(app.id).future);
+                        final payments = await ref.read(
+                          paymentsProvider(app.id).future,
+                        );
                         await _exportPaymentSummaryPdf(app, payments);
                       },
                       style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                      label: const Text('Export PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Export PDF',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
@@ -2551,11 +3082,22 @@ class _ApplicationDetailsScreenState
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                       icon: const Icon(Icons.add_rounded, size: 16),
-                      label: const Text('New Payment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'New Payment',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -2568,94 +3110,291 @@ class _ApplicationDetailsScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 paymentStatsAsync.when(
-                  data: (stats) => Row(
-                    children: [
-                      _buildStatItem('Total Amount', stats['totalAmount']!, Icons.account_balance_wallet_outlined, Colors.blue),
-                      const SizedBox(width: 16),
-                      _buildStatItem('Paid Amount', stats['totalPaid']!, Icons.check_circle_outline_rounded, Colors.green),
-                      const SizedBox(width: 16),
-                      _buildStatItem('Remaining', stats['remainingAmount']!, Icons.pending_actions_rounded, Colors.orange),
-                    ],
-                  ),
+                  data:
+                      (stats) => Row(
+                        children: [
+                          _buildStatItem(
+                            'Total Amount',
+                            stats['totalAmount']!,
+                            Icons.account_balance_wallet_outlined,
+                            Colors.blue,
+                          ),
+                          const SizedBox(width: 16),
+                          _buildStatItem(
+                            'Paid Amount',
+                            stats['totalPaid']!,
+                            Icons.check_circle_outline_rounded,
+                            Colors.green,
+                          ),
+                          const SizedBox(width: 16),
+                          _buildStatItem(
+                            'Remaining',
+                            stats['remainingAmount']!,
+                            Icons.pending_actions_rounded,
+                            Colors.orange,
+                          ),
+                        ],
+                      ),
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text('Error loading stats: $e'),
                 ),
                 const SizedBox(height: 32),
-                const Text('Transaction History', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+                const Text(
+                  'Transaction History',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 paymentsAsync.when(
-                  data: (payments) => payments.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Text('No payments recorded yet', style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                          ),
-                        )
-                      : Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.borderColor),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: DataTable(
-                              headingRowHeight: 48,
-                              dataRowMinHeight: 48,
-                              dataRowMaxHeight: 60,
-                              headingRowColor: WidgetStateProperty.all(AppTheme.backgroundColor),
-                              horizontalMargin: 24,
-                              columns: [
-                                DataColumn(label: Text('DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-                                DataColumn(label: Text('TYPE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-                                DataColumn(label: Text('MODE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-                                DataColumn(label: Text('TRANSACTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-                                DataColumn(label: Text('COLLECTED BY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-                                DataColumn(label: Text('AMOUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-                                DataColumn(label: Text('RECEIPT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-                                if (canManagePayments)
-                                  const DataColumn(label: Text('ACTIONS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.textSecondary))),
-                              ],
-                              rows: payments.map((p) => DataRow(cells: [
-                                DataCell(Text(DateFormat('dd MMM yyyy').format(p.paymentDate), style: const TextStyle(fontSize: 13))),
-                                DataCell(Text(p.paymentType.name.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                DataCell(Text(p.paymentMode.name.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                DataCell(Text(p.transactionNumber ?? '-', style: const TextStyle(fontSize: 13))),
-                                DataCell(Text(p.collectedBy ?? '-', style: const TextStyle(fontSize: 13))),
-                                DataCell(Text(
-                                  '₹${NumberFormat('#,##,###', 'en_IN').format(p.amount)}',
-                                  style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.green, fontSize: 13),
-                                )),
-                                DataCell(
-                                  IconButton(
-                                    icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                                    onPressed: () => _downloadPaymentReceipt(app, p),
-                                    tooltip: 'Download Receipt',
-                                  ),
-                                ),
-                                if (canManagePayments)
-                                  DataCell(
-                                    Row(
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.edit_rounded, size: 18),
-                                          onPressed: () => _showEditPaymentDialog(app, p),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.errorColor),
-                                          onPressed: () => _confirmDeletePayment(app, p),
-                                        ),
-                                      ],
+                  data:
+                      (payments) =>
+                          payments.isEmpty
+                              ? const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(32),
+                                  child: Text(
+                                    'No payments recorded yet',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 13,
                                     ),
                                   ),
-                              ])).toList(),
+                                ),
+                              )
+                              : Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: AppTheme.borderColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: DataTable(
+                                      headingRowHeight: 48,
+                                      dataRowMinHeight: 48,
+                                      dataRowMaxHeight: 60,
+                                      headingRowColor: WidgetStateProperty.all(
+                                        AppTheme.backgroundColor,
+                                      ),
+                                      horizontalMargin: 24,
+                                      columns: [
+                                        DataColumn(
+                                          label: Text(
+                                            'DATE',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'TYPE',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'MODE',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'TRANSACTION',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'COLLECTED BY',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'AMOUNT',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'RECEIPT',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                        if (canManagePayments)
+                                          const DataColumn(
+                                            label: Text(
+                                              'ACTIONS',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                      rows:
+                                          payments
+                                              .map(
+                                                (p) => DataRow(
+                                                  cells: [
+                                                    DataCell(
+                                                      Text(
+                                                        DateFormat(
+                                                          'dd MMM yyyy',
+                                                        ).format(p.paymentDate),
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      Text(
+                                                        p.paymentType.name
+                                                            .toUpperCase(),
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      Text(
+                                                        p.paymentMode.name
+                                                            .toUpperCase(),
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      Text(
+                                                        p.transactionNumber ??
+                                                            '-',
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      Text(
+                                                        p.collectedBy ?? '-',
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      Text(
+                                                        '₹${NumberFormat('#,##,###', 'en_IN').format(p.amount)}',
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: Colors.green,
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    DataCell(
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons
+                                                              .receipt_long_outlined,
+                                                          size: 18,
+                                                        ),
+                                                        onPressed:
+                                                            () =>
+                                                                _downloadPaymentReceipt(
+                                                                  app,
+                                                                  p,
+                                                                ),
+                                                        tooltip:
+                                                            'Download Receipt',
+                                                      ),
+                                                    ),
+                                                    if (canManagePayments)
+                                                      DataCell(
+                                                        Row(
+                                                          children: [
+                                                            IconButton(
+                                                              icon: const Icon(
+                                                                Icons
+                                                                    .edit_rounded,
+                                                                size: 18,
+                                                              ),
+                                                              onPressed:
+                                                                  () =>
+                                                                      _showEditPaymentDialog(
+                                                                        app,
+                                                                        p,
+                                                                      ),
+                                                            ),
+                                                            IconButton(
+                                                              icon: const Icon(
+                                                                Icons
+                                                                    .delete_outline_rounded,
+                                                                size: 18,
+                                                                color:
+                                                                    AppTheme
+                                                                        .errorColor,
+                                                              ),
+                                                              onPressed:
+                                                                  () =>
+                                                                      _confirmDeletePayment(
+                                                                        app,
+                                                                        p,
+                                                                      ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              )
+                                              .toList(),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading:
+                      () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Text('Error loading payments: $e'),
                 ),
               ],
@@ -2666,7 +3405,12 @@ class _ApplicationDetailsScreenState
     );
   }
 
-  Widget _buildStatItem(String label, double value, IconData icon, Color color) {
+  Widget _buildStatItem(
+    String label,
+    double value,
+    IconData icon,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -2679,18 +3423,32 @@ class _ApplicationDetailsScreenState
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(width: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   '₹${NumberFormat('#,##,###', 'en_IN').format(value)}',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
                 ),
               ],
             ),
@@ -2742,7 +3500,14 @@ class _ApplicationDetailsScreenState
     );
     y += 20;
 
-    const headers = ['Date', 'Type', 'Mode', 'Transaction', 'Collected By', 'Amount'];
+    const headers = [
+      'Date',
+      'Type',
+      'Mode',
+      'Transaction',
+      'Collected By',
+      'Amount',
+    ];
     const widths = [70.0, 55.0, 55.0, 110.0, 120.0, 70.0];
     double x = 0;
     for (var i = 0; i < headers.length; i++) {
@@ -2812,7 +3577,9 @@ class _ApplicationDetailsScreenState
     if (allotments.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No inventory allotments available to export.')),
+          const SnackBar(
+            content: Text('No inventory allotments available to export.'),
+          ),
         );
       }
       return;
@@ -2902,7 +3669,9 @@ class _ApplicationDetailsScreenState
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inventory allotment PDF exported successfully.')),
+        const SnackBar(
+          content: Text('Inventory allotment PDF exported successfully.'),
+        ),
       );
     }
   }
@@ -2913,21 +3682,26 @@ class _ApplicationDetailsScreenState
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Payment'),
-        content: Text('Delete payment of Rs.${NumberFormat('#,##,###', 'en_IN').format(payment.amount)}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Delete Payment'),
+            content: Text(
+              'Delete payment of Rs.${NumberFormat('#,##,###', 'en_IN').format(payment.amount)}?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.errorColor,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
@@ -2944,7 +3718,10 @@ class _ApplicationDetailsScreenState
       );
       await ref.refresh(paymentsProvider(app.id).future);
       await ref.refresh(
-        paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)).future,
+        paymentStatsProvider((
+          id: app.id,
+          total: app.finalAmount ?? 0.0,
+        )).future,
       );
 
       if (mounted) {
@@ -2983,148 +3760,169 @@ class _ApplicationDetailsScreenState
 
     await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Edit Payment'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: amountController,
-                  decoration: const InputDecoration(
-                    labelText: 'Amount (Rs.)',
-                    prefixText: 'Rs. ',
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<PaymentType>(
-                  value: selectedType,
-                  decoration: const InputDecoration(labelText: 'Payment Type'),
-                  items: PaymentType.values
-                      .map(
-                        (t) => DropdownMenuItem(
-                          value: t,
-                          child: Text(t.name.toUpperCase()),
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setDialogState) => AlertDialog(
+                  title: const Text('Edit Payment'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: amountController,
+                          decoration: const InputDecoration(
+                            labelText: 'Amount (Rs.)',
+                            prefixText: 'Rs. ',
+                          ),
+                          keyboardType: TextInputType.number,
                         ),
-                      )
-                      .toList(),
-                  onChanged: (value) =>
-                      setDialogState(() => selectedType = value!),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<PaymentMode>(
-                  value: selectedMode,
-                  decoration: const InputDecoration(labelText: 'Payment Mode'),
-                  items: PaymentMode.values
-                      .map(
-                        (m) => DropdownMenuItem(
-                          value: m,
-                          child: Text(m.name.toUpperCase()),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<PaymentType>(
+                          value: selectedType,
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Type',
+                          ),
+                          items:
+                              PaymentType.values
+                                  .map(
+                                    (t) => DropdownMenuItem(
+                                      value: t,
+                                      child: Text(t.name.toUpperCase()),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (value) =>
+                                  setDialogState(() => selectedType = value!),
                         ),
-                      )
-                      .toList(),
-                  onChanged: (value) =>
-                      setDialogState(() => selectedMode = value!),
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () async {
-                    final pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: selectedPaymentDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (pickedDate == null) return;
-                    setDialogState(() {
-                      selectedPaymentDate = DateTime(
-                        pickedDate.year,
-                        pickedDate.month,
-                        pickedDate.day,
-                      );
-                    });
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Payment Date *',
-                      prefixIcon: Icon(Icons.calendar_today_outlined),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<PaymentMode>(
+                          value: selectedMode,
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Mode',
+                          ),
+                          items:
+                              PaymentMode.values
+                                  .map(
+                                    (m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(m.name.toUpperCase()),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (value) =>
+                                  setDialogState(() => selectedMode = value!),
+                        ),
+                        const SizedBox(height: 16),
+                        InkWell(
+                          onTap: () async {
+                            final pickedDate = await showDatePicker(
+                              context: context,
+                              initialDate: selectedPaymentDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 365),
+                              ),
+                            );
+                            if (pickedDate == null) return;
+                            setDialogState(() {
+                              selectedPaymentDate = DateTime(
+                                pickedDate.year,
+                                pickedDate.month,
+                                pickedDate.day,
+                              );
+                            });
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Payment Date *',
+                              prefixIcon: Icon(Icons.calendar_today_outlined),
+                            ),
+                            child: Text(
+                              DateFormat(
+                                'dd/MM/yyyy',
+                              ).format(selectedPaymentDate),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: transactionController,
+                          decoration: const InputDecoration(
+                            labelText: 'Transaction Number / Reference',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: remarksController,
+                          decoration: const InputDecoration(
+                            labelText: 'Remarks (Optional)',
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      DateFormat('dd/MM/yyyy').format(selectedPaymentDate),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
                     ),
-                  ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final amount = double.tryParse(
+                          amountController.text.trim(),
+                        );
+                        if (amount == null || amount <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please enter a valid payment amount.',
+                              ),
+                              backgroundColor: AppTheme.errorColor,
+                            ),
+                          );
+                          return;
+                        }
+
+                        final updatedPayment = payment.copyWith(
+                          amount: amount,
+                          paymentMode: selectedMode,
+                          paymentType: selectedType,
+                          paymentDate: selectedPaymentDate,
+                          transactionNumber: transactionController.text.trim(),
+                          remarks: remarksController.text.trim(),
+                        );
+
+                        final paymentWithReceipt = await _attachPaymentReceipt(
+                          app,
+                          updatedPayment,
+                        );
+                        await PaymentService.updatePayment(paymentWithReceipt);
+                        ref.invalidate(paymentsProvider(app.id));
+                        ref.invalidate(allPaymentsProvider);
+                        ref.invalidate(
+                          paymentStatsProvider((
+                            id: app.id,
+                            total: app.finalAmount ?? 0.0,
+                          )),
+                        );
+
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Payment updated successfully.'),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Save Changes'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: transactionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Transaction Number / Reference',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: remarksController,
-                  decoration: const InputDecoration(
-                    labelText: 'Remarks (Optional)',
-                  ),
-                ),
-              ],
-            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final amount = double.tryParse(amountController.text.trim());
-                if (amount == null || amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please enter a valid payment amount.'),
-                      backgroundColor: AppTheme.errorColor,
-                    ),
-                  );
-                  return;
-                }
-
-                final updatedPayment = payment.copyWith(
-                  amount: amount,
-                  paymentMode: selectedMode,
-                  paymentType: selectedType,
-                  paymentDate: selectedPaymentDate,
-                  transactionNumber: transactionController.text.trim(),
-                  remarks: remarksController.text.trim(),
-                );
-
-                final paymentWithReceipt = await _attachPaymentReceipt(
-                  app,
-                  updatedPayment,
-                );
-                await PaymentService.updatePayment(paymentWithReceipt);
-                ref.invalidate(paymentsProvider(app.id));
-                ref.invalidate(allPaymentsProvider);
-                ref.invalidate(
-                  paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)),
-                );
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Payment updated successfully.'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Save Changes'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -3167,11 +3965,7 @@ class _ApplicationDetailsScreenState
 
     page.graphics.drawString(
       'Payment Receipt',
-      PdfStandardFont(
-        PdfFontFamily.helvetica,
-        14,
-        style: PdfFontStyle.bold,
-      ),
+      PdfStandardFont(PdfFontFamily.helvetica, 14, style: PdfFontStyle.bold),
       bounds: Rect.fromLTWH(0, y, pageSize.width, 18),
     );
     y += 26;
@@ -3180,13 +3974,27 @@ class _ApplicationDetailsScreenState
       ['Consumer Name', app.fullName],
       ['Application No.', app.applicationNumber],
       ['Mobile Number', app.mobile],
-      ['Payment Date', DateFormat('dd MMM yyyy, hh:mm a').format(payment.paymentDate)],
+      [
+        'Payment Date',
+        DateFormat('dd MMM yyyy, hh:mm a').format(payment.paymentDate),
+      ],
       ['Payment Type', payment.paymentType.name.toUpperCase()],
       ['Payment Mode', payment.paymentMode.name.toUpperCase()],
-      ['Transaction No.', (payment.transactionNumber?.trim().isNotEmpty ?? false) ? payment.transactionNumber! : '-'],
-      ['Amount Received', 'Rs.${NumberFormat('#,##,###', 'en_IN').format(payment.amount)}'],
+      [
+        'Transaction No.',
+        (payment.transactionNumber?.trim().isNotEmpty ?? false)
+            ? payment.transactionNumber!
+            : '-',
+      ],
+      [
+        'Amount Received',
+        'Rs.${NumberFormat('#,##,###', 'en_IN').format(payment.amount)}',
+      ],
       ['Collected By', payment.collectedBy ?? '-'],
-      ['Remarks', (payment.remarks?.trim().isNotEmpty ?? false) ? payment.remarks! : '-'],
+      [
+        'Remarks',
+        (payment.remarks?.trim().isNotEmpty ?? false) ? payment.remarks! : '-',
+      ],
     ];
 
     for (final row in rows) {
@@ -3268,9 +4076,9 @@ class _ApplicationDetailsScreenState
       final ensuredPayment = await _ensurePaymentReceipt(app, payment);
       final bytes = _buildPaymentReceiptPdfBytes(app, ensuredPayment);
       final consumerName = _sanitizeReceiptFileName(app.fullName);
-      final receiptDate = DateFormat('yyyyMMdd_HHmm').format(
-        ensuredPayment.paymentDate,
-      );
+      final receiptDate = DateFormat(
+        'yyyyMMdd_HHmm',
+      ).format(ensuredPayment.paymentDate);
 
       final path = await FilePicker.platform.saveFile(
         dialogTitle: 'Download Payment Receipt',
@@ -3313,150 +4121,197 @@ class _ApplicationDetailsScreenState
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Add Payment'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: amountController,
-                  decoration: const InputDecoration(labelText: 'Amount (Rs.)', prefixText: 'Rs. '),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<PaymentType>(
-                  value: selectedType,
-                  decoration: const InputDecoration(labelText: 'Payment Type'),
-                  items: PaymentType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.name.toUpperCase()))).toList(),
-                  onChanged: (v) => setDialogState(() => selectedType = v!),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<PaymentMode>(
-                  value: selectedMode,
-                  decoration: const InputDecoration(labelText: 'Payment Mode'),
-                  items: PaymentMode.values.map((m) => DropdownMenuItem(value: m, child: Text(m.name.toUpperCase()))).toList(),
-                  onChanged: (v) => setDialogState(() => selectedMode = v!),
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () async {
-                    final pickedDate = await showDatePicker(
-                      context: context,
-                      initialDate: selectedPaymentDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (pickedDate == null) return;
-                    setDialogState(() {
-                      selectedPaymentDate = DateTime(
-                        pickedDate.year,
-                        pickedDate.month,
-                        pickedDate.day,
-                      );
-                    });
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Payment Date *',
-                      prefixIcon: Icon(Icons.calendar_today_outlined),
-                    ),
-                    child: Text(
-                      DateFormat('dd/MM/yyyy').format(selectedPaymentDate),
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setDialogState) => AlertDialog(
+                  title: const Text('Add Payment'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: amountController,
+                          decoration: const InputDecoration(
+                            labelText: 'Amount (Rs.)',
+                            prefixText: 'Rs. ',
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<PaymentType>(
+                          value: selectedType,
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Type',
+                          ),
+                          items:
+                              PaymentType.values
+                                  .map(
+                                    (t) => DropdownMenuItem(
+                                      value: t,
+                                      child: Text(t.name.toUpperCase()),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (v) => setDialogState(() => selectedType = v!),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<PaymentMode>(
+                          value: selectedMode,
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Mode',
+                          ),
+                          items:
+                              PaymentMode.values
+                                  .map(
+                                    (m) => DropdownMenuItem(
+                                      value: m,
+                                      child: Text(m.name.toUpperCase()),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged:
+                              (v) => setDialogState(() => selectedMode = v!),
+                        ),
+                        const SizedBox(height: 16),
+                        InkWell(
+                          onTap: () async {
+                            final pickedDate = await showDatePicker(
+                              context: context,
+                              initialDate: selectedPaymentDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 365),
+                              ),
+                            );
+                            if (pickedDate == null) return;
+                            setDialogState(() {
+                              selectedPaymentDate = DateTime(
+                                pickedDate.year,
+                                pickedDate.month,
+                                pickedDate.day,
+                              );
+                            });
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Payment Date *',
+                              prefixIcon: Icon(Icons.calendar_today_outlined),
+                            ),
+                            child: Text(
+                              DateFormat(
+                                'dd/MM/yyyy',
+                              ).format(selectedPaymentDate),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: transactionController,
+                          decoration: const InputDecoration(
+                            labelText: 'Transaction Number / Reference',
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: remarksController,
+                          decoration: const InputDecoration(
+                            labelText: 'Remarks (Optional)',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final amount = double.tryParse(amountController.text);
+                        if (amount == null || amount <= 0) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please enter a valid payment amount.',
+                                ),
+                                backgroundColor: AppTheme.errorColor,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
+                        final now = DateTime.now();
+                        final payment = PaymentModel(
+                          id: const Uuid().v4(),
+                          applicationId: app.id,
+                          amount: amount,
+                          paymentMode: selectedMode,
+                          paymentType: selectedType,
+                          transactionNumber: transactionController.text.trim(),
+                          paymentDate: selectedPaymentDate,
+                          remarks: remarksController.text.trim(),
+                          collectedBy:
+                              ref.read(currentUserProvider).value?.fullName ??
+                              ref.read(currentUserProvider).value?.email,
+                          createdAt: now,
+                        );
+
+                        try {
+                          final paymentWithReceipt =
+                              await _attachPaymentReceipt(app, payment);
+                          final savedPayment = await PaymentService.addPayment(
+                            paymentWithReceipt,
+                          );
+                          ref.invalidate(paymentsProvider(app.id));
+                          ref.invalidate(allPaymentsProvider);
+                          ref.invalidate(
+                            paymentStatsProvider((
+                              id: app.id,
+                              total: app.finalAmount ?? 0.0,
+                            )),
+                          );
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'Payment added successfully.',
+                                ),
+                                backgroundColor: AppTheme.successColor,
+                                action: SnackBarAction(
+                                  label: 'Download Receipt',
+                                  textColor: Colors.white,
+                                  onPressed:
+                                      () => _downloadPaymentReceipt(
+                                        app,
+                                        savedPayment,
+                                      ),
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to add payment: $e'),
+                                backgroundColor: AppTheme.errorColor,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text('Save Payment'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: transactionController,
-                  decoration: const InputDecoration(labelText: 'Transaction Number / Reference'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: remarksController,
-                  decoration: const InputDecoration(labelText: 'Remarks (Optional)'),
-                ),
-              ],
-            ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                final amount = double.tryParse(amountController.text);
-                if (amount == null || amount <= 0) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a valid payment amount.'),
-                        backgroundColor: AppTheme.errorColor,
-                      ),
-                    );
-                  }
-                  return;
-                }
-
-                final now = DateTime.now();
-                final payment = PaymentModel(
-                  id: const Uuid().v4(),
-                  applicationId: app.id,
-                  amount: amount,
-                  paymentMode: selectedMode,
-                  paymentType: selectedType,
-                  transactionNumber: transactionController.text.trim(),
-                  paymentDate: selectedPaymentDate,
-                  remarks: remarksController.text.trim(),
-                  collectedBy:
-                      ref.read(currentUserProvider).value?.fullName ??
-                      ref.read(currentUserProvider).value?.email,
-                  createdAt: now,
-                );
-
-                try {
-                  final paymentWithReceipt = await _attachPaymentReceipt(
-                    app,
-                    payment,
-                  );
-                  final savedPayment = await PaymentService.addPayment(
-                    paymentWithReceipt,
-                  );
-                  ref.invalidate(paymentsProvider(app.id));
-                  ref.invalidate(allPaymentsProvider);
-                  ref.invalidate(
-                    paymentStatsProvider((id: app.id, total: app.finalAmount ?? 0.0)),
-                  );
-
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Payment added successfully.'),
-                        backgroundColor: AppTheme.successColor,
-                        action: SnackBarAction(
-                          label: 'Download Receipt',
-                          textColor: Colors.white,
-                          onPressed: () => _downloadPaymentReceipt(app, savedPayment),
-                        ),
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Failed to add payment: $e'),
-                        backgroundColor: AppTheme.errorColor,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Save Payment'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -3483,38 +4338,42 @@ class _ApplicationDetailsScreenState
         context: context,
         barrierDismissible: false,
         useRootNavigator: true,
-        builder: (_) => PopScope(
-          canPop: false,
-          child: Container(
-            color: Colors.black.withOpacity(0.35),
-            child: const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 64,
-                    height: 64,
-                    child: CircularProgressIndicator(strokeWidth: 4, color: Colors.white),
+        builder:
+            (_) => PopScope(
+              canPop: false,
+              child: Container(
+                color: Colors.black.withOpacity(0.35),
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 64,
+                        height: 64,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 4,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Allotting selected items...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Please wait, do not close the app.',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Allotting selected items...',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Please wait, do not close the app.',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
       );
     }
 
@@ -3527,192 +4386,342 @@ class _ApplicationDetailsScreenState
 
     showDialog(
       context: context,
-      builder: (context) => Consumer(
-        builder: (context, ref, child) {
-          final inventoryState = ref.watch(inventoryProvider);
-          final hasAnyStockSnapshot =
-              inventoryState.panels.isNotEmpty ||
-              inventoryState.inverters.isNotEmpty ||
-              inventoryState.meters.isNotEmpty;
-          
-          return StatefulBuilder(
-            builder: (context, setDialogState) {
-              
-              List<String> getAvailableBrands() {
-                if (selectedType == InventoryItemType.panel) {
-                  return inventoryState.panels.where((p) => p.status == 'available').map((p) => p.brand).toSet().toList();
-                } else if (selectedType == InventoryItemType.inverter) {
-                  return inventoryState.inverters.where((i) => i.status == 'available').map((i) => i.brand).toSet().toList();
-                } else {
-                  return inventoryState.meters.where((m) => m.status == 'available').map((m) => m.brand).toSet().toList();
-                }
-              }
+      builder:
+          (context) => Consumer(
+            builder: (context, ref, child) {
+              final inventoryState = ref.watch(inventoryProvider);
+              final hasAnyStockSnapshot =
+                  inventoryState.panels.isNotEmpty ||
+                  inventoryState.inverters.isNotEmpty ||
+                  inventoryState.meters.isNotEmpty;
 
-              List<String> getAvailableCategories(String brand) {
-                if (selectedType == InventoryItemType.panel) {
-                  return inventoryState.panels.where((p) => p.status == 'available' && p.brand == brand).map((p) => p.panelType).toSet().toList();
-                } else if (selectedType == InventoryItemType.inverter) {
-                  return inventoryState.inverters.where((i) => i.status == 'available' && i.brand == brand).map((i) => i.inverterType).toSet().toList();
-                } else {
-                  return inventoryState.meters.where((m) => m.status == 'available' && m.brand == brand).map((m) => m.meterCategory).toSet().toList();
-                }
-              }
+              return StatefulBuilder(
+                builder: (context, setDialogState) {
+                  List<String> getAvailableBrands() {
+                    if (selectedType == InventoryItemType.panel) {
+                      return inventoryState.panels
+                          .where((p) => p.status == 'available')
+                          .map((p) => p.brand)
+                          .toSet()
+                          .toList();
+                    } else if (selectedType == InventoryItemType.inverter) {
+                      return inventoryState.inverters
+                          .where((i) => i.status == 'available')
+                          .map((i) => i.brand)
+                          .toSet()
+                          .toList();
+                    } else {
+                      return inventoryState.meters
+                          .where((m) => m.status == 'available')
+                          .map((m) => m.brand)
+                          .toSet()
+                          .toList();
+                    }
+                  }
 
-              List<dynamic> getFilteredItems() {
-                if (selectedType == InventoryItemType.panel) {
-                  return inventoryState.panels.where((p) => p.status == 'available' && p.brand == selectedBrand && p.panelType == selectedCategory).toList();
-                } else if (selectedType == InventoryItemType.inverter) {
-                  return inventoryState.inverters.where((i) => i.status == 'available' && i.brand == selectedBrand && i.inverterType == selectedCategory).toList();
-                } else {
-                  return inventoryState.meters.where((m) => m.status == 'available' && m.brand == selectedBrand && m.meterCategory == selectedCategory).toList();
-                }
-              }
+                  List<String> getAvailableCategories(String brand) {
+                    if (selectedType == InventoryItemType.panel) {
+                      return inventoryState.panels
+                          .where(
+                            (p) => p.status == 'available' && p.brand == brand,
+                          )
+                          .map((p) => p.panelType)
+                          .toSet()
+                          .toList();
+                    } else if (selectedType == InventoryItemType.inverter) {
+                      return inventoryState.inverters
+                          .where(
+                            (i) => i.status == 'available' && i.brand == brand,
+                          )
+                          .map((i) => i.inverterType)
+                          .toSet()
+                          .toList();
+                    } else {
+                      return inventoryState.meters
+                          .where(
+                            (m) => m.status == 'available' && m.brand == brand,
+                          )
+                          .map((m) => m.meterCategory)
+                          .toSet()
+                          .toList();
+                    }
+                  }
 
-              return AlertDialog(
-                title: Text(currentStep == 0 ? 'Allot: Select Item & Brand' : currentStep == 1 ? 'Select Category' : 'Choose Serial Numbers'),
-                content: SizedBox(
-                  width: 450,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (inventoryState.isLoading && !hasAnyStockSnapshot)
-                          const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-                        else if (currentStep == 0) ...[
-                          DropdownButtonFormField<InventoryItemType>(
-                            value: selectedType,
-                            decoration: const InputDecoration(labelText: 'Item Type'),
-                            items: InventoryItemType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.name.toUpperCase()))).toList(),
-                            onChanged: (v) => setDialogState(() {
-                              selectedType = v!;
-                              selectedBrand = null;
-                            }),
-                          ),
-                          const SizedBox(height: 16),
-                          const Text('Select Brand:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 12),
-                          if (getAvailableBrands().isEmpty)
-                            const Text('No stock available for this type.', style: TextStyle(color: Colors.red, fontSize: 12))
-                          else
-                            Wrap(
-                              spacing: 8,
-                              children: getAvailableBrands().map((brand) => ChoiceChip(
-                                label: Text(brand),
-                                selected: selectedBrand == brand,
-                                onSelected: (s) {
-                                  if (s) {
-                                    setDialogState(() {
-                                      selectedBrand = brand;
-                                      selectedCategory = null;
-                                      currentStep = 1;
-                                    });
-                                  }
-                                },
-                              )).toList(),
-                            ),
-                        ]
-                        else if (currentStep == 1) ...[
-                          Text('Brand: $selectedBrand', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 16),
-                          const Text('Select Category:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            children: getAvailableCategories(selectedBrand!).map((cat) => ChoiceChip(
-                              label: Text(cat),
-                              selected: selectedCategory == cat,
-                              onSelected: (s) {
-                                if (s) {
-                                  setDialogState(() {
-                                    selectedCategory = cat;
-                                    selectedItemIds = [];
-                                    currentStep = 2;
-                                  });
+                  List<dynamic> getFilteredItems() {
+                    if (selectedType == InventoryItemType.panel) {
+                      return inventoryState.panels
+                          .where(
+                            (p) =>
+                                p.status == 'available' &&
+                                p.brand == selectedBrand &&
+                                p.panelType == selectedCategory,
+                          )
+                          .toList();
+                    } else if (selectedType == InventoryItemType.inverter) {
+                      return inventoryState.inverters
+                          .where(
+                            (i) =>
+                                i.status == 'available' &&
+                                i.brand == selectedBrand &&
+                                i.inverterType == selectedCategory,
+                          )
+                          .toList();
+                    } else {
+                      return inventoryState.meters
+                          .where(
+                            (m) =>
+                                m.status == 'available' &&
+                                m.brand == selectedBrand &&
+                                m.meterCategory == selectedCategory,
+                          )
+                          .toList();
+                    }
+                  }
+
+                  return AlertDialog(
+                    title: Text(
+                      currentStep == 0
+                          ? 'Allot: Select Item & Brand'
+                          : currentStep == 1
+                          ? 'Select Category'
+                          : 'Choose Serial Numbers',
+                    ),
+                    content: SizedBox(
+                      width: 450,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (inventoryState.isLoading &&
+                                !hasAnyStockSnapshot)
+                              const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: CircularProgressIndicator(),
+                                ),
+                              )
+                            else if (currentStep == 0) ...[
+                              DropdownButtonFormField<InventoryItemType>(
+                                value: selectedType,
+                                decoration: const InputDecoration(
+                                  labelText: 'Item Type',
+                                ),
+                                items:
+                                    InventoryItemType.values
+                                        .map(
+                                          (t) => DropdownMenuItem(
+                                            value: t,
+                                            child: Text(t.name.toUpperCase()),
+                                          ),
+                                        )
+                                        .toList(),
+                                onChanged:
+                                    (v) => setDialogState(() {
+                                      selectedType = v!;
+                                      selectedBrand = null;
+                                    }),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Select Brand:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              if (getAvailableBrands().isEmpty)
+                                const Text(
+                                  'No stock available for this type.',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                  ),
+                                )
+                              else
+                                Wrap(
+                                  spacing: 8,
+                                  children:
+                                      getAvailableBrands()
+                                          .map(
+                                            (brand) => ChoiceChip(
+                                              label: Text(brand),
+                                              selected: selectedBrand == brand,
+                                              onSelected: (s) {
+                                                if (s) {
+                                                  setDialogState(() {
+                                                    selectedBrand = brand;
+                                                    selectedCategory = null;
+                                                    currentStep = 1;
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          )
+                                          .toList(),
+                                ),
+                            ] else if (currentStep == 1) ...[
+                              Text(
+                                'Brand: $selectedBrand',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Select Category:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                children:
+                                    getAvailableCategories(selectedBrand!)
+                                        .map(
+                                          (cat) => ChoiceChip(
+                                            label: Text(cat),
+                                            selected: selectedCategory == cat,
+                                            onSelected: (s) {
+                                              if (s) {
+                                                setDialogState(() {
+                                                  selectedCategory = cat;
+                                                  selectedItemIds = [];
+                                                  currentStep = 2;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        )
+                                        .toList(),
+                              ),
+                            ] else if (currentStep == 2) ...[
+                              Text(
+                                '$selectedBrand - $selectedCategory',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Available stock: ${getFilteredItems().length}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const Divider(),
+                              const SizedBox(height: 8),
+                              ...getFilteredItems().map((item) {
+                                String sn = '';
+                                String id = '';
+                                String sub = '';
+                                if (item is PanelItem) {
+                                  sn = item.serialNumber;
+                                  id = item.id;
+                                  sub = '${item.wattCapacity}W';
+                                } else if (item is InverterItem) {
+                                  sn = item.serialNumber;
+                                  id = item.id;
+                                  sub = '${item.capacityKw}kW';
+                                } else if (item is MeterItem) {
+                                  sn = item.serialNumber;
+                                  id = item.id;
+                                  sub = item.meterPhase;
                                 }
-                              },
-                            )).toList(),
-                          ),
-                        ]
-                        else if (currentStep == 2) ...[
-                          Text('$selectedBrand - $selectedCategory', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          Text('Available stock: ${getFilteredItems().length}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                          const Divider(),
-                          const SizedBox(height: 8),
-                          ...getFilteredItems().map((item) {
-                            String sn = '';
-                            String id = '';
-                            String sub = '';
-                            if (item is PanelItem) { sn = item.serialNumber; id = item.id; sub = '${item.wattCapacity}W'; }
-                            else if (item is InverterItem) { sn = item.serialNumber; id = item.id; sub = '${item.capacityKw}kW'; }
-                            else if (item is MeterItem) { sn = item.serialNumber; id = item.id; sub = item.meterPhase; }
 
-                            return CheckboxListTile(
-                              title: Text(sn),
-                              subtitle: Text(sub, style: const TextStyle(fontSize: 10)),
-                              value: selectedItemIds.contains(id),
-                              onChanged: (v) {
-                                setDialogState(() {
-                                  if (v!) selectedItemIds.add(id);
-                                  else selectedItemIds.remove(id);
-                                });
-                              },
-                              dense: true,
-                            );
-                          }).toList(),
-                          if (getFilteredItems().isEmpty)
-                            const Text('No items found.', style: TextStyle(color: Colors.red)),
-                        ],
-                      ],
+                                return CheckboxListTile(
+                                  title: Text(sn),
+                                  subtitle: Text(
+                                    sub,
+                                    style: const TextStyle(fontSize: 10),
+                                  ),
+                                  value: selectedItemIds.contains(id),
+                                  onChanged: (v) {
+                                    setDialogState(() {
+                                      if (v!)
+                                        selectedItemIds.add(id);
+                                      else
+                                        selectedItemIds.remove(id);
+                                    });
+                                  },
+                                  dense: true,
+                                );
+                              }).toList(),
+                              if (getFilteredItems().isEmpty)
+                                const Text(
+                                  'No items found.',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: isSubmitting ? null : () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                  if (currentStep > 0)
-                    TextButton(
-                      onPressed: isSubmitting ? null : () => setDialogState(() => currentStep--),
-                      child: const Text('Back'),
-                    ),
-                  if (currentStep == 2)
-                    ElevatedButton(
-                      onPressed: (selectedItemIds.isEmpty || isSubmitting) ? null : () async {
-                        setDialogState(() => isSubmitting = true);
-                        showBlockingLoader();
-                        final user = ref.read(currentUserProvider).value;
-                        try {
-                          await ref.read(inventoryProvider.notifier).allotMultipleItems(
-                            itemIds: selectedItemIds,
-                            itemType: selectedType,
-                            customerName: app.fullName,
-                            applicationId: app.id,
-                            handoverBy: user?.fullName ?? 'System',
-                            handoverDate: DateTime.now(),
-                          );
-                          hideBlockingLoader();
-                          if (mounted) Navigator.pop(context);
-                        } catch (e) {
-                          hideBlockingLoader();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setDialogState(() => isSubmitting = false);
-                        }
-                      },
-                      child: const Text('Allot Selected'),
-                    ),
-                ],
+                    actions: [
+                      TextButton(
+                        onPressed:
+                            isSubmitting ? null : () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                      if (currentStep > 0)
+                        TextButton(
+                          onPressed:
+                              isSubmitting
+                                  ? null
+                                  : () => setDialogState(() => currentStep--),
+                          child: const Text('Back'),
+                        ),
+                      if (currentStep == 2)
+                        ElevatedButton(
+                          onPressed:
+                              (selectedItemIds.isEmpty || isSubmitting)
+                                  ? null
+                                  : () async {
+                                    setDialogState(() => isSubmitting = true);
+                                    showBlockingLoader();
+                                    final user =
+                                        ref.read(currentUserProvider).value;
+                                    try {
+                                      await ref
+                                          .read(inventoryProvider.notifier)
+                                          .allotMultipleItems(
+                                            itemIds: selectedItemIds,
+                                            itemType: selectedType,
+                                            customerName: app.fullName,
+                                            applicationId: app.id,
+                                            handoverBy:
+                                                user?.fullName ?? 'System',
+                                            handoverDate: DateTime.now(),
+                                          );
+                                      hideBlockingLoader();
+                                      if (mounted) Navigator.pop(context);
+                                    } catch (e) {
+                                      hideBlockingLoader();
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(content: Text('Error: $e')),
+                                        );
+                                      }
+                                    } finally {
+                                      if (mounted)
+                                        setDialogState(
+                                          () => isSubmitting = false,
+                                        );
+                                    }
+                                  },
+                          child: const Text('Allot Selected'),
+                        ),
+                    ],
+                  );
+                },
               );
             },
-          );
-        },
-      ),
+          ),
     );
   }
 }

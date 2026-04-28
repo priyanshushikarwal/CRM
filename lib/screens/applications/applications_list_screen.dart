@@ -11,6 +11,8 @@ import '../../core/constants/app_constants.dart';
 import '../../models/application_model.dart';
 import '../../providers/app_providers.dart';
 
+enum _StageProgressFilter { all, atStage, completed, pending }
+
 class ApplicationsListScreen extends ConsumerStatefulWidget {
   const ApplicationsListScreen({super.key});
 
@@ -24,6 +26,9 @@ class _ApplicationsListScreenState
   final _searchController = TextEditingController();
   ApplicationStatus? _selectedStatus;
   String? _selectedState;
+  ApplicationStatus _selectedStageForInsights =
+      ApplicationStatus.completeWorkDone;
+  _StageProgressFilter _stageProgressFilter = _StageProgressFilter.atStage;
 
   @override
   void initState() {
@@ -65,7 +70,8 @@ class _ApplicationsListScreenState
       loading: () => null,
       error: (_, __) => null,
     );
-    final bool canCreateApplication = currentUser?.canCreateApplication ?? false;
+    final bool canCreateApplication =
+        currentUser?.canCreateApplication ?? false;
     final bool canEdit = currentUser?.canEdit ?? false;
     final bool canDelete = currentUser?.canDelete ?? false;
     final approvedApplications =
@@ -86,6 +92,39 @@ class _ApplicationsListScreenState
                 .toList();
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
+    final stageCompletedApplications =
+        approvedApplications
+            .where((app) => _isStageCompleted(app, _selectedStageForInsights))
+            .toList();
+    final stagePendingApplications =
+        approvedApplications
+            .where((app) => !_isStageCompleted(app, _selectedStageForInsights))
+            .toList();
+    final stageCompletedKw = stageCompletedApplications.fold<double>(
+      0,
+      (sum, app) => sum + app.proposedCapacity,
+    );
+    final stagePendingKw = stagePendingApplications.fold<double>(
+      0,
+      (sum, app) => sum + app.proposedCapacity,
+    );
+
+    List<ApplicationModel> stageFilteredApplications;
+    switch (_stageProgressFilter) {
+      case _StageProgressFilter.atStage:
+        stageFilteredApplications =
+            approvedApplications
+                .where(
+                  (app) => _isAtSelectedStage(app, _selectedStageForInsights),
+                )
+                .toList();
+      case _StageProgressFilter.completed:
+        stageFilteredApplications = stageCompletedApplications;
+      case _StageProgressFilter.pending:
+        stageFilteredApplications = stagePendingApplications;
+      case _StageProgressFilter.all:
+        stageFilteredApplications = approvedApplications;
+    }
 
     return Container(
       padding: const EdgeInsets.all(32),
@@ -100,20 +139,32 @@ class _ApplicationsListScreenState
                 children: [
                   const Text(
                     'My Applications',
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppTheme.textPrimary, letterSpacing: -1.0),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                      letterSpacing: -1.0,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           'Total Applications: ${approvedApplications.length}',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -163,7 +214,7 @@ class _ApplicationsListScreenState
             ],
           ),
           const SizedBox(height: 32),
-          
+
           // Filters
           Container(
             padding: const EdgeInsets.all(16),
@@ -183,12 +234,30 @@ class _ApplicationsListScreenState
                       prefixIcon: const Icon(Icons.search_rounded, size: 20),
                       filled: true,
                       fillColor: AppTheme.backgroundColor.withOpacity(0.5),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppTheme.primaryColor,
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
-                    onChanged: (value) => ref.read(applicationsProvider.notifier).setSearchQuery(value),
+                    onChanged:
+                        (value) => ref
+                            .read(applicationsProvider.notifier)
+                            .setSearchQuery(value),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -199,18 +268,34 @@ class _ApplicationsListScreenState
                       value: _selectedStatus,
                       decoration: InputDecoration(
                         labelText: 'Status',
-                        prefixIcon: const Icon(Icons.filter_list_rounded, size: 20),
+                        prefixIcon: const Icon(
+                          Icons.filter_list_rounded,
+                          size: 20,
+                        ),
                         filled: true,
                         fillColor: AppTheme.backgroundColor.withOpacity(0.5),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                       items: [
-                        const DropdownMenuItem(value: null, child: Text('All Statuses')),
-                        ...ApplicationStatus.values.map((status) => DropdownMenuItem(value: status, child: Text(_getStatusDisplayName(status)))),
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('All Statuses'),
+                        ),
+                        ...ApplicationStatus.values.map(
+                          (status) => DropdownMenuItem(
+                            value: status,
+                            child: Text(_getStatusDisplayName(status)),
+                          ),
+                        ),
                       ],
                       onChanged: (value) {
                         setState(() => _selectedStatus = value);
-                        ref.read(applicationsProvider.notifier).setStatusFilter(value);
+                        ref
+                            .read(applicationsProvider.notifier)
+                            .setStatusFilter(value);
                       },
                     ),
                   ),
@@ -221,20 +306,34 @@ class _ApplicationsListScreenState
                   icon: const Icon(Icons.tune_rounded, size: 18),
                   label: const Text('More Filters'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          
+
+          const SizedBox(height: 16),
+          _buildStageInsightsPanel(
+            totalConsumers: approvedApplications.length,
+            completedConsumers: stageCompletedApplications.length,
+            pendingConsumers: stagePendingApplications.length,
+            completedKw: stageCompletedKw,
+            pendingKw: stagePendingKw,
+          ),
+
           const SizedBox(height: 32),
           if (pendingApplications.isNotEmpty) ...[
             _buildPendingSection(pendingApplications),
             const SizedBox(height: 24),
           ],
-          
+
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -243,16 +342,17 @@ class _ApplicationsListScreenState
                 border: Border.all(color: AppTheme.borderColor),
               ),
               clipBehavior: Clip.antiAlias,
-              child: applicationsState.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : approvedApplications.isEmpty
+              child:
+                  applicationsState.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : stageFilteredApplications.isEmpty
                       ? _buildEmptyState(canCreateApplication)
                       : _buildApplicationsTable(
-                          approvedApplications,
-                          isMobile,
-                          canEdit,
-                          canDelete,
-                        ),
+                        stageFilteredApplications,
+                        isMobile,
+                        canEdit,
+                        canDelete,
+                      ),
             ),
           ),
         ],
@@ -267,11 +367,25 @@ class _ApplicationsListScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.folder_open_rounded, size: 80, color: AppTheme.textSecondary.withOpacity(0.2)),
+            Icon(
+              Icons.folder_open_rounded,
+              size: 80,
+              color: AppTheme.textSecondary.withOpacity(0.2),
+            ),
             const SizedBox(height: 24),
-            const Text('No applications found', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+            const Text(
+              'No applications found',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
             const SizedBox(height: 8),
-            const Text('Try adjusting your search or filters', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+            const Text(
+              'Try adjusting your search or filters',
+              style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+            ),
             const SizedBox(height: 32),
             if (canCreateApplication)
               ElevatedButton.icon(
@@ -281,6 +395,179 @@ class _ApplicationsListScreenState
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStageInsightsPanel({
+    required int totalConsumers,
+    required int completedConsumers,
+    required int pendingConsumers,
+    required double completedKw,
+    required double pendingKw,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 14,
+            runSpacing: 14,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 280,
+                child: DropdownButtonFormField<ApplicationStatus>(
+                  value: _selectedStageForInsights,
+                  decoration: const InputDecoration(
+                    labelText: 'Stage-wise Filter',
+                    prefixIcon: Icon(
+                      Icons.stacked_line_chart_rounded,
+                      size: 20,
+                    ),
+                  ),
+                  items:
+                      ApplicationStatus.values
+                          .map(
+                            (status) => DropdownMenuItem(
+                              value: status,
+                              child: Text(_getStatusDisplayName(status)),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _selectedStageForInsights = value);
+                  },
+                ),
+              ),
+              ChoiceChip(
+                label: const Text('All Applications'),
+                selected: _stageProgressFilter == _StageProgressFilter.all,
+                onSelected: (_) {
+                  setState(
+                    () => _stageProgressFilter = _StageProgressFilter.all,
+                  );
+                },
+              ),
+              ChoiceChip(
+                label: const Text('At Stage'),
+                selected: _stageProgressFilter == _StageProgressFilter.atStage,
+                onSelected: (_) {
+                  setState(
+                    () => _stageProgressFilter = _StageProgressFilter.atStage,
+                  );
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Completed'),
+                selected:
+                    _stageProgressFilter == _StageProgressFilter.completed,
+                onSelected: (_) {
+                  setState(
+                    () => _stageProgressFilter = _StageProgressFilter.completed,
+                  );
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Pending'),
+                selected: _stageProgressFilter == _StageProgressFilter.pending,
+                onSelected: (_) {
+                  setState(
+                    () => _stageProgressFilter = _StageProgressFilter.pending,
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Selected Stage: ${_getStatusDisplayName(_selectedStageForInsights)}',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _buildStageKpiCard(
+                title: 'Total Consumers',
+                value: '$totalConsumers',
+                subtitle: 'Approved applications',
+                color: AppTheme.primaryColor,
+              ),
+              _buildStageKpiCard(
+                title: 'Completed',
+                value: '$completedConsumers',
+                subtitle: '${completedKw.toStringAsFixed(2)} kW',
+                color: AppTheme.successColor,
+              ),
+              _buildStageKpiCard(
+                title: 'Pending',
+                value: '$pendingConsumers',
+                subtitle: '${pendingKw.toStringAsFixed(2)} kW',
+                color: AppTheme.warningColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStageKpiCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Container(
+      width: 210,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -344,8 +631,7 @@ class _ApplicationsListScreenState
   }
 
   Widget _buildPendingApplicationCard(ApplicationModel app) {
-    final needsChanges =
-        app.approvalStatus == ApprovalStatus.changesRequested;
+    final needsChanges = app.approvalStatus == ApprovalStatus.changesRequested;
     final statusColor =
         needsChanges ? AppTheme.errorColor : AppTheme.warningColor;
 
@@ -440,15 +726,57 @@ class _ApplicationsListScreenState
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
           decoration: BoxDecoration(
             color: AppTheme.backgroundColor.withOpacity(0.4),
-            border: const Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            border: const Border(
+              bottom: BorderSide(color: AppTheme.borderColor),
+            ),
           ),
           child: Row(
             children: [
-              const Expanded(flex: 2, child: Text('CLIENT & ACCOUNT', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
+              const Expanded(
+                flex: 2,
+                child: Text(
+                  'CLIENT & ACCOUNT',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
               if (!isMobile) ...[
-                const Expanded(flex: 1, child: Text('PHONE NUMBER', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
-                const Expanded(flex: 1, child: Text('CAPACITY', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
-                const Expanded(flex: 1, child: Text('LOCATION', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w700))),
+                const Expanded(
+                  flex: 1,
+                  child: Text(
+                    'PHONE NUMBER',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Expanded(
+                  flex: 1,
+                  child: Text(
+                    'CAPACITY',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Expanded(
+                  flex: 1,
+                  child: Text(
+                    'LOCATION',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ],
               const Expanded(
                 child: Align(
@@ -483,9 +811,16 @@ class _ApplicationsListScreenState
           child: ListView.separated(
             padding: EdgeInsets.zero,
             itemCount: applications.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.borderColor),
+            separatorBuilder:
+                (_, __) =>
+                    const Divider(height: 1, color: AppTheme.borderColor),
             itemBuilder: (context, index) {
-              return _buildApplicationRow(applications[index], isMobile, canEdit, canDelete);
+              return _buildApplicationRow(
+                applications[index],
+                isMobile,
+                canEdit,
+                canDelete,
+              );
             },
           ),
         ),
@@ -509,15 +844,41 @@ class _ApplicationsListScreenState
               flex: 2,
               child: Row(
                 children: [
-                  CircleAvatar(radius: 18, backgroundColor: AppTheme.primaryColor.withOpacity(0.1), child: Text(app.fullName[0], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryColor))),
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                    child: Text(
+                      app.fullName[0],
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(app.fullName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary), overflow: TextOverflow.ellipsis),
+                        Text(
+                          app.fullName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         const SizedBox(height: 2),
-                        Text(app.applicationNumber, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, letterSpacing: 0.5)),
+                        Text(
+                          'ID: ${app.applicationNumber} • ${DateFormat('dd MMM yyyy').format(app.applicationSubmissionDate)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -525,15 +886,43 @@ class _ApplicationsListScreenState
               ),
             ),
             if (!isMobile) ...[
-              Expanded(child: Text(app.mobile, style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary))),
-              Expanded(child: Text('${app.proposedCapacity} kW', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))),
-              Expanded(child: Text(app.district, style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary), overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  app.mobile,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  '${app.proposedCapacity} kW',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  app.district,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
             Expanded(
               child: Align(
                 alignment: Alignment.center,
                 child: Container(
-                  constraints: const BoxConstraints(minWidth: 150, maxWidth: 232),
+                  constraints: const BoxConstraints(
+                    minWidth: 150,
+                    maxWidth: 232,
+                  ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 6,
@@ -772,15 +1161,12 @@ class _ApplicationsListScreenState
               (a) =>
                   a.currentStatus != ApplicationStatus.applicationReceived &&
                   a.currentStatus != ApplicationStatus.documentsVerified &&
-                  a.currentStatus != ApplicationStatus.subsidyProcess,
+                  a.currentStatus != ApplicationStatus.completeWorkDone,
             )
             .length;
     final completed =
         applications
-            .where(
-              (a) =>
-                  a.currentStatus == ApplicationStatus.subsidyProcess,
-            )
+            .where((a) => a.currentStatus == ApplicationStatus.completeWorkDone)
             .length;
     final totalKWp = applications.fold<double>(
       0,
@@ -1374,6 +1760,8 @@ class _ApplicationsListScreenState
         return 'Installation Completed';
       case ApplicationStatus.subsidyProcess:
         return 'Subsidy Process';
+      case ApplicationStatus.completeWorkDone:
+        return 'Complete Work Done';
     }
   }
 
@@ -1390,9 +1778,18 @@ class _ApplicationsListScreenState
       case ApplicationStatus.meterTested:
       case ApplicationStatus.installationScheduled:
       case ApplicationStatus.installationCompleted:
-        return AppTheme.warningColor;
       case ApplicationStatus.subsidyProcess:
+        return AppTheme.warningColor;
+      case ApplicationStatus.completeWorkDone:
         return AppTheme.statusCompleted;
     }
+  }
+
+  bool _isStageCompleted(ApplicationModel app, ApplicationStatus stage) {
+    return app.statusIndex >= stage.index;
+  }
+
+  bool _isAtSelectedStage(ApplicationModel app, ApplicationStatus stage) {
+    return app.currentStatus == stage;
   }
 }

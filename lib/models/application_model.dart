@@ -11,6 +11,7 @@ enum ApplicationStatus {
   installationScheduled,
   installationCompleted,
   subsidyProcess,
+  completeWorkDone,
 }
 
 enum StageStatus { pending, inProgress, completed, rejected }
@@ -171,8 +172,7 @@ class ApplicationModel {
       district: json['district'] as String,
       plantThrough: json['plant_through'] as String?,
       connectionType: json['connection_type'] as String?,
-      electricityBillLoad:
-          (json['electricity_bill_load'] as num?)?.toDouble(),
+      electricityBillLoad: (json['electricity_bill_load'] as num?)?.toDouble(),
       applicationSubmissionDate: DateTime.parse(
         json['application_submission_date'] as String,
       ),
@@ -455,6 +455,8 @@ class ApplicationModel {
         return 'Installation Completed';
       case ApplicationStatus.subsidyProcess:
         return 'Subsidy Process';
+      case ApplicationStatus.completeWorkDone:
+        return 'Complete Work Done';
     }
   }
 

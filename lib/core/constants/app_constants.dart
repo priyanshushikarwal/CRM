@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'DoonInfra Solar Manager';
-  static const String appVersion = '1.0.21';
+  static const String appVersion = '1.0.24';
   static const String companyName = 'Doon Infrapower Projects Pvt. Ltd.';
 
   static const String supabaseUrl = 'https://mclanssbjbmcelunhpip.supabase.co';
@@ -13,7 +13,7 @@ class AppConstants {
   static const String statusHistoryTable = 'status_history';
   static const String inventoryTable = 'solar_inventory';
   static const String inventoryAssignmentsTable = 'solar_inventory_assignments';
-  
+
   // New Inventory v2 Tables
   static const String inventoryInvoicesTable = 'inventory_invoices';
   static const String panelItemsTable = 'panel_items';
@@ -35,6 +35,7 @@ class AppConstants {
     'Installation Scheduled',
     'Installation Completed',
     'Subsidy Process',
+    'Complete Work Done',
   ];
 
   static const List<String> documentTypes = [
@@ -77,10 +78,7 @@ class AppConstants {
     'West Bengal',
   ];
 
-  static const List<String> categoryTypes = [
-    'Domestic',
-    'Commercial',
-  ];
+  static const List<String> categoryTypes = ['Domestic', 'Commercial'];
 
   static const List<String> genderOptions = ['Male', 'Female', 'Other'];
 

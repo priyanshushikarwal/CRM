@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import '../../core/config/app_mode.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
-import '../../models/user_model.dart';
 import '../../models/application_model.dart';
 import '../../providers/app_providers.dart';
 import '../../services/supabase_service.dart';
@@ -63,7 +61,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   _buildTopBar(context, isDesktop, size.width < 600),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
+                      padding: const EdgeInsets.only(
+                        left: 12,
+                        right: 12,
+                        bottom: 12,
+                      ),
                       child: Container(
                         clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
@@ -77,7 +79,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ],
                         ),
-                        child: widget.child,
+                        child:
+                            AppModeConfig.isInventoryOnly
+                                ? widget.child
+                                : SelectionArea(child: widget.child),
                       ),
                     ),
                   ),
@@ -158,7 +163,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     currentUser?.canAccessPayments ?? false;
                 final canManageUsers = currentUser?.canManageUsers ?? false;
                 final canViewDashboard = currentUser?.canViewDashboard ?? false;
-                final canManageInstallations = currentUser?.canManageInstallations ?? false;
+                final canManageInstallations =
+                    currentUser?.canManageInstallations ?? false;
                 final canAccessInventory =
                     currentUser?.canAccessInventory ?? false;
                 final isAdmin = currentUser?.isAdmin ?? false;
@@ -285,15 +291,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
-                      mainAxisAlignment: isCollapsed
-                          ? MainAxisAlignment.center
-                          : MainAxisAlignment.start,
+                      mainAxisAlignment:
+                          isCollapsed
+                              ? MainAxisAlignment.center
+                              : MainAxisAlignment.start,
                       children: [
                         CircleAvatar(
                           radius: 16,
                           backgroundColor: AppTheme.primaryColor,
                           child: Text(
-                            currentUser?.displayName.substring(0, 1).toUpperCase() ?? 'U',
+                            currentUser?.displayName
+                                    .substring(0, 1)
+                                    .toUpperCase() ??
+                                'U',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -327,7 +337,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ],
                             ),
                           ),
-                          const Icon(Icons.logout_rounded, size: 16, color: AppTheme.textSecondary),
+                          const Icon(
+                            Icons.logout_rounded,
+                            size: 16,
+                            color: AppTheme.textSecondary,
+                          ),
                         ],
                       ],
                     ),
@@ -364,18 +378,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           decoration: BoxDecoration(
             color: isActive ? AppTheme.primaryColor : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: isActive
-                ? [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
+            boxShadow:
+                isActive
+                    ? [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                    : null,
           ),
           child: Row(
-            mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+            mainAxisAlignment:
+                isCollapsed
+                    ? MainAxisAlignment.center
+                    : MainAxisAlignment.start,
             children: [
               Icon(
                 icon,
@@ -414,9 +432,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         currentLocation.startsWith('/applications')) {
       title = 'Applications';
     } else if (currentLocation == '/inventory') {
-      title = AppModeConfig.isInventoryOnly
-          ? 'Inventory Operations'
-          : 'Inventory & Factory Management';
+      title =
+          AppModeConfig.isInventoryOnly
+              ? 'Inventory Operations'
+              : 'Inventory & Factory Management';
     } else if (currentLocation == '/reports') {
       title = 'Reports';
     } else if (currentLocation == '/settings') {
@@ -458,7 +477,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize:
-                              AppModeConfig.isInventoryOnly && isMobile ? 16 : 24,
+                              AppModeConfig.isInventoryOnly && isMobile
+                                  ? 16
+                                  : 24,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.textPrimary,
                           letterSpacing: -0.5,
@@ -491,7 +512,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   color: AppTheme.textSecondary,
                   tooltip: 'Refresh all data',
                   onPressed:
-                      _isGlobalRefreshing ? null : () => _handleGlobalRefresh(context),
+                      _isGlobalRefreshing
+                          ? null
+                          : () => _handleGlobalRefresh(context),
                 ),
                 if (!AppModeConfig.isInventoryOnly) ...[
                   IconButton(
@@ -504,7 +527,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     children: [
                       IconButton(
                         visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.notifications_outlined, size: 22),
+                        icon: const Icon(
+                          Icons.notifications_outlined,
+                          size: 22,
+                        ),
                         color: AppTheme.textSecondary,
                         onPressed: () {},
                       ),
@@ -526,7 +552,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 if (!(AppModeConfig.isInventoryOnly && isMobile)) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -534,7 +563,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.business_rounded, size: 16, color: AppTheme.textSecondary),
+                        const Icon(
+                          Icons.business_rounded,
+                          size: 16,
+                          color: AppTheme.textSecondary,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           AppConstants.companyName,
@@ -647,7 +680,10 @@ class DashboardOverviewContent extends ConsumerWidget {
                   SizedBox(height: 4),
                   Text(
                     'Welcome back! Here is what is happening today.',
-                    style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -659,10 +695,13 @@ class DashboardOverviewContent extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 32),
-          
+
           LayoutBuilder(
             builder: (context, constraints) {
-              final crossAxisCount = constraints.maxWidth > 1100 ? 5 : (constraints.maxWidth > 800 ? 3 : 2);
+              final crossAxisCount =
+                  constraints.maxWidth > 1100
+                      ? 5
+                      : (constraints.maxWidth > 800 ? 3 : 2);
               return GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -671,9 +710,24 @@ class DashboardOverviewContent extends ConsumerWidget {
                 crossAxisSpacing: 20,
                 childAspectRatio: 1.6,
                 children: [
-                  _buildStatCard('Total Projects', '${stats['total'] ?? 0}', Icons.folder_open_rounded, Colors.blue),
-                  _buildStatCard('Active Clients', '${stats['pending'] ?? 0}', Icons.people_outline_rounded, Colors.teal),
-                  _buildStatCard('Installations', '${stats['completedInstallations'] ?? 0}', Icons.done_all_rounded, Colors.indigo),
+                  _buildStatCard(
+                    'Total Projects',
+                    '${stats['total'] ?? 0}',
+                    Icons.folder_open_rounded,
+                    Colors.blue,
+                  ),
+                  _buildStatCard(
+                    'Active Clients',
+                    '${stats['pending'] ?? 0}',
+                    Icons.people_outline_rounded,
+                    Colors.teal,
+                  ),
+                  _buildStatCard(
+                    'Installations',
+                    '${stats['completedInstallations'] ?? 0}',
+                    Icons.done_all_rounded,
+                    Colors.indigo,
+                  ),
                   _buildStatCard(
                     'Domestic kW',
                     '${(stats['domesticKw'] ?? 0.0).toStringAsFixed(1)}',
@@ -690,18 +744,16 @@ class DashboardOverviewContent extends ConsumerWidget {
               );
             },
           ),
-          
+
           const SizedBox(height: 32),
-          
+
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 flex: 2,
                 child: Column(
-                  children: [
-                    _buildRecentSection(context, applicationsState),
-                  ],
+                  children: [_buildRecentSection(context, applicationsState)],
                 ),
               ),
               const SizedBox(width: 24),
@@ -722,7 +774,12 @@ class DashboardOverviewContent extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -738,7 +795,14 @@ class DashboardOverviewContent extends ConsumerWidget {
             children: [
               Icon(icon, size: 18, color: AppTheme.textSecondary),
               const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
           Row(
@@ -746,7 +810,11 @@ class DashboardOverviewContent extends ConsumerWidget {
             children: [
               Text(
                 value,
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const SizedBox(width: 8),
               Container(
@@ -758,7 +826,11 @@ class DashboardOverviewContent extends ConsumerWidget {
                 ),
                 child: const Text(
                   '+2.4% ↑',
-                  style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -787,8 +859,14 @@ class DashboardOverviewContent extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Active Projects', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-              TextButton(onPressed: () => context.go('/applications'), child: const Text('View all →')),
+              const Text(
+                'Active Projects',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              TextButton(
+                onPressed: () => context.go('/applications'),
+                child: const Text('View all →'),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -804,9 +882,9 @@ class DashboardOverviewContent extends ConsumerWidget {
               },
               children: [
                 _buildTableHeader(),
-                ...approvedApplications.take(5).map(
-                  (app) => _buildTableRow(context, app),
-                ),
+                ...approvedApplications
+                    .take(5)
+                    .map((app) => _buildTableRow(context, app)),
               ],
             ),
         ],
@@ -817,10 +895,50 @@ class DashboardOverviewContent extends ConsumerWidget {
   TableRow _buildTableHeader() {
     return const TableRow(
       children: [
-        Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Client', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
-        Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Capacity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
-        Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Location', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
-        Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Text('Status', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600))),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            'Client',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            'Capacity',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            'Location',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            'Status',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -834,15 +952,43 @@ class DashboardOverviewContent extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               children: [
-                CircleAvatar(radius: 14, backgroundColor: AppTheme.primaryColor.withOpacity(0.1), child: Text(app.fullName[0], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                  child: Text(
+                    app.fullName[0],
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: Text(app.fullName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                Expanded(
+                  child: Text(
+                    app.fullName,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ),
         ),
-        Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('${app.proposedCapacity} kW', style: const TextStyle(fontSize: 13))),
-        Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text(app.district, style: const TextStyle(fontSize: 13))),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            '${app.proposedCapacity} kW',
+            style: const TextStyle(fontSize: 13),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Text(app.district, style: const TextStyle(fontSize: 13)),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Container(
@@ -852,8 +998,17 @@ class DashboardOverviewContent extends ConsumerWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              app.currentStatus.name.split('.').last.replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m[0]}').trim().toUpperCase(),
-              style: TextStyle(fontSize: 10, color: _getStatusColor(app.currentStatus), fontWeight: FontWeight.bold),
+              app.currentStatus.name
+                  .split('.')
+                  .last
+                  .replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m[0]}')
+                  .trim()
+                  .toUpperCase(),
+              style: TextStyle(
+                fontSize: 10,
+                color: _getStatusColor(app.currentStatus),
+                fontWeight: FontWeight.bold,
+              ),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
             ),
@@ -877,8 +1032,18 @@ class DashboardOverviewContent extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Target Achieved', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-              Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.more_horiz, size: 16)),
+              const Text(
+                'Target Achieved',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.more_horiz, size: 16),
+              ),
             ],
           ),
           const SizedBox(height: 32),
@@ -889,12 +1054,30 @@ class DashboardOverviewContent extends ConsumerWidget {
                 SizedBox(
                   width: 150,
                   height: 150,
-                  child: CircularProgressIndicator(value: 0.88, strokeWidth: 12, backgroundColor: AppTheme.backgroundColor, color: AppTheme.primaryColor, strokeCap: StrokeCap.round),
+                  child: CircularProgressIndicator(
+                    value: 0.88,
+                    strokeWidth: 12,
+                    backgroundColor: AppTheme.backgroundColor,
+                    color: AppTheme.primaryColor,
+                    strokeCap: StrokeCap.round,
+                  ),
                 ),
                 const Column(
                   children: [
-                    Text('88%', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900)),
-                    Text('Success Rate', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    Text(
+                      '88%',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      'Success Rate',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -916,12 +1099,25 @@ class DashboardOverviewContent extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
               const SizedBox(width: 8),
-              Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
             ],
           ),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -941,7 +1137,10 @@ class DashboardOverviewContent extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Critical Tasks', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              const Text(
+                'Critical Tasks',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
               TextButton(onPressed: () {}, child: const Text('View all')),
             ],
           ),
@@ -961,16 +1160,36 @@ class DashboardOverviewContent extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.assignment_turned_in_rounded, size: 18, color: color),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.assignment_turned_in_rounded,
+              size: 18,
+              color: color,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                Text(value, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -986,6 +1205,7 @@ class DashboardOverviewContent extends ConsumerWidget {
       case ApplicationStatus.subsidyProcess:
         return Colors.blue;
       case ApplicationStatus.installationCompleted:
+      case ApplicationStatus.completeWorkDone:
         return Colors.green;
       default:
         return AppTheme.primaryColor;
