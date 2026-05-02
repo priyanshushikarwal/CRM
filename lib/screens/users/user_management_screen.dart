@@ -558,6 +558,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     bool applicationsAccess = user.applicationsAccess ?? user.canAccessApplications;
     bool paymentsAccess = user.paymentsAccess ?? user.canAccessPayments;
     bool inventoryAccess = user.inventoryAccess ?? user.canAccessInventory;
+    bool installationAccess = user.installationAccess ?? user.canManageInstallations;
 
     final result = await showDialog<bool>(
       context: context,
@@ -641,6 +642,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                     applicationsAccess = true;
                                     paymentsAccess = true;
                                     inventoryAccess = true;
+                                    installationAccess = true;
                                   }
                                 });
                               }
@@ -698,6 +700,18 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                   dense: true,
                                   contentPadding: EdgeInsets.zero,
                                   title: const Text('Inventory'),
+                                ),
+                                CheckboxListTile(
+                                  value: selectedRole == UserRole.admin || installationAccess,
+                                  onChanged:
+                                      selectedRole == UserRole.admin
+                                          ? null
+                                          : (value) => setState(
+                                            () => installationAccess = value ?? false,
+                                          ),
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Installations'),
                                 ),
                               ],
                             ),
@@ -766,6 +780,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                 selectedRole == UserRole.admin ? true : paymentsAccess,
             inventoryAccess:
                 selectedRole == UserRole.admin ? true : inventoryAccess,
+            installationAccess:
+                selectedRole == UserRole.admin ? true : installationAccess,
           ),
         );
         await _loadUsers();

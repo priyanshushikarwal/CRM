@@ -16,6 +16,7 @@ class UserModel {
   final bool? applicationsAccess;
   final bool? paymentsAccess;
   final bool? inventoryAccess;
+  final bool? installationAccess;
 
   const UserModel({
     required this.id,
@@ -30,6 +31,7 @@ class UserModel {
     this.applicationsAccess,
     this.paymentsAccess,
     this.inventoryAccess,
+    this.installationAccess,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -60,6 +62,7 @@ class UserModel {
       applicationsAccess: json['applications_access'] as bool?,
       paymentsAccess: json['payments_access'] as bool?,
       inventoryAccess: json['inventory_access'] as bool?,
+      installationAccess: json['installation_access'] as bool?,
     );
   }
 
@@ -77,6 +80,7 @@ class UserModel {
       'applications_access': applicationsAccess,
       'payments_access': paymentsAccess,
       'inventory_access': inventoryAccess,
+      'installation_access': installationAccess,
     };
   }
 
@@ -93,6 +97,7 @@ class UserModel {
     bool? applicationsAccess,
     bool? paymentsAccess,
     bool? inventoryAccess,
+    bool? installationAccess,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -107,6 +112,7 @@ class UserModel {
       applicationsAccess: applicationsAccess ?? this.applicationsAccess,
       paymentsAccess: paymentsAccess ?? this.paymentsAccess,
       inventoryAccess: inventoryAccess ?? this.inventoryAccess,
+      installationAccess: installationAccess ?? this.installationAccess,
     );
   }
 
@@ -129,7 +135,8 @@ class UserModel {
   bool get hasExplicitModuleAssignments =>
       applicationsAccess != null ||
       paymentsAccess != null ||
-      inventoryAccess != null;
+      inventoryAccess != null ||
+      installationAccess != null;
 
   bool get canAccessApplications {
     if (isAdmin) return true;
@@ -158,7 +165,11 @@ class UserModel {
   bool get canManageUsers => isAdmin;
   bool get canViewDashboard => isAdmin;
   bool get canManagePayments => canAccessPayments;
-  bool get canManageInstallations => isAdmin;
+  bool get canManageInstallations {
+    if (isAdmin) return true;
+    if (hasExplicitModuleAssignments) return installationAccess ?? false;
+    return isFactory;
+  }
   bool get canManageAdmins => isAdmin;
 
   List<String> get assignedWorkLabels {
@@ -166,9 +177,12 @@ class UserModel {
     if (canAccessApplications) labels.add('Applications');
     if (canAccessPayments) labels.add('Payments');
     if (canAccessInventory) labels.add('Inventory');
+    if (canManageInstallations) labels.add('Installations');
     return labels;
   }
 
   String get assignedWorkSummary =>
-      assignedWorkLabels.isEmpty ? 'No modules assigned' : assignedWorkLabels.join(', ');
+      assignedWorkLabels.isEmpty
+          ? 'No modules assigned'
+          : assignedWorkLabels.join(', ');
 }

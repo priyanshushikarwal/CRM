@@ -56,14 +56,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final enteredEmail = _emailController.text.trim();
     final enteredPassword = _passwordController.text;
-    if (!AppModeConfig.isInventoryOnly &&
+    if ((!AppModeConfig.isInventoryOnly || AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly) &&
         enteredEmail == _defaultEmail &&
         enteredPassword == _defaultPassword) {
       await Future.delayed(const Duration(milliseconds: 500)); // brief UX pause
       DemoSession.start(); // mark demo session so router allows navigation
       if (mounted) {
         setState(() => _isLoading = false);
-        context.go('/dashboard');
+        context.go(
+          (AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly) ? '/installations' : '/dashboard',
+        );
       }
       return;
     }
@@ -92,7 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
           if (userResponse != null) {
             loggedInUser = UserModel.fromJson(userResponse);
-            final isActive = loggedInUser!.isActive;
+            final isActive = loggedInUser.isActive;
 
             if (!isActive) {
               await SupabaseService.signOut();
@@ -109,6 +111,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               setState(() {
                 _errorMessage =
                     'Inventory app access is not enabled for your account. Please ask admin to grant inventory access.';
+              });
+              return;
+            }
+
+            if ((AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly) &&
+                !loggedInUser.canManageInstallations) {
+              await SupabaseService.signOut();
+              setState(() {
+                _errorMessage =
+                    'Installation app access is not enabled for your account. Please ask admin to grant installation access.';
               });
               return;
             }
@@ -171,6 +183,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 800;
     final isInventoryOnly = AppModeConfig.isInventoryOnly;
+    final isInstallationOnly = AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly;
 
     return Scaffold(
       body: Row(
@@ -232,18 +245,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             _buildFeatureItem(
                               isInventoryOnly
                                   ? Icons.inventory_2_rounded
+                                : isInstallationOnly
+                                  ? Icons.settings_input_component_rounded
                                   : Icons.dashboard_rounded,
                               isInventoryOnly
                                   ? 'Inventory Control'
+                                : isInstallationOnly
+                                  ? 'Installation Workflow'
                                   : 'Real-time Dashboard',
                             ),
                             const SizedBox(height: 16),
                             _buildFeatureItem(
                               isInventoryOnly
                                   ? Icons.qr_code_scanner_rounded
+                                : isInstallationOnly
+                                  ? Icons.engineering_rounded
                                   : Icons.track_changes_rounded,
                               isInventoryOnly
                                   ? 'Barcode Scanning'
+                                : isInstallationOnly
+                                  ? 'Team Scheduling'
                                   : 'Application Tracking',
                             ),
                             const SizedBox(height: 16),
@@ -256,7 +277,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Icons.security_rounded,
                               isInventoryOnly
                                   ? 'Inventory Access Only'
-                                  : 'Secure & Reliable',
+                                  : isInstallationOnly
+                                      ? 'Installation Access Only'
+                                      : 'Secure & Reliable',
                             ),
                           ],
                         ),
@@ -437,7 +460,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          if (!isInventoryOnly) ...[
+                          if (!(isInventoryOnly || isInstallationOnly)) ...[
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [

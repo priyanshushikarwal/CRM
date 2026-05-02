@@ -18,13 +18,15 @@ class InstallationService {
   static Future<InstallationModel?> fetchInstallationByApplicationId(
     String applicationId,
   ) async {
-    final response = await SupabaseService.from('installations')
+    final rows = await SupabaseService.from('installations')
         .select()
         .eq('application_id', applicationId)
-        .maybeSingle();
+        .order('updated_at', ascending: false)
+        .limit(1);
 
-    if (response == null) return null;
-    return InstallationModel.fromJson(response);
+    final list = rows as List;
+    if (list.isEmpty) return null;
+    return InstallationModel.fromJson(list.first as Map<String, dynamic>);
   }
 
   static Future<InstallationModel> createInstallation(

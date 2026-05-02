@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'DoonInfra Solar Manager';
-  static const String appVersion = '1.0.24';
+  static const String appVersion = '1.0.25';
   static const String companyName = 'Doon Infrapower Projects Pvt. Ltd.';
 
   static const String supabaseUrl = 'https://mclanssbjbmcelunhpip.supabase.co';
@@ -9,6 +9,7 @@ class AppConstants {
 
   static const String applicationsTable = 'applications';
   static const String documentsTable = 'documents';
+  static const String installationPhotosTable = 'installation_photos';
   static const String usersTable = 'users';
   static const String statusHistoryTable = 'status_history';
   static const String inventoryTable = 'solar_inventory';
@@ -22,7 +23,18 @@ class AppConstants {
   static const String inventoryAllotmentsTable = 'inventory_allotments';
 
   static const String documentsBucket = 'documents';
+  static const String installationPhotosBucket = 'installation-photos';
   static const String paymentReceiptsFolder = 'payment-receipts';
+
+  static const List<String> installationPhotoTypes = [
+    'Site photo before installation',
+    'Structure installation photo',
+    'Solar panels installation photo',
+    'Electrical connection photo',
+    'Earthing installation photo',
+    'Inverter, ACDB, and DCDB photo',
+    'Final plant photo along with the client',
+  ];
 
   static const List<String> applicationStatuses = [
     'Application Received',

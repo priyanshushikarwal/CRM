@@ -1,6 +1,6 @@
 import '../../models/user_model.dart';
 
-enum AppMode { full, inventoryOnly }
+enum AppMode { full, inventoryOnly, installationOnly, installerOnly }
 
 class AppModeConfig {
   AppModeConfig._();
@@ -11,30 +11,62 @@ class AppModeConfig {
 
   static bool get isInventoryOnly => _current == AppMode.inventoryOnly;
 
+  static bool get isInstallationOnly => _current == AppMode.installationOnly;
+  static bool get isInstallerOnly => _current == AppMode.installerOnly;
+
   static void setMode(AppMode mode) {
     _current = mode;
   }
 
   static String get appName =>
-      isInventoryOnly ? 'DoonInfra Inventory' : 'DoonInfra Solar Manager';
+      isInventoryOnly
+          ? 'DoonInfra Inventory'
+          : isInstallationOnly
+          ? 'DoonInfra Installation'
+          : isInstallerOnly
+          ? 'DoonInfra Installer'
+          : 'DoonInfra Solar Manager';
 
   static String get appHeadline =>
-      isInventoryOnly ? 'DoonInfra\nInventory' : 'DoonInfra\nSolar Manager';
+      isInventoryOnly
+          ? 'DoonInfra\nInventory'
+          : isInstallationOnly
+          ? 'DoonInfra\nInstallation'
+          : isInstallerOnly
+          ? 'DoonInfra\nInstaller'
+          : 'DoonInfra\nSolar Manager';
 
-  static String get appSubtitle => isInventoryOnly
-      ? 'Sign in to manage stock, scan barcodes, and update inventory in real time.'
-      : 'Manage your solar rooftop applications\nefficiently with our comprehensive solution.';
+  static String get appSubtitle =>
+      isInventoryOnly
+          ? 'Sign in to manage stock, scan barcodes, and update inventory in real time.'
+          : isInstallationOnly
+          ? 'Sign in to manage installation scheduling, execution, and verification.'
+          : isInstallerOnly
+          ? 'Sign in to capture mandatory installation photos and submit them for admin verification.'
+          : 'Manage your solar rooftop applications\nefficiently with our comprehensive solution.';
 
-  static String get loginSubtitle => isInventoryOnly
-      ? 'Sign in to continue with inventory operations'
-      : 'Sign in to continue managing your applications';
+  static String get loginSubtitle =>
+      isInventoryOnly
+          ? 'Sign in to continue with inventory operations'
+          : isInstallationOnly
+          ? 'Sign in to continue with installation operations'
+          : isInstallerOnly
+          ? 'Sign in to continue with installer operations'
+          : 'Sign in to continue managing your applications';
 
   static String defaultRouteForUser(UserModel? user) {
     if (user == null) {
-      return isInventoryOnly ? '/login' : '/applications';
+      if (isInventoryOnly || isInstallationOnly || isInstallerOnly) return '/login';
+      return '/applications';
     }
     if (isInventoryOnly) {
       return user.canAccessInventory ? '/inventory' : '/login';
+    }
+    if (isInstallationOnly) {
+      return user.canManageInstallations ? '/installations' : '/login';
+    }
+    if (isInstallerOnly) {
+      return user.canManageInstallations ? '/installations' : '/login';
     }
     if (user.canViewDashboard) return '/dashboard';
     if (user.canAccessApplications) return '/applications';
@@ -46,6 +78,8 @@ class AppModeConfig {
   static bool hasAnyModuleAccess(UserModel? user) {
     if (user == null) return true;
     if (isInventoryOnly) return user.canAccessInventory;
+    if (isInstallationOnly) return user.canManageInstallations;
+    if (isInstallerOnly) return user.canManageInstallations;
     return user.isAdmin ||
         user.canAccessApplications ||
         user.canAccessPayments ||
@@ -55,6 +89,13 @@ class AppModeConfig {
   static List<String> allowedRoutesForUser(UserModel user) {
     if (isInventoryOnly) {
       return user.canAccessInventory ? ['/inventory'] : const [];
+    }
+
+    if (isInstallationOnly) {
+      return user.canManageInstallations ? ['/installations'] : const [];
+    }
+    if (isInstallerOnly) {
+      return user.canManageInstallations ? ['/installations'] : const [];
     }
 
     final allowedRoutes = <String>[];

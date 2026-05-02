@@ -65,6 +65,7 @@ class UserService {
           'applications_access': false,
           'payments_access': false,
           'inventory_access': false,
+          'installation_access': false,
         })
         .eq('id', userId);
   }

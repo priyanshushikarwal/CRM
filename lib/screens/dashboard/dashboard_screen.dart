@@ -27,8 +27,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final currentUser = await ref.read(currentUserProvider.future);
       if (!mounted || currentUser == null) return;
-      if (!AppModeConfig.isInventoryOnly &&
-          (currentUser.canAccessApplications || currentUser.canViewDashboard)) {
+      if ((!AppModeConfig.isInventoryOnly &&
+              !(AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly) &&
+              (currentUser.canAccessApplications || currentUser.canViewDashboard)) ||
+          ((AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly) &&
+              currentUser.canManageInstallations)) {
         ref.read(applicationsProvider.notifier).loadApplications();
       }
     });
@@ -99,6 +102,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildSidebar(BuildContext context, bool isCollapsed) {
     final currentLocation = GoRouterState.of(context).matchedLocation;
     final inventoryOnly = AppModeConfig.isInventoryOnly;
+    final installationOnly =
+        AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly;
 
     return Container(
       color: Colors.white,
@@ -134,7 +139,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      inventoryOnly ? 'Inventory' : 'DoonInfra',
+                      inventoryOnly
+                          ? 'Inventory'
+                          : installationOnly
+                              ? 'Installation'
+                              : 'DoonInfra',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
@@ -169,12 +178,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     currentUser?.canAccessInventory ?? false;
                 final isAdmin = currentUser?.isAdmin ?? false;
                 final inventoryOnly = AppModeConfig.isInventoryOnly;
+                final installationOnly =
+                    AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly;
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
                     children: [
-                      if (!inventoryOnly && canViewDashboard) ...[
+                      if (!inventoryOnly && !installationOnly && canViewDashboard) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.grid_view_rounded,
@@ -185,7 +196,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (!inventoryOnly && canAccessApplications) ...[
+                      if (!inventoryOnly && !installationOnly && canAccessApplications) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.layers_rounded,
@@ -196,7 +207,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (!inventoryOnly && canManageInstallations) ...[
+                      if ((installationOnly && canManageInstallations) ||
+                          (!inventoryOnly &&
+                              !installationOnly &&
+                              canManageInstallations)) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.settings_input_component_rounded,
@@ -207,7 +221,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (!inventoryOnly && canAccessPayments) ...[
+                      if (!inventoryOnly && !installationOnly && canAccessPayments) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.receipt_long_rounded,
@@ -218,7 +232,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (!inventoryOnly && canManageUsers) ...[
+                      if (!inventoryOnly && !installationOnly && canManageUsers) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.verified_user_rounded,
@@ -238,7 +252,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (canAccessInventory) ...[
+                      if (!installationOnly && canAccessInventory) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.inventory_2_rounded,
@@ -249,7 +263,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (!inventoryOnly && canViewDashboard) ...[
+                      if (!inventoryOnly && !installationOnly && canViewDashboard) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.analytics_rounded,
@@ -260,7 +274,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                       ],
-                      if (!inventoryOnly && isAdmin) ...[
+                      if (!inventoryOnly && !installationOnly && isAdmin) ...[
                         _buildNavItem(
                           context,
                           icon: Icons.settings_rounded,
@@ -420,15 +434,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildTopBar(BuildContext context, bool isDesktop, bool isMobile) {
     final currentLocation = GoRouterState.of(context).matchedLocation;
-    if (AppModeConfig.isInventoryOnly &&
+    final restrictedMode = AppModeConfig.isInventoryOnly ||
+        AppModeConfig.isInstallationOnly ||
+        AppModeConfig.isInstallerOnly;
+
+    if (restrictedMode &&
         isMobile &&
-        currentLocation == '/inventory') {
+        (currentLocation == '/inventory' ||
+            currentLocation == '/installations')) {
       return const SizedBox.shrink();
     }
 
-    String title = AppModeConfig.isInventoryOnly ? 'Inventory' : 'Dashboard';
+    String title = AppModeConfig.isInventoryOnly
+        ? 'Inventory'
+        : (AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly)
+            ? 'Installation'
+            : 'Dashboard';
 
-    if (!AppModeConfig.isInventoryOnly &&
+    if (!restrictedMode &&
         currentLocation.startsWith('/applications')) {
       title = 'Applications';
     } else if (currentLocation == '/inventory') {
@@ -436,6 +459,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           AppModeConfig.isInventoryOnly
               ? 'Inventory Operations'
               : 'Inventory & Factory Management';
+    } else if (currentLocation == '/installations') {
+      title = 'Installation Operations';
     } else if (currentLocation == '/reports') {
       title = 'Reports';
     } else if (currentLocation == '/settings') {
@@ -451,10 +476,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: SafeArea(
         bottom: false,
         child: SizedBox(
-          height: AppModeConfig.isInventoryOnly && isMobile ? 68 : 80,
+          height: restrictedMode && isMobile ? 68 : 80,
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: AppModeConfig.isInventoryOnly && isMobile ? 10 : 24,
+              horizontal: restrictedMode && isMobile ? 10 : 24,
             ),
             child: Row(
               children: [
@@ -470,22 +495,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        AppModeConfig.isInventoryOnly && isMobile
-                            ? 'InventoryCreator'
-                            : title,
+                        title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize:
-                              AppModeConfig.isInventoryOnly && isMobile
-                                  ? 16
-                                  : 24,
+                          fontSize: restrictedMode && isMobile ? 16 : 24,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.textPrimary,
                           letterSpacing: -0.5,
                         ),
                       ),
-                      if (AppModeConfig.isInventoryOnly && isMobile)
+                      if (restrictedMode && isMobile)
                         Text(
                           title,
                           maxLines: 1,
@@ -516,7 +536,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ? null
                           : () => _handleGlobalRefresh(context),
                 ),
-                if (!AppModeConfig.isInventoryOnly) ...[
+                if (!restrictedMode) ...[
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     icon: const Icon(Icons.search_rounded, size: 20),
@@ -549,7 +569,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ],
                   ),
                 ],
-                if (!(AppModeConfig.isInventoryOnly && isMobile)) ...[
+                if (!(restrictedMode && isMobile)) ...[
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(

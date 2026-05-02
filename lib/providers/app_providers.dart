@@ -7,9 +7,11 @@ import '../models/application_model.dart';
 import '../models/document_model.dart';
 import '../models/user_model.dart';
 import '../models/installation_model.dart';
+import '../models/installation_photo_model.dart';
 import '../models/payment_model.dart';
 import '../services/application_service.dart';
 import '../services/installation_service.dart';
+import '../services/installation_stage_service.dart';
 import '../services/payment_service.dart';
 import '../services/supabase_service.dart';
 import '../services/user_service.dart';
@@ -50,6 +52,7 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
       applicationsAccess: false,
       paymentsAccess: false,
       inventoryAccess: false,
+      installationAccess: false,
       createdAt: DateTime.now(),
     );
 
@@ -68,6 +71,7 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
       applicationsAccess: false,
       paymentsAccess: false,
       inventoryAccess: false,
+      installationAccess: false,
       createdAt: DateTime.now(),
     );
   }
@@ -93,6 +97,7 @@ final realtimeSyncProvider = Provider<void>((ref) {
         ref.invalidate(documentsProvider);
         ref.invalidate(applicationProvider);
         ref.invalidate(installationByAppProvider);
+        ref.invalidate(installationPhotosByApplicationProvider);
         ref.invalidate(paymentsProvider);
         ref.invalidate(paymentStatsProvider);
         ref.invalidate(allPaymentsProvider);
@@ -144,6 +149,7 @@ final realtimeSyncProvider = Provider<void>((ref) {
     AppConstants.documentsTable,
     'payments',
     'installations',
+    AppConstants.installationPhotosTable,
   ], onChange: scheduleAppRefresh);
 
   registerChannel('crm-inventory-data', [
@@ -414,6 +420,16 @@ final installationByAppProvider = FutureProvider.family<InstallationModel?, Stri
 ) async {
   ref.watch(appDataRefreshProvider);
   return await InstallationService.fetchInstallationByApplicationId(applicationId);
+});
+
+final installationPhotosByApplicationProvider =
+    FutureProvider.family<List<InstallationPhotoModel>, String>((ref, applicationId) async {
+  return await InstallationStageService.fetchInstallationPhotos(applicationId);
+});
+
+final pendingInstallationPhotosProvider =
+    FutureProvider<List<InstallationPhotoModel>>((ref) async {
+  return await InstallationStageService.fetchPendingVerificationPhotos();
 });
 
 final paymentsProvider = FutureProvider.family<List<PaymentModel>, String>((

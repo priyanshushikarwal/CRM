@@ -23,10 +23,11 @@ android {
 
     defaultConfig {
         applicationId = "com.dooninfra.dooninfra_app"
-        minSdk = flutter.minSdkVersion
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
     }
 
     productFlavors {
@@ -39,6 +40,18 @@ android {
             applicationIdSuffix = ".inventory"
             versionNameSuffix = "-inventory"
             resValue("string", "app_name", "DoonInfra Inventory")
+        }
+        create("installation") {
+            dimension = "app"
+            applicationIdSuffix = ".installation"
+            versionNameSuffix = "-installation"
+            resValue("string", "app_name", "DoonInfra Installation")
+        }
+        create("installer") {
+            dimension = "app"
+            applicationIdSuffix = ".installer"
+            versionNameSuffix = "-installer"
+            resValue("string", "app_name", "DoonInfra Installer")
         }
     }
 

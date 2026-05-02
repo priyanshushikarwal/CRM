@@ -68,7 +68,8 @@ GoRouter createAppRouter() {
 
       if (isSplash) return null;
 
-      if (AppModeConfig.isInventoryOnly && isRegisterRoute) {
+      if ((AppModeConfig.isInventoryOnly || AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly) &&
+          isRegisterRoute) {
         return '/login';
       }
 
@@ -79,6 +80,12 @@ GoRouter createAppRouter() {
       if (DemoSession.isActive) {
         if (AppModeConfig.isInventoryOnly) {
           return isLoggedIn && isAuthRoute ? '/inventory' : null;
+        }
+        if (AppModeConfig.isInstallationOnly) {
+          return isLoggedIn && isAuthRoute ? '/installations' : null;
+        }
+        if (AppModeConfig.isInstallerOnly) {
+          return isLoggedIn && isAuthRoute ? '/installations' : null;
         }
         if (isLoggedIn && isAuthRoute) {
           return '/applications';
@@ -121,7 +128,7 @@ GoRouter createAppRouter() {
         name: 'login',
         builder: (context, state) => const LoginScreen(),
       ),
-      if (!AppModeConfig.isInventoryOnly)
+      if (!(AppModeConfig.isInventoryOnly || AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly))
         GoRoute(
           path: '/register',
           name: 'register',
@@ -130,7 +137,7 @@ GoRouter createAppRouter() {
       ShellRoute(
         builder: (context, state, child) => DashboardScreen(child: child),
         routes: [
-          if (!AppModeConfig.isInventoryOnly) ...[
+          if (!(AppModeConfig.isInventoryOnly || AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly)) ...[
             GoRoute(
               path: '/dashboard',
               name: 'dashboard',
@@ -183,14 +190,16 @@ GoRouter createAppRouter() {
                       const NoTransitionPage(child: PendingApprovalsScreen()),
             ),
           ],
-          GoRoute(
-            path: '/inventory',
-            name: 'inventory',
-            pageBuilder:
-                (context, state) =>
-                    const NoTransitionPage(child: InventoryScreen()),
-          ),
-          if (!AppModeConfig.isInventoryOnly) ...[
+          if (!(AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly)) ...[
+            GoRoute(
+              path: '/inventory',
+              name: 'inventory',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: InventoryScreen()),
+            ),
+          ],
+          if (!(AppModeConfig.isInventoryOnly || AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly)) ...[
             GoRoute(
               path: '/reports',
               name: 'reports',
@@ -206,13 +215,6 @@ GoRouter createAppRouter() {
                       const NoTransitionPage(child: SettingsScreen()),
             ),
             GoRoute(
-              path: '/installations',
-              name: 'installations',
-              pageBuilder:
-                  (context, state) =>
-                      const NoTransitionPage(child: InstallationsListScreen()),
-            ),
-            GoRoute(
               path: '/payments',
               name: 'payments',
               pageBuilder:
@@ -220,6 +222,14 @@ GoRouter createAppRouter() {
                       const NoTransitionPage(child: PaymentsListScreen()),
             ),
           ],
+          if (AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly || !AppModeConfig.isInventoryOnly)
+            GoRoute(
+              path: '/installations',
+              name: 'installations',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: InstallationsListScreen()),
+            ),
         ],
       ),
     ],

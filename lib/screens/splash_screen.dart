@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../core/config/app_mode.dart';
 import '../core/theme/app_theme.dart';
 import '../core/constants/app_constants.dart';
+import '../services/permission_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -110,6 +111,8 @@ class _SplashScreenState extends State<SplashScreen>
                         Text(
                           AppModeConfig.isInventoryOnly
                               ? 'Inventory'
+                              : AppModeConfig.isInstallationOnly
+                              ? 'Installation'
                               : 'Solar Manager',
                           style: AppTextStyles.heading3.copyWith(
                             color: Colors.white.withValues(alpha: 0.9),

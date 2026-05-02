@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,8 +16,23 @@ void main() async {
 Future<void> bootstrapApp(AppMode mode) async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Prevent GoogleFonts from fetching over the network in release builds
+  GoogleFonts.config.allowRuntimeFetching = !kReleaseMode;
+
+  // Catch Flutter framework errors gracefully
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exceptionAsString()}');
+  };
+
   AppModeConfig.setMode(mode);
-  await SupabaseService.initialize();
+
+  try {
+    await SupabaseService.initialize();
+  } catch (e) {
+    debugPrint('Supabase init error: $e');
+  }
+
   runApp(ProviderScope(child: DoonInfraApp()));
 }
 
