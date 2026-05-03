@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum UserRole { admin, staff, factory }
+enum UserRole { admin, staff, factory, installer }
 
 @immutable
 class UserModel {
@@ -48,6 +48,9 @@ class UserModel {
           }
           if (json['role'] == 'factory') {
             return UserRole.factory;
+          }
+          if (json['role'] == 'installer') {
+            return UserRole.installer;
           }
           return UserRole.staff;
         },
@@ -126,12 +129,15 @@ class UserModel {
         return 'Staff';
       case UserRole.factory:
         return 'Factory Employee';
+      case UserRole.installer:
+        return 'Installer';
     }
   }
 
   bool get isAdmin => role == UserRole.admin;
   bool get isStaff => role == UserRole.staff;
   bool get isFactory => role == UserRole.factory;
+  bool get isInstaller => role == UserRole.installer;
   bool get hasExplicitModuleAssignments =>
       applicationsAccess != null ||
       paymentsAccess != null ||
@@ -167,6 +173,7 @@ class UserModel {
   bool get canManagePayments => canAccessPayments;
   bool get canManageInstallations {
     if (isAdmin) return true;
+    if (isInstaller) return true;
     if (hasExplicitModuleAssignments) return installationAccess ?? false;
     return isFactory;
   }

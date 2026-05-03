@@ -15,6 +15,7 @@ import '../../screens/settings/settings_screen.dart';
 import '../../screens/installations/installations_list_screen.dart';
 import '../../screens/reports/reports_screen.dart';
 import '../../screens/reports/payments_list_screen.dart';
+import '../../screens/installer_teams/installer_team_screen.dart';
 import '../../models/user_model.dart';
 import '../../services/supabase_service.dart';
 
@@ -220,6 +221,15 @@ GoRouter createAppRouter() {
               pageBuilder:
                   (context, state) =>
                       const NoTransitionPage(child: PaymentsListScreen()),
+            ),
+          ],
+          if (!(AppModeConfig.isInventoryOnly || AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly)) ...[
+            GoRoute(
+              path: '/installer-teams',
+              name: 'installer-teams',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: InstallerTeamScreen()),
             ),
           ],
           if (AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly || !AppModeConfig.isInventoryOnly)

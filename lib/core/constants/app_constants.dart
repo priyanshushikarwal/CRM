@@ -1,6 +1,6 @@
 class AppConstants {
   static const String appName = 'DoonInfra Solar Manager';
-  static const String appVersion = '1.0.25';
+  static const String appVersion = '1.0.26';
   static const String companyName = 'Doon Infrapower Projects Pvt. Ltd.';
 
   static const String supabaseUrl = 'https://mclanssbjbmcelunhpip.supabase.co';
@@ -21,6 +21,10 @@ class AppConstants {
   static const String inverterItemsTable = 'inverter_items';
   static const String meterItemsTable = 'meter_items';
   static const String inventoryAllotmentsTable = 'inventory_allotments';
+
+  // Installer Team Tables
+  static const String installerTeamsTable = 'installer_teams';
+  static const String teamAssignmentsTable = 'team_application_assignments';
 
   static const String documentsBucket = 'documents';
   static const String installationPhotosBucket = 'installation-photos';

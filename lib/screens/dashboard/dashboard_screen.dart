@@ -251,6 +251,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           isCollapsed: isCollapsed,
                         ),
                         const SizedBox(height: 4),
+                        _buildNavItem(
+                          context,
+                          icon: Icons.engineering_rounded,
+                          label: 'Installer Teams',
+                          route: '/installer-teams',
+                          isActive: currentLocation == '/installer-teams',
+                          isCollapsed: isCollapsed,
+                        ),
+                        const SizedBox(height: 4),
                       ],
                       if (!installationOnly && canAccessInventory) ...[
                         _buildNavItem(
@@ -469,6 +478,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       title = 'User Management';
     } else if (currentLocation == '/pending-approvals') {
       title = 'Pending Approvals';
+    } else if (currentLocation == '/installer-teams') {
+      title = 'Installer Teams';
     }
 
     return Container(

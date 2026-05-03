@@ -115,6 +115,7 @@ class AppModeConfig {
     if (user.canManageUsers) {
       allowedRoutes.add('/users');
       allowedRoutes.add('/pending-approvals');
+      allowedRoutes.add('/installer-teams');
     }
     if (user.canManageInstallations) {
       allowedRoutes.add('/installations');

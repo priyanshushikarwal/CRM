@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' as geo;
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_mode.dart';
 import '../../core/constants/app_constants.dart';
@@ -16,6 +18,7 @@ import '../../models/installation_model.dart';
 import '../../models/installation_photo_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/installer_team_providers.dart';
 import '../../services/installation_service.dart';
 import '../../services/installation_stage_service.dart';
 
@@ -181,6 +184,32 @@ class _InstallationsListScreenState extends ConsumerState<InstallationsListScree
   final Map<String, Map<int, String>> _localPhotoPathsByApplication = {};
   final Set<String> _uploadingPhotoKeys = <String>{};
 
+  // Cache for reverse geocoded addresses
+  static final Map<String, String> _locationCache = {};
+
+  Future<String> _reverseGeocode(double lat, double lng) async {
+    final key = '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
+    if (_locationCache.containsKey(key)) return _locationCache[key]!;
+    try {
+      final placemarks = await geo.placemarkFromCoordinates(lat, lng);
+      if (placemarks.isNotEmpty) {
+        final p = placemarks.first;
+        final parts = <String>[
+          if (p.subLocality != null && p.subLocality!.isNotEmpty) p.subLocality!,
+          if (p.locality != null && p.locality!.isNotEmpty) p.locality!,
+          if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty) p.administrativeArea!,
+          if (p.postalCode != null && p.postalCode!.isNotEmpty) p.postalCode!,
+        ];
+        final address = parts.isNotEmpty ? parts.join(', ') : '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
+        _locationCache[key] = address;
+        return address;
+      }
+    } catch (_) {}
+    final fallback = '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
+    _locationCache[key] = fallback;
+    return fallback;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -244,6 +273,70 @@ class _InstallationsListScreenState extends ConsumerState<InstallationsListScree
     return Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
   }
 
+  void _openGoogleMaps(double lat, double lng) {
+    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
+  Future<ImageSource?> _showImageSourcePicker() async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text('Upload Photo', style: AppTextStyles.heading4),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4343D5).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF4343D5)),
+                ),
+                title: const Text('Camera', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Take a new photo'),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF10B981)),
+                ),
+                title: const Text('Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Choose from gallery'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _uploadPhoto(int index, ApplicationModel application) async {
     final currentUser = await ref.read(currentUserProvider.future);
     if (currentUser == null) return;
@@ -256,7 +349,10 @@ class _InstallationsListScreenState extends ConsumerState<InstallationsListScree
       return;
     }
 
-    final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    final source = await _showImageSourcePicker();
+    if (source == null) return;
+
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
     if (picked == null) return;
     final photoOrder = index + 1;
     _setLocalPhotoPath(application.id, photoOrder, picked.path);
@@ -605,7 +701,22 @@ class _InstallationsListScreenState extends ConsumerState<InstallationsListScree
       error: (_, __) => null,
     );
     final pendingPhotosAsync = ref.watch(pendingInstallationPhotosProvider);
-    final eligibleApplications = _eligibleApplications(applicationsState.applications);
+    final allEligible = _eligibleApplications(applicationsState.applications);
+
+    // Filter for installer users: only show assigned applications
+    List<ApplicationModel> eligibleApplications;
+    if (currentUser != null && currentUser.isInstaller) {
+      final assignedIdsAsync = ref.watch(installerAssignedAppIdsProvider(currentUser.id));
+      final assignedIds = assignedIdsAsync.when(
+        data: (ids) => ids.toSet(),
+        loading: () => <String>{},
+        error: (_, __) => <String>{},
+      );
+      eligibleApplications = allEligible.where((app) => assignedIds.contains(app.id)).toList();
+    } else {
+      eligibleApplications = allEligible;
+    }
+
     final filteredApplications = eligibleApplications;
     ApplicationModel? selectedApplication;
     for (final app in filteredApplications) {
@@ -1188,10 +1299,47 @@ class _InstallationsListScreenState extends ConsumerState<InstallationsListScree
               'Captured at ${_formatDateTime(photo?.capturedAt ?? DateTime.now())}',
               style: AppTextStyles.bodySmall.copyWith(color: AppTheme.textSecondary),
             ),
-            Text(
-              '${photo?.latitude?.toStringAsFixed(6) ?? '-'}, ${photo?.longitude?.toStringAsFixed(6) ?? '-'}',
-              style: AppTextStyles.bodySmall.copyWith(color: AppTheme.textSecondary),
-            ),
+            if (photo?.latitude != null && photo?.longitude != null)
+              FutureBuilder<String>(
+                future: _reverseGeocode(photo!.latitude!, photo.longitude!),
+                builder: (context, snap) {
+                  final locationText = snap.data ?? '${photo.latitude!.toStringAsFixed(6)}, ${photo.longitude!.toStringAsFixed(6)}';
+                  return Row(
+                    children: [
+                      Icon(Icons.location_on_outlined, size: 14, color: AppTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          locationText,
+                          style: AppTextStyles.bodySmall.copyWith(color: AppTheme.textSecondary),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => _openGoogleMaps(photo.latitude!, photo.longitude!),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.map_outlined, size: 14, color: const Color(0xFF4343D5)),
+                              const SizedBox(width: 2),
+                              Text('View Map', style: TextStyle(fontSize: 11, color: const Color(0xFF4343D5), fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              )
+            else
+              Text(
+                'Location not available',
+                style: AppTextStyles.bodySmall.copyWith(color: AppTheme.textSecondary),
+              ),
             if (photo?.verificationRemarks != null) ...[
               const SizedBox(height: 8),
               Text('Remarks: ${photo!.verificationRemarks}', style: AppTextStyles.bodySmall),
@@ -1394,6 +1542,39 @@ class _PhotoPreviewDialog extends StatefulWidget {
 class _PhotoPreviewDialogState extends State<_PhotoPreviewDialog> {
   bool _isDownloading = false;
   bool _showInfo = false;
+  String? _resolvedAddress;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveAddress();
+  }
+
+  Future<void> _resolveAddress() async {
+    if (widget.latitude == null || widget.longitude == null) return;
+    final key = '${widget.latitude!.toStringAsFixed(4)},${widget.longitude!.toStringAsFixed(4)}';
+    if (_InstallationsListScreenState._locationCache.containsKey(key)) {
+      if (mounted) setState(() => _resolvedAddress = _InstallationsListScreenState._locationCache[key]);
+      return;
+    }
+    try {
+      final placemarks = await geo.placemarkFromCoordinates(widget.latitude!, widget.longitude!);
+      if (placemarks.isNotEmpty) {
+        final p = placemarks.first;
+        final parts = <String>[
+          if (p.subLocality != null && p.subLocality!.isNotEmpty) p.subLocality!,
+          if (p.locality != null && p.locality!.isNotEmpty) p.locality!,
+          if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty) p.administrativeArea!,
+          if (p.postalCode != null && p.postalCode!.isNotEmpty) p.postalCode!,
+        ];
+        final addr = parts.isNotEmpty ? parts.join(', ') : '${widget.latitude!.toStringAsFixed(6)}, ${widget.longitude!.toStringAsFixed(6)}';
+        _InstallationsListScreenState._locationCache[key] = addr;
+        if (mounted) setState(() => _resolvedAddress = addr);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _resolvedAddress = '${widget.latitude!.toStringAsFixed(6)}, ${widget.longitude!.toStringAsFixed(6)}');
+    }
+  }
 
   Future<void> _downloadPhoto() async {
     if (widget.photoUrl == null && widget.localFilePath == null) return;
@@ -1601,8 +1782,31 @@ class _PhotoPreviewDialogState extends State<_PhotoPreviewDialog> {
                           const SizedBox(height: 8),
                           _infoRow(
                             Icons.location_on_outlined,
-                            'GPS',
-                            '${widget.latitude!.toStringAsFixed(6)}, ${widget.longitude!.toStringAsFixed(6)}',
+                            'Location',
+                            _resolvedAddress ?? '${widget.latitude!.toStringAsFixed(6)}, ${widget.longitude!.toStringAsFixed(6)}',
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () {
+                              final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=${widget.latitude},${widget.longitude}');
+                              launchUrl(url, mode: LaunchMode.externalApplication);
+                            },
+                            child: Row(
+                              children: [
+                                Icon(Icons.map_outlined, color: const Color(0xFF6C8EEF), size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Open in Google Maps',
+                                  style: TextStyle(
+                                    color: const Color(0xFF6C8EEF),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: const Color(0xFF6C8EEF),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                         if (widget.remarks != null) ...[

@@ -181,6 +181,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     final adminCount = _users.where((u) => u.role == UserRole.admin).length;
     final staffCount = _users.where((u) => u.role == UserRole.staff).length;
     final factoryCount = _users.where((u) => u.role == UserRole.factory).length;
+    final installerCount = _users.where((u) => u.role == UserRole.installer).length;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -212,6 +213,13 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
             factoryCount.toString(),
             Icons.inventory_2_rounded,
             Colors.orange,
+          ),
+          const SizedBox(width: 12),
+          _buildStatCard(
+            'Installers',
+            installerCount.toString(),
+            Icons.engineering_rounded,
+            Colors.indigo,
           ),
         ],
       ),
@@ -547,6 +555,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         return AppTheme.successColor;
       case UserRole.factory:
         return Colors.orange;
+      case UserRole.installer:
+        return Colors.indigo;
     }
   }
 
@@ -933,6 +943,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         return Icons.people_outline_rounded;
       case UserRole.factory:
         return Icons.inventory_2_rounded;
+      case UserRole.installer:
+        return Icons.engineering_rounded;
     }
   }
 
@@ -944,6 +956,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         return 'Staff';
       case UserRole.factory:
         return 'Factory Employee';
+      case UserRole.installer:
+        return 'Installer';
     }
   }
 
@@ -955,6 +969,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         return 'Employee profile: Assign specific modules like applications, payments, or inventory.';
       case UserRole.factory:
         return 'Factory profile: Usually used for inventory-focused work, but modules can be assigned separately.';
+      case UserRole.installer:
+        return 'Installer profile: Created via Installer Teams. Has access to assigned installation applications only.';
     }
   }
 }
