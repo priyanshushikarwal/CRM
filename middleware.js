@@ -9,6 +9,27 @@ const LOCAL_PORTAL_URL = 'http://localhost:5173'; // Development fallback
 
 export async function middleware(request) {
   const { nextUrl, cookies } = request;
+  const { pathname } = nextUrl;
+
+  // Immediately bypass for static assets to optimize performance and prevent intercepts on scripts/images
+  if (
+    pathname.includes('/assets/') ||
+    pathname.includes('/canvaskit/') ||
+    pathname.includes('/icons/') ||
+    pathname.endsWith('.js') ||
+    pathname.endsWith('.css') ||
+    pathname.endsWith('.png') ||
+    pathname.endsWith('.jpg') ||
+    pathname.endsWith('.jpeg') ||
+    pathname.endsWith('.svg') ||
+    pathname.endsWith('.ico') ||
+    pathname.endsWith('.json') ||
+    pathname.endsWith('.wasm') ||
+    pathname.endsWith('.map') ||
+    pathname.endsWith('.txt')
+  ) {
+    return NextResponse.next();
+  }
   
   // Detect environment
   const isLocal = nextUrl.hostname === 'localhost' || nextUrl.hostname === '127.0.0.1';
@@ -78,16 +99,9 @@ export async function middleware(request) {
   return NextResponse.redirect(redirectTarget);
 }
 
-// Config to run middleware on all routes except static assets
+// Config to run middleware on all routes except API and core assets to catch / and /index.html
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - api routes
-     * - static files (_next/static, css, js, assets)
-     * - image files (png, jpg, svg)
-     * - favicon.ico
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|assets|images|.*\\..*$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
