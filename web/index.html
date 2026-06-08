@@ -31,6 +31,86 @@
 
   <title>dooninfra_app</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- DoonInfra SSO Client Authentication & Authorization Gate -->
+  <script>
+    (function() {
+      const APP_IDENTIFIER = 'crm';
+      
+      // Determine portal URL dynamically based on environment
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const portalUrl = isLocal ? 'http://localhost:5173' : 'https://dooninfra.in';
+
+      // Immediately hide page content to prevent flash of unauthenticated login screen
+      document.documentElement.style.visibility = 'hidden';
+
+      // 1. Verify if a valid session exists locally
+      const sessionData = sessionStorage.getItem('dooninfra_verified_user');
+      if (sessionData) {
+        try {
+          const session = JSON.parse(sessionData);
+          const now = Date.now();
+          // Session is valid for 1 hour
+          if (session.email && session.app === APP_IDENTIFIER && (now - session.timestamp < 3600000)) {
+            document.documentElement.style.visibility = 'visible';
+            return;
+          }
+        } catch (e) {
+          sessionStorage.removeItem('dooninfra_verified_user');
+        }
+      }
+
+      // 2. Read sso_token parameter from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const ssoToken = urlParams.get('sso_token');
+
+      if (ssoToken) {
+        // Call portal verify endpoint
+        const verifyUrl = `${portalUrl}/api/verify-sso-token?sso_token=${encodeURIComponent(ssoToken)}&app=${APP_IDENTIFIER}`;
+        
+        fetch(verifyUrl)
+          .then(res => {
+            if (!res.ok) throw new Error('SSO token verification failed');
+            return res.json();
+          })
+          .then(data => {
+            if (data.verified) {
+              // Cache verified status
+              sessionStorage.setItem('dooninfra_verified_user', JSON.stringify({
+                email: data.email,
+                uid: data.uid,
+                app: APP_IDENTIFIER,
+                timestamp: Date.now()
+              }));
+              
+              // Clean token parameter from history
+              urlParams.delete('sso_token');
+              const cleanQuery = urlParams.toString();
+              const cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash;
+              window.history.replaceState({}, document.title, cleanUrl);
+              
+              // Show the login screen
+              document.documentElement.style.visibility = 'visible';
+            } else {
+              throw new Error('Rejected by SSO server');
+            }
+          })
+          .catch(err => {
+            console.error('[SSO Gate] Verification error:', err);
+            alert('SSO Access Denied: ' + err.message);
+            redirectToPortal();
+          });
+      } else {
+        // No token and no session -> Redirect directly to login portal
+        redirectToPortal();
+      }
+
+      function redirectToPortal() {
+        const currentUrl = window.location.href;
+        window.location.href = `${portalUrl}/login.html?redirect=${encodeURIComponent(currentUrl)}&app=${APP_IDENTIFIER}`;
+      }
+    })();
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
