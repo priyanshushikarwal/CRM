@@ -5,8 +5,12 @@ set -e
 # Disable interactive prompts
 export CI=true
 
-echo "Cloning Flutter repository (shallow)..."
-git clone https://github.com/flutter/flutter.git -b stable --depth 1
+if [ ! -d "flutter" ]; then
+  echo "Cloning Flutter repository (shallow)..."
+  git clone https://github.com/flutter/flutter.git -b stable --depth 1
+else
+  echo "Flutter directory already exists, skipping clone."
+fi
 
 export PATH="$PATH:`pwd`/flutter/bin"
 
