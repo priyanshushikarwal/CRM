@@ -24,6 +24,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
   String? _errorMessage;
 
+  bool _isForgotPasswordMode = false;
+
   static const String _defaultEmail = 'admin@dooninfra.net';
   static const String _defaultPassword = '12345678';
 
@@ -38,12 +40,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  void _fillDemoCredentials() {
-    _emailController.text = _defaultEmail;
-    _passwordController.text = _defaultPassword;
+
+
+  Future<void> _handleForgotPassword() async {
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() {
+      _isLoading = true;
       _errorMessage = null;
     });
+
+    final enteredEmail = _emailController.text.trim();
+
+    try {
+      await SupabaseService.resetPassword(enteredEmail);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password reset link sent! Please check your email inbox.'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+        setState(() {
+          _isForgotPasswordMode = false;
+        });
+      }
+    } on Exception catch (e) {
+      final msg = e.toString();
+      setState(() {
+        _errorMessage = 'Error sending reset email: $msg';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -335,14 +368,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             const SizedBox(height: 24),
                           ],
                           Text(
-                            'Welcome Back',
+                            _isForgotPasswordMode ? 'Reset Password' : 'Welcome Back',
                             style: AppTextStyles.heading2.copyWith(
                               color: AppTheme.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            AppModeConfig.loginSubtitle,
+                            _isForgotPasswordMode
+                                ? 'Enter your email address and we\'ll send you a link to reset your password.'
+                                : AppModeConfig.loginSubtitle,
                             style: AppTextStyles.bodyMedium.copyWith(
                               color: AppTheme.textSecondary,
                             ),
@@ -396,84 +431,130 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 20),
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: const Icon(Icons.lock_outlined),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
+                          if (!_isForgotPasswordMode) ...[
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: const Icon(Icons.lock_outlined),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
+                                  },
                                 ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter your password';
+                                }
+                                if (value.length < 6) {
+                                  return 'Password must be at least 6 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
                                 onPressed: () {
                                   setState(() {
-                                    _obscurePassword = !_obscurePassword;
+                                    _isForgotPasswordMode = true;
+                                    _errorMessage = null;
                                   });
                                 },
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
-                              }
-                              if (value.length < 6) {
-                                return 'Password must be at least 6 characters';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {
-                              },
-                              child: Text(
-                                'Forgot Password?',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppTheme.primaryColor,
-                                  fontWeight: FontWeight.w600,
+                                child: Text(
+                                  'Forgot Password?',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            height: 52,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleLogin,
-                              child:
-                                  _isLoading
-                                      ? const SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                      : const Text('Sign In'),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _handleLogin,
+                                child:
+                                    _isLoading
+                                        ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                        : const Text('Sign In'),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                          if (!(isInventoryOnly || isInstallationOnly)) ...[
+                            const SizedBox(height: 24),
+                            if (!(isInventoryOnly || isInstallationOnly)) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "Don't have an account? ",
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => context.go('/register'),
+                                    child: Text(
+                                      'Sign Up',
+                                      style: AppTextStyles.bodySmall.copyWith(
+                                        color: AppTheme.primaryColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ] else ...[
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _handleForgotPassword,
+                                child:
+                                    _isLoading
+                                        ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                        : const Text('Send Reset Link'),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  "Don't have an account? ",
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
                                 TextButton(
-                                  onPressed: () => context.go('/register'),
+                                  onPressed: () {
+                                    setState(() {
+                                      _isForgotPasswordMode = false;
+                                      _errorMessage = null;
+                                    });
+                                  },
                                   child: Text(
-                                    'Sign Up',
+                                    'Back to Sign In',
                                     style: AppTextStyles.bodySmall.copyWith(
                                       color: AppTheme.primaryColor,
                                       fontWeight: FontWeight.w600,
@@ -481,74 +562,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: 32),
-                            GestureDetector(
-                              onTap: _fillDemoCredentials,
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppTheme.primaryColor.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.admin_panel_settings_rounded,
-                                          size: 18,
-                                          color: AppTheme.primaryColor,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Admin Login',
-                                          style: AppTextStyles.bodySmall.copyWith(
-                                            color: AppTheme.primaryColor,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primaryColor,
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Tap to fill',
-                                            style: AppTextStyles.caption.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _buildCredentialRow(
-                                      Icons.email_outlined,
-                                      'Email',
-                                      _defaultEmail,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    _buildCredentialRow(
-                                      Icons.lock_outlined,
-                                      'Password',
-                                      _defaultPassword,
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ),
                           ],
                         ],
@@ -564,29 +577,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildCredentialRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: AppTheme.textSecondary),
-        const SizedBox(width: 6),
-        Text(
-          '$label: ',
-          style: AppTextStyles.caption.copyWith(
-            color: AppTheme.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Text(
-          value,
-          style: AppTextStyles.caption.copyWith(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontFamily: 'monospace',
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildFeatureItem(IconData icon, String text) {
     return Row(

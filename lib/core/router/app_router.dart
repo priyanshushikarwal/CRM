@@ -4,6 +4,7 @@ import '../config/app_mode.dart';
 import '../../screens/splash_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
+import '../../screens/auth/update_password_screen.dart';
 import '../../screens/dashboard/dashboard_screen.dart';
 import '../../screens/applications/applications_list_screen.dart';
 import '../../screens/applications/application_details_screen.dart';
@@ -64,10 +65,15 @@ GoRouter createAppRouter() {
       final isLoggedIn = SupabaseService.isLoggedIn || DemoSession.isActive;
       final isLoginRoute = state.matchedLocation == '/login';
       final isRegisterRoute = state.matchedLocation == '/register';
+      final isUpdatePasswordRoute = state.matchedLocation == '/update-password';
       final isAuthRoute = isLoginRoute || isRegisterRoute;
       final isSplash = state.matchedLocation == '/';
 
       if (isSplash) return null;
+
+      if (isUpdatePasswordRoute) {
+        return isLoggedIn ? null : '/login';
+      }
 
       if ((AppModeConfig.isInventoryOnly || AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly) &&
           isRegisterRoute) {
@@ -116,7 +122,7 @@ GoRouter createAppRouter() {
         return '/login';
       }
 
-      if (!_matchesAllowedRoute(state.matchedLocation, allowedRoutes)) {
+      if (state.matchedLocation != '/update-password' && !_matchesAllowedRoute(state.matchedLocation, allowedRoutes)) {
         return defaultRoute;
       }
 
@@ -128,6 +134,11 @@ GoRouter createAppRouter() {
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/update-password',
+        name: 'update-password',
+        builder: (context, state) => const UpdatePasswordScreen(),
       ),
       if (!(AppModeConfig.isInventoryOnly || AppModeConfig.isInstallationOnly || AppModeConfig.isInstallerOnly))
         GoRoute(

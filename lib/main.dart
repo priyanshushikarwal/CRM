@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/config/app_mode.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
@@ -36,13 +39,38 @@ Future<void> bootstrapApp(AppMode mode) async {
   runApp(ProviderScope(child: DoonInfraApp()));
 }
 
-class DoonInfraApp extends ConsumerWidget {
-  DoonInfraApp({super.key});
-
-  final router = createAppRouter();
+class DoonInfraApp extends ConsumerStatefulWidget {
+  const DoonInfraApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DoonInfraApp> createState() => _DoonInfraAppState();
+}
+
+class _DoonInfraAppState extends ConsumerState<DoonInfraApp> {
+  late final GoRouter router;
+  StreamSubscription<AuthState>? _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    router = createAppRouter();
+
+    _authSubscription = SupabaseService.authStateChanges.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        debugPrint('DEBUG: Password recovery event triggered. Routing to /update-password');
+        router.go('/update-password');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.watch(realtimeSyncProvider);
     ref.watch(periodicSyncProvider);
 

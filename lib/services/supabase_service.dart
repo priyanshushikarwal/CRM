@@ -59,6 +59,12 @@ class SupabaseService {
     await client.auth.resetPasswordForEmail(email);
   }
 
+  static Future<UserResponse> updateUserPassword(String newPassword) async {
+    return await client.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
+  }
+
   static Future<String?> currentUserDisplayName() async {
     final user = currentUser;
     if (user == null) return null;
