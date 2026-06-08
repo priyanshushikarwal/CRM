@@ -40,6 +40,18 @@
     (function() {
       const APP_IDENTIFIER = 'crm';
       
+      // Unregister any active service worker to bypass cache issues permanently
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let registration of registrations) {
+            registration.unregister();
+            console.log('[SSO Gate] Unregistered active service worker');
+          }
+        }).catch(function(err) {
+          console.error('[SSO Gate] Service worker unregistration failed:', err);
+        });
+      }
+      
       // Determine portal URL dynamically based on environment
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const portalUrl = isLocal ? 'http://localhost:5173' : 'https://dooninfra.in';
